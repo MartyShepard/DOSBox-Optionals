@@ -16,12 +16,13 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#ifndef DOSBOX_FPU_H
-#include "fpu.h"
-#endif
+
 
 // #define WEAK_EXCEPTIONS
 
+#ifndef DOSBOX_FPU_H
+	#include "fpu.h"
+#endif
 
 #if defined (_MSC_VER)
 
@@ -935,6 +936,10 @@ const Bit16u exc_mask=0x7f00;
 const Bit16u exc_mask=0xffbf;
 #endif
 
+/* Taken from DOSBOX-X ///////////////////////////////////////////////////////////////*/
+#include <math.h> /* for isinf, etc */
+/* Taken from DOSBOX-X ///////////////////////////////////////////////////////////////*/
+
 static void FPU_FINIT(void) {
 	FPU_SetCW(0x37F);
 	fpu.sw=0;
@@ -1357,3 +1362,38 @@ static void FPU_FLDZ(void){
 	FPUD_LOAD_CONST(fldz)
 	fpu.tags[TOP]=TAG_Zero;
 }
+
+/* Taken from DOSBOX-X ///////////////////////////////////////////////////////////////*/
+static inline void FPU_FCMOV(Bitu st, Bitu other){
+	fpu.p_regs[st] = fpu.p_regs[other];
+	fpu.use80[st] = fpu.use80[other];
+	fpu.tags[st] = fpu.tags[other];
+	fpu.regs[st] = fpu.regs[other];
+}
+
+Bitu FillFlags(void);
+static void FPU_FUCOMI(Bitu st, Bitu other){
+	
+	FillFlags();
+	SETFLAGBIT(OF,false);
+
+	if(fpu.regs[st].d == fpu.regs[other].d){
+		SETFLAGBIT(ZF,true);SETFLAGBIT(PF,false);SETFLAGBIT(CF,false);return;
+	}
+	if(fpu.regs[st].d < fpu.regs[other].d){
+		SETFLAGBIT(ZF,false);SETFLAGBIT(PF,false);SETFLAGBIT(CF,true);return;
+	}
+	// st > other
+	SETFLAGBIT(ZF,false);SETFLAGBIT(PF,false);SETFLAGBIT(CF,false);return;
+}
+
+static inline void FPU_FCOMI(Bitu st, Bitu other){
+	FPU_FUCOMI(st,other);
+
+	if(((fpu.tags[st] != TAG_Valid) && (fpu.tags[st] != TAG_Zero)) || 
+		((fpu.tags[other] != TAG_Valid) && (fpu.tags[other] != TAG_Zero))){
+		SETFLAGBIT(ZF,true);SETFLAGBIT(PF,true);SETFLAGBIT(CF,true);return;
+	}
+
+}
+/* Taken from DOSBOX-X ///////////////////////////////////////////////////////////////*/

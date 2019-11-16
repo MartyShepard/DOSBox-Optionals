@@ -607,11 +607,11 @@ static void dyn_read_word(DynReg * addr,DynReg * dst,bool dword,bool release=fal
 	Bit8u* je_loc=gen_create_branch(BR_Z);
 
 	if (!dword) cache_addb(0x66);
-	cache_addw(0x048b+(genreg->index <<(8+3)));		// mov dest,[eax+ecx]
-	cache_addb(0x08);
+		cache_addw(0x048b+(genreg->index <<(8+3)));		// mov dest,[eax+ecx]
+		cache_addb(0x08);
 
-	Bit8u* jmp_loc=gen_create_jump();
-	gen_fill_branch(jb_loc1);
+		Bit8u* jmp_loc=gen_create_jump();
+		gen_fill_branch(jb_loc1);
 	gen_fill_branch(je_loc);
 
 	if (!dword) {
@@ -622,16 +622,16 @@ static void dyn_read_word(DynReg * addr,DynReg * dst,bool dword,bool release=fal
 	cache_addb(0xe8);
 	if (dword) cache_addd(((Bit32u)&mem_readd_checked_dcx86) - (Bit32u)cache.pos-4);
 	else cache_addd(((Bit32u)&mem_readw_checked_dcx86) - (Bit32u)cache.pos-4);
-	cache_addw(0xc483);		// add esp,4
-	cache_addb(0x04);
-	cache_addw(0x012c);		// sub al,1
+		cache_addw(0xc483);		// add esp,4
+		cache_addb(0x04);
+		cache_addw(0x012c);		// sub al,1
 
-	dyn_check_bool_exception_ne();
+		dyn_check_bool_exception_ne();
 
-	gen_mov_host(&core_dyn.readdata,dst,4);
-	dst->flags|=DYNFLG_CHANGED;
+		gen_mov_host(&core_dyn.readdata,dst,4);
+		dst->flags|=DYNFLG_CHANGED;
 
-	gen_fill_jump(jmp_loc);
+		gen_fill_jump(jmp_loc);
 }
 
 static void dyn_read_word_release(DynReg * addr,DynReg * dst,bool dword) {
@@ -730,11 +730,11 @@ static void dyn_write_word(DynReg * addr,DynReg * val,bool dword,bool release=fa
 	Bit8u* je_loc=gen_create_branch(BR_Z);
 
 	if (!dword) cache_addb(0x66);
-	cache_addw(0x0489+(genreg->index <<(8+3)));		// mov [eax+ecx],reg
-	cache_addb(0x08);
+		cache_addw(0x0489+(genreg->index <<(8+3)));		// mov [eax+ecx],reg
+		cache_addb(0x08);
 
-	Bit8u* jmp_loc=gen_create_jump();
-	gen_fill_branch(jb_loc1);
+		Bit8u* jmp_loc=gen_create_jump();
+		gen_fill_branch(jb_loc1);
 	gen_fill_branch(je_loc);
 
 	cache_addb(0x52);	// push edx
@@ -743,18 +743,18 @@ static void dyn_write_word(DynReg * addr,DynReg * val,bool dword,bool release=fa
 	cache_addb(0xe8);
 	if (dword) cache_addd(((Bit32u)&mem_writed_checked) - (Bit32u)cache.pos-4);
 	else cache_addd(((Bit32u)&mem_writew_checked) - (Bit32u)cache.pos-4);
-	cache_addw(0xc483);		// add esp,8
-	cache_addb(0x08);
-	cache_addw(0x012c);		// sub al,1
-	cache_addb(0x5a);		// pop edx
+		cache_addw(0xc483);		// add esp,8
+		cache_addb(0x08);
+		cache_addw(0x012c);		// sub al,1
+		cache_addb(0x5a);		// pop edx
 
-	// Restore registers to be used again
-	x86gen.regs[X86_REG_EAX]->notusable=false;
-	x86gen.regs[X86_REG_ECX]->notusable=false;
+		// Restore registers to be used again
+		x86gen.regs[X86_REG_EAX]->notusable=false;
+		x86gen.regs[X86_REG_ECX]->notusable=false;
 
-	dyn_check_bool_exception_ne();
+		dyn_check_bool_exception_ne();
 
-	gen_fill_jump(jmp_loc);
+		gen_fill_jump(jmp_loc);
 }
 
 static void dyn_write_word_release(DynReg * addr,DynReg * val,bool dword) {
@@ -2810,7 +2810,7 @@ illegalopcode:
 	gen_return(BR_Opcode);
 	dyn_closeblock();
 	goto finish_block;
-#if (C_DEBUG)
+#if defined(C_DEBUG)
 	dyn_set_eip_last();
 	dyn_reduce_cycles();
 	dyn_save_critical_regs();

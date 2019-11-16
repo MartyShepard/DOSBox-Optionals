@@ -333,7 +333,7 @@ void DOS_Drive_Cache::CacheOut(const char* path, bool ignoreLastDir) {
 
 //	LOG_DEBUG("DIR: Caching out %s : dir %s",expand,dir->orgname);
 	// delete file objects...
-	//Maybe check if it is a file and then only delete the file and possibly the long name. instead of all objects in the dir.
+	//Maybe check if it is a file and then only delete the file and possibly the long name. instead of all objects in the dir.	
 	for(Bit32u i=0; i<dir->fileList.size(); i++) {
 		if (dirSearch[srchNr]==dir->fileList[i]) dirSearch[srchNr] = 0;
 		DeleteFileInfo(dir->fileList[i]); dir->fileList[i] = 0;
@@ -356,7 +356,7 @@ bool DOS_Drive_Cache::GetShortName(const char* fullname, char* shortname) {
 
 	const char* pos = strrchr(fullname,CROSS_FILESPLIT);
 	if (pos) pos++; else return false;
-
+	
 	std::vector<CFileInfo*>::size_type filelist_size = curDir->longNameList.size();
 	if (GCC_UNLIKELY(filelist_size<=0)) return false;
 
@@ -368,9 +368,9 @@ bool DOS_Drive_Cache::GetShortName(const char* fullname, char* shortname) {
 		if (strcmp(pos,curDir->longNameList[i]->orgname) == 0) {
 #endif
 			strcpy(shortname,curDir->longNameList[i]->shortname);
-			return true;
+ 			return true;
 		}
-	}
+ 	}
 	return false;
 }
 

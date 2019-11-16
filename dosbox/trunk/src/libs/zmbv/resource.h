@@ -5,4 +5,3 @@
 #define IDC_HOMEPAGE                    1000
 #define IDC_EMAIL                       1001
 #define IDC_SLIDER1                     1008
-

@@ -78,7 +78,7 @@ static Bitu PROGRAMS_Handler(void) {
 	HostPt writer=(HostPt)&index;
 	for (;size>0;size--) *writer++=mem_readb(reader++);
 	Program * new_program;
-	if (index >= internal_progs.size()) E_Exit("something is messing with the memory");
+	if (index >= internal_progs.size()) E_Exit("something is messing with the memory\nFile %s, Line %d",__FILE__,__LINE__);
 	PROGRAMS_Main * handler = internal_progs[index];
 	(*handler)(&new_program);
 	new_program->Run();
@@ -165,7 +165,7 @@ void Program::WriteOut_NoParsing(const char * format) {
 		DOS_WriteFile(STDOUT,&out,&s);
 	}
 	dos.internal_output=false;
-
+	
 //	DOS_WriteFile(STDOUT,(Bit8u *)format,&size);
 }
 
@@ -243,9 +243,9 @@ bool Program::SetEnv(const char * entry,const char * new_string) {
 /* TODO Maybe save the program name sometime. not really needed though */
 	/* Save the new entry */
 
-	//ensure room
-	if (envsize <= (env_write-env_write_start) + strlen(entry) + 1 + strlen(new_string) + 2) return false;
-
+	//ensure room (0.74-3 5 because of the writed)
+	if (envsize <= (env_write-env_write_start) + strlen(entry) + 1 + strlen(new_string) + 5) return false;
+	
 	if (new_string[0]) {
 		std::string bigentry(entry);
 		for (std::string::iterator it = bigentry.begin(); it != bigentry.end(); ++it) *it = toupper(*it);
@@ -254,7 +254,7 @@ bool Program::SetEnv(const char * entry,const char * new_string) {
 		env_write += (PhysPt)(strlen(env_string)+1);
 	}
 	/* Clear out the final piece of the environment */
-	mem_writeb(env_write,0);
+	mem_writeb(env_write,0); // SVN 4235,  Very old code, lets see what breaks. was : mem_writed(env_write,0);
 	return true;
 }
 
@@ -727,6 +727,7 @@ void CONFIG::Run(void) {
 				WriteOut(MSG_Get("PROGRAM_CONFIG_SET_SYNTAX"));
 				return;
 			}
+			for(Bitu i = 3; i < pvars.size(); i++) value += (std::string(" ") + pvars[i]);
 			std::string inputline = pvars[1] + "=" + value;
 			
 			tsec->ExecuteDestroy(false);

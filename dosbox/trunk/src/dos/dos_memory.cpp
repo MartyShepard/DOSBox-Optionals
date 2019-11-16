@@ -32,7 +32,9 @@ static void DOS_CompressMemory(void) {
 
 	while (mcb.GetType()!=0x5a) {
 		mcb_next.SetPt((Bit16u)(mcb_segment+mcb.GetSize()+1));
-		if (GCC_UNLIKELY((mcb_next.GetType()!=0x4d) && (mcb_next.GetType()!=0x5a))) E_Exit("Corrupt MCB chain");
+		if ( GCC_UNLIKELY((mcb_next.GetType()!=0x4d) && (mcb_next.GetType()!=0x5a)) ){
+				E_Exit("Corrupt MCB chain");
+		}
 		if ((mcb.GetPSPSeg()==MCB_FREE) && (mcb_next.GetPSPSeg()==MCB_FREE)) {
 			mcb.SetSize(mcb.GetSize()+mcb_next.GetSize()+1);
 			mcb.SetType(mcb_next.GetType());
@@ -384,7 +386,7 @@ void DOS_SetupMemory(void) {
 	 * buggy games, which compare against the interrupt table. (probably a 
 	 * broken linked list implementation) */
 	Bit16u ihseg = 0x70;
-	Bit16u ihofs = 0xF4;
+	Bit16u ihofs = 0xF4;						//Bit16u ihofs = 0x08 Old, Chnaged with svnr4218;
 	real_writeb(ihseg,ihofs,(Bit8u)0xCF);		//An IRET Instruction
 	RealSetVec(0x01,RealMake(ihseg,ihofs));		//BioMenace (offset!=4)
 	RealSetVec(0x02,RealMake(ihseg,ihofs));		//BioMenace (segment<0x8000)

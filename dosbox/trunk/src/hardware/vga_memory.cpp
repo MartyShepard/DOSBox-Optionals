@@ -141,7 +141,16 @@ public:
 		vga.latch.d=((Bit32u*)vga.mem.linear)[start];
 		switch (vga.config.read_mode) {
 		case 0:
-			return (vga.latch.b[vga.config.read_map_select]);
+				unsigned char bplane;
+ 				bplane = vga.config.read_map_select;
+				/* NTS: We check the sequencer AND the GC to know whether we mask the bitplane line this,
+				 *      even though in TEXT mode we only check the sequencer. Without this extra check,
+				 *      Windows 95 and Windows 3.1 will exhibit glitches in the standard VGA 640x480x16
+				 *      planar mode */
+				if (!(vga.seq.memory_mode&4) && (vga.gfx.miscellaneous&2)) /* FIXME: How exactly do SVGA cards determine this? */
+ 					bplane = (bplane & ~1) + (start & 1); 				   /* FIXME: Is this what VGA cards do? It makes sense to me */
+ 				return (vga.latch.b[bplane]);		
+			  //return (vga.latch.b[vga.config.read_map_select]);
 		case 1:
 			VGA_Latch templatch;
 			templatch.d=(vga.latch.d &	FillTable[vga.config.color_dont_care]) ^ FillTable[vga.config.color_compare & vga.config.color_dont_care];
@@ -799,11 +808,18 @@ void VGA_SetupHandlers(void) {
 		MEM_SetPageHandler( VGA_PAGE_B8, 8, &vgaph.pcjr );
 		goto range_done;
 	case MCH_HERC:
-		MEM_SetPageHandler( VGA_PAGE_A0, 16, &vgaph.empty );
 		vgapages.base=VGA_PAGE_B0;
-		if (vga.herc.enable_bits & 0x2) {
+		/* NTS: Implemented according to [http://www.seasip.info/VintagePC/hercplus.html#regs] */
+		if (vga.herc.enable_bits & 0x2) { /* bit 1: page in upper 32KB */
 			vgapages.mask=0xffff;
-			MEM_SetPageHandler(VGA_PAGE_B0,16,&vgaph.map);
+			/* NTS: I don't know what Hercules graphics cards do if you set bit 1 but not bit 0.
+			 *      For the time being, I'm assuming that they respond to 0xB8000+ because of bit 1
+			 *      but only map to the first 4KB because of bit 0. Basically, a configuration no
+			 *      software would actually use. */
+			if (vga.herc.enable_bits & 0x1) /* allow graphics and enable 0xB1000-0xB7FFF */
+				MEM_SetPageHandler(VGA_PAGE_B0,16,&vgaph.map);
+			else
+				MEM_SetPageHandler(VGA_PAGE_B0,16,&vgaph.herc);
 		} else {
 			vgapages.mask=0x7fff;
 			// With hercules in 32kB mode it leaves a memory hole on 0xb800
@@ -835,7 +851,7 @@ void VGA_SetupHandlers(void) {
 	case EGAVGA_ARCH_CASE:
 		break;
 	default:
-		LOG_MSG("Illegal machine type %d", machine );
+		LOG_MSG("VGA MEMORY: Illegal machine type %d", machine );
 		return;
 	}
 
@@ -849,6 +865,7 @@ void VGA_SetupHandlers(void) {
 		break;	
 	case M_LIN15:
 	case M_LIN16:
+	case M_LIN24:															/* <--- Custom S3 VGA */
 	case M_LIN32:
 #ifdef VGA_LFB_MAPPED
 		newHandler = &vgaph.map;

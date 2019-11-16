@@ -32,7 +32,9 @@
 #include "debug.h"
 #include "support.h"
 #include "video.h"
-
+#include "SDL2/SDL_mixer.h"
+#include "SDL2/SDL_syswm.h"
+#include "SDL2/SDL.h"
 
 void upcase(std::string &str) {
 	int (*tf)(int) = std::toupper;
@@ -50,7 +52,6 @@ void trim(std::string &str) {
 	loc = str.find_last_not_of(" \r\t\f\n");
 	if (loc != std::string::npos) str.erase(loc+1);
 }
-
 /* 
 	Ripped some source from freedos for this one.
 
@@ -174,10 +175,10 @@ double ConvDblWord(char * word) {
 	return 0.0f;
 }
 
-
 static char buf[1024];           //greater scope as else it doesn't always gets thrown right (linux/gcc2.95)
+/* Added from DOSBox-X ///////////////////////////////////////////////////// Teilsweise */
 void E_Exit(const char * format,...) {
-#if C_DEBUG && C_HEAVY_DEBUG
+#if defined(C_DEBUG) && defined(C_HEAVY_DEBUG)
  	DEBUG_HeavyWriteLogInstruction();
 #endif
 	va_list msg;
@@ -185,6 +186,16 @@ void E_Exit(const char * format,...) {
 	vsprintf(buf,format,msg);
 	va_end(msg);
 	strcat(buf,"\n");
-
-	throw(buf);
+	LOG_MSG("E_Exit: %s\n",buf);
+#if defined(WIN32) && !defined(C_SDL2)
+	/* Most Windows users DON'T run DOSBox-X from the command line! */
+	MessageBox(GetHWND(), buf, "E_Exit", MB_OK | MB_ICONEXCLAMATION);
+#endif
+#if defined(C_DEBUG)
+	//endwin();
+#endif
+	fprintf(stderr, "E_Exit: %s\n", buf);
+	SDL_Quit();
+	exit(0);
 }
+/* Added from DOSBox-X ///////////////////////////////////////////////////// Teilsweise */

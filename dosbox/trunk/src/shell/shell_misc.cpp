@@ -22,17 +22,69 @@
 #include <algorithm> //std::copy
 #include <iterator>  //std::front_inserter
 #include "shell.h"
+#include "timer.h"
+#include "bios.h"
 #include "regs.h"
 #include "callback.h"
 #include "support.h"
+#include "..\gui\version.h"
 
 void DOS_Shell::ShowPrompt(void) {
 	Bit8u drive=DOS_GetDefaultDrive()+'A';
 	char dir[DOS_PATHLENGTH];
 	dir[0] = 0; //DOS_GetCurrentDir doesn't always return something. (if drive is messed up)
 	DOS_GetCurrentDir(0,dir);
-	WriteOut("%c:\\%s>",drive,dir);
-}
+	//WriteOut("%c:\\%s>",drive,dir);
+	std::string line;
+	char const *promptstr = "\0";
+
+	if(GetEnvStr("PROMPT",line)) {
+		std::string::size_type idx = line.find('=');
+		std::string value=line.substr(idx +1 , std::string::npos);
+		line = std::string(promptstr) + value;
+		promptstr=const_cast<char*>(line.c_str());
+	}
+
+	while (*promptstr) {
+		if (!strcasecmp(promptstr,"$")) WriteOut("\0");
+		else if(*promptstr != '$') WriteOut("%c",*promptstr);
+		else switch (toupper(*++promptstr)) {
+			case 'A': WriteOut("&"); break;
+			case 'B': WriteOut("|"); break;
+			case 'C': WriteOut("("); break;
+			case 'D': WriteOut("%02d-%02d-%04d",dos.date.day,dos.date.month,dos.date.year); break;
+			case 'E': WriteOut("%c",27);  break;
+			case 'F': WriteOut(")");  break;
+			case 'G': WriteOut(">"); break;
+			case 'H': WriteOut("\b");   break;
+			case 'L': WriteOut("<"); break;
+			case 'N': WriteOut("%c",DOS_GetDefaultDrive()+'A'); break;
+			case 'P': WriteOut("%c:\\%s",DOS_GetDefaultDrive()+'A',dir); break;
+			case 'Q': WriteOut("="); break;
+			case 'S': WriteOut(" "); break;
+			case 'T':
+			{
+				Bitu ticks=(Bitu)(((65536.0 * 100.0)/(double)PIT_TICK_RATE)* mem_readd(BIOS_TIMER));
+				reg_dl=(Bit8u)((Bitu)ticks % 100);
+				ticks/=100;
+				reg_dh=(Bit8u)((Bitu)ticks % 60);
+				ticks/=60;
+				reg_cl=(Bit8u)((Bitu)ticks % 60);
+				ticks/=60;
+				reg_ch=(Bit8u)((Bitu)ticks % 24);
+				WriteOut("%2d:%02d:%02d.%02d",reg_ch,reg_cl,reg_dh,reg_dl); break;
+			}
+			case 'Z': WriteOut("DOSBox %s %s",VERSION,DOSBOXREVISION); break;
+			case 'V': WriteOut("DOS %d.%d",dos.version.major,dos.version.minor); break;			
+			case '$': WriteOut("$"); break;
+			case '_': WriteOut("\n"); break;
+			case 'M': break;
+			case '+': break;
+		}
+		promptstr++;
+	}
+}	
+
 
 static void outc(Bit8u c) {
 	Bit16u n=1;
@@ -223,7 +275,7 @@ void DOS_Shell::InputCommand(char * line) {
 			/* Don't care */
 			break;
 		case 0x0d:				/* Return */
-			outc('\r');
+			outc('\r');		
 			outc('\n');
 			size=0;			//Kill the while loop
 			break;
@@ -327,7 +379,7 @@ void DOS_Shell::InputCommand(char * line) {
 		case 0x1b:   /* ESC */
 			//write a backslash and return to the next line
 			outc('\\');
-			outc('\r');
+			outc('\r');			
 			outc('\n');
 			*line = 0;      // reset the line.
 			if (l_completion.size()) l_completion.clear(); //reset the completion list.
@@ -368,7 +420,7 @@ void DOS_Shell::InputCommand(char * line) {
 
 	// remove current command from history if it's there
 	if (current_hist) {
-		// current_hist=false;
+		//current_hist=false;
 		l_history.pop_front();
 	}
 
@@ -378,11 +430,11 @@ void DOS_Shell::InputCommand(char * line) {
 }
 
 std::string full_arguments = "";
-bool DOS_Shell::Execute(char * name,char * args) {
+bool DOS_Shell::Execute(const char * name, const char * args) {
 /* return true  => don't check for hardware changes in do_command 
  * return false =>       check for hardware changes in do_command */
 	char fullname[DOS_PATHLENGTH+4]; //stores results from Which
-	char* p_fullname;
+	const char* p_fullname;
 	char line[CMD_MAXLINE];
 	if(strlen(args)!= 0){
 		if(*args != ' '){ //put a space in front
@@ -418,7 +470,8 @@ bool DOS_Shell::Execute(char * name,char * args) {
 	{
 		//Check if the result will fit in the parameters. Else abort
 		if(strlen(fullname) >( DOS_PATHLENGTH - 1) ) return false;
-		char temp_name[DOS_PATHLENGTH+4],* temp_fullname;
+		char temp_name[DOS_PATHLENGTH+4];
+		const char * temp_fullname;
 		//try to add .com, .exe and .bat extensions to filename
 		
 		strcpy(temp_name,fullname);
@@ -453,7 +506,7 @@ bool DOS_Shell::Execute(char * name,char * args) {
 	{	/* Run the .bat file */
 		/* delete old batch file if call is not active*/
 		bool temp_echo=echo; /*keep the current echostate (as delete bf might change it )*/
-		if(bf && !call) delete bf;
+		if(!call) delete bf;	//leak if call is active
 		bf=new BatchFile(this,fullname,name,line);
 		echo=temp_echo; //restore it.
 	} 
@@ -565,7 +618,7 @@ static const char * com_ext=".COM";
 static const char * exe_ext=".EXE";
 static char which_ret[DOS_PATHLENGTH+4];
 
-char * DOS_Shell::Which(char * name) {
+const char * DOS_Shell::Which(const char * name) {
 	size_t name_len = strlen(name);
 	if(name_len >= DOS_PATHLENGTH) return 0;
 

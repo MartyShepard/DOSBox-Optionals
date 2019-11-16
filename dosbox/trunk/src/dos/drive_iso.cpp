@@ -141,14 +141,13 @@ bool  MSCDEX_GetVolumeName(Bit8u subUnit, char* name);
 Bit8u MSCDEX_GetSubUnit(char driveLetter);
 
 isoDrive::isoDrive(char driveLetter, const char *fileName, Bit8u mediaid, int &error)
-         :iso(false),
-          dataCD(false),
+         :dataCD(false),
           mediaid(0),
           subUnit(0),
-          driveLetter('\0')
+		  driveLetter('\0')
  {
 	this->fileName[0]  = '\0';
-	this->discLabel[0] = '\0';
+	this->discLabel[0] = '\0';	 
 	nextFreeDirIterator = 0;
 	memset(dirIterators, 0, sizeof(dirIterators));
 	memset(sectorHashEntries, 0, sizeof(sectorHashEntries));
@@ -160,7 +159,7 @@ isoDrive::isoDrive(char driveLetter, const char *fileName, Bit8u mediaid, int &e
 	if (!error) {
 		if (loadImage()) {
 			strcpy(info, "isoDrive ");
-			strcat(info, fileName);
+			strncat(info, fileName, sizeof(info)/sizeof(info[0])-10);
 			this->driveLetter = driveLetter;
 			this->mediaid = mediaid;
 			char buffer[32] = { 0 };
@@ -169,7 +168,7 @@ isoDrive::isoDrive(char driveLetter, const char *fileName, Bit8u mediaid, int &e
 
 		} else if (CDROM_Interface_Image::images[subUnit]->HasDataTrack() == false) { //Audio only cdrom
 			strcpy(info, "isoDrive ");
-			strcat(info, fileName);
+			strncat(info, fileName, sizeof(info)/sizeof(info[0])-10);
 			this->driveLetter = driveLetter;
 			this->mediaid = mediaid;
 			char buffer[32] = { 0 };
@@ -183,7 +182,7 @@ isoDrive::~isoDrive() { }
 
 int isoDrive::UpdateMscdex(char driveLetter, const char* path, Bit8u& subUnit) {
 	if (MSCDEX_HasDrive(driveLetter)) {
-		subUnit = MSCDEX_GetSubUnit(driveLetter);
+		subUnit = MSCDEX_GetSubUnit(driveLetter);		
 		CDROM_Interface_Image* oldCdrom = CDROM_Interface_Image::images[subUnit];
 		CDROM_Interface* cdrom = new CDROM_Interface_Image(subUnit);
 		char pathCopy[CROSS_LEN];

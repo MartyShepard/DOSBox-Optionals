@@ -463,7 +463,7 @@ static Bit16u ExecuteReadRegister(void) {
 		return (Bit16u)(tmpreg << 8);
 	default:
 #if LOG_GUS
-		LOG_MSG("Read Register num 0x%x", myGUS.gRegSelect);
+		LOG_MSG("ULTRASND: Read Register num 0x%x", myGUS.gRegSelect);
 #endif
 		return myGUS.gRegData;
 	}
@@ -566,7 +566,7 @@ static void ExecuteGlobRegister(void) {
 		gus_chan->Enable(true);
 		myGUS.basefreq = (Bit32u)(0.5 + 1000000.0/(1.619695497*(double)(myGUS.ActiveChannels)));
 #if LOG_GUS
-		LOG_MSG("GUS set to %d channels, freq %d", myGUS.ActiveChannels, myGUS.basefreq);
+		LOG_MSG("ULTRASND: GUS set to %d channels, freq %d", myGUS.ActiveChannels, myGUS.basefreq);
 #endif
 		for (i=0;i<myGUS.ActiveChannels;i++) guschan[i]->UpdateWaveRamp();
 		break;
@@ -611,7 +611,7 @@ static void ExecuteGlobRegister(void) {
 		break;
 	default:
 #if LOG_GUS
-		LOG_MSG("Unimplemented global register %x -- %x", myGUS.gRegSelect, myGUS.gRegData);
+		LOG_MSG("ULTRASND: Unimplemented global register %x -- %x", myGUS.gRegSelect, myGUS.gRegData);
 #endif
 		break;
 	}
@@ -652,7 +652,7 @@ static Bitu read_gus(Bitu port,Bitu iolen) {
 		}
 	default:
 #if LOG_GUS
-		LOG_MSG("Read GUS at port 0x%x", port);
+		LOG_MSG("ULTRASND: Read GUS at port 0x%x", port);
 #endif
 		break;
 	}
@@ -701,13 +701,13 @@ static void write_gus(Bitu port,Bitu val,Bitu iolen) {
 			// IRQ configuration, only use low bits for irq 1
 			if (irqtable[val & 0x7]) myGUS.irq1=irqtable[val & 0x7];
 #if LOG_GUS
-			LOG_MSG("Assigned GUS to IRQ %d", myGUS.irq1);
+			LOG_MSG("ULTRASND: Assigned GUS to IRQ %d", myGUS.irq1);
 #endif
 		} else {
 			// DMA configuration, only use low bits for dma 1
 			if (dmatable[val & 0x7]) myGUS.dma1=dmatable[val & 0x7];
 #if LOG_GUS
-			LOG_MSG("Assigned GUS to DMA %d", myGUS.dma1);
+			LOG_MSG("ULTRASND: Assigned GUS to DMA %d", myGUS.dma1);
 #endif
 		}
 		break;
@@ -734,7 +734,7 @@ static void write_gus(Bitu port,Bitu val,Bitu iolen) {
 		break;
 	default:
 #if LOG_GUS
-		LOG_MSG("Write GUS at port 0x%x with %x", port, val);
+		LOG_MSG("ULTRASND: Write GUS at port 0x%x with %x", port, val);
 #endif
 		break;
 	}
@@ -766,7 +766,7 @@ static void GUS_DMA_Callback(DmaChannel * chan,DMAEvent event) {
 				for(i=dmaaddr+1;i<(dmaaddr+read);i+=2) GUSRam[i] ^= 0x80;
 			}
 		}
-	//Writing to dma
+	//Writing to dma		
 	} else {
 		chan->Write(chan->currcnt+1,&GUSRam[dmaaddr]);
 	}

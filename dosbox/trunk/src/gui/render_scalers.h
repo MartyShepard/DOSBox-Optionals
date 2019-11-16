@@ -22,8 +22,10 @@
 //#include "render.h"
 #include "video.h"
 #if RENDER_USE_ADVANCED_SCALERS>0
-#define SCALER_MAXWIDTH		1280 
-#define SCALER_MAXHEIGHT	1024
+/* Custom S3 VGA /////////////////////////////////////////////////////////////////////////////////////////////*/
+#define SCALER_MAXWIDTH		1600
+#define SCALER_MAXHEIGHT	1200
+/* Custom S3 VGA /////////////////////////////////////////////////////////////////////////////////////////////*/
 #else
 // reduced to save some memory
 #define SCALER_MAXWIDTH		800 
@@ -84,7 +86,9 @@ extern scalerSourceCache_t scalerSourceCache;
 #if RENDER_USE_ADVANCED_SCALERS>1
 extern scalerChangeCache_t scalerChangeCache;
 #endif
-typedef ScalerLineHandler_t ScalerLineBlock_t[5][4];
+/* Custom S3 VGA /////////////////////////////////////////////////////////////////////////////////////////////*/
+typedef ScalerLineHandler_t ScalerLineBlock_t[6][4];
+/* Custom S3 VGA /////////////////////////////////////////////////////////////////////////////////////////////*/
 
 typedef struct {
 	const char *name;

@@ -788,7 +788,7 @@ static Bit32u gen_create_branch_on_nonzero(HostReg reg,bool dword) {
 
 // calculate relative offset and fill it into the location pointed to by data
 static void INLINE gen_fill_branch(DRC_PTR_SIZE_IM data) {
-#if C_DEBUG
+#if defined(C_DEBUG)
 	Bits len=(Bit32u)cache.pos-(data+4);
 	if (len<0) len=-len;
 	if (len>252) LOG_MSG("Big jump %d",len);

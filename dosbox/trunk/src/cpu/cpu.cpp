@@ -57,10 +57,12 @@ Bit32s CPU_CycleLimit = -1;
 Bit32s CPU_CycleUp = 0;
 Bit32s CPU_CycleDown = 0;
 Bit64s CPU_IODelayRemoved = 0;
+
 CPU_Decoder * cpudecoder;
 bool CPU_CycleAutoAdjust = false;
 bool CPU_SkipCycleAutoAdjust = false;
 Bitu CPU_AutoDetermineMode = 0;
+Bitu CPU_Kennung = 612;
 
 Bitu CPU_ArchitectureType = CPU_ARCHTYPE_MIXED;
 
@@ -90,7 +92,7 @@ void CPU_Core_Dynrec_Cache_Close(void);
  * In non-debug mode dosbox doesn't do detection (and hence doesn't crash at
  * that point). (game might crash later due to the unhandled exception) */
 
-#if C_DEBUG
+#if defined(C_DEBUG)
 // #define CPU_CHECK_EXCEPT 1
 // #define CPU_CHECK_IGNORE 1
  /* Use CHECK_EXCEPT when something doesn't work to see if a exception is 
@@ -550,10 +552,10 @@ Bit8u lastint;
 void CPU_Interrupt(Bitu num,Bitu type,Bitu oldeip) {
 	lastint=num;
 	FillFlags();
-#if C_DEBUG
+#if defined(C_DEBUG)
 	switch (num) {
 	case 0xcd:
-#if C_HEAVY_DEBUG
+#if defined(C_HEAVY_DEBUG)
  		LOG(LOG_CPU,LOG_ERROR)("Call to interrupt 0xCD this is BAD");
 //		DEBUG_HeavyWriteLogInstruction();
 //		E_Exit("Call to interrupt 0xCD this is BAD");
@@ -593,7 +595,7 @@ void CPU_Interrupt(Bitu num,Bitu type,Bitu oldeip) {
 		Descriptor gate;
 		if (!cpu.idt.GetDescriptor(num<<3,gate)) {
 			// zone66
-			CPU_Exception(EXCEPTION_GP,num*8+2+(type&CPU_INT_SOFTWARE)?0:1);
+			CPU_Exception(EXCEPTION_GP,num*8+2+((type&CPU_INT_SOFTWARE)?0:1));
 			return;
 		}
 
@@ -725,7 +727,8 @@ do_interrupt:
 					}
 					break;		
 				default:
-					E_Exit("INT:Gate Selector points to illegal descriptor with type %x",cs_desc.Type());
+					LOG_MSG("INT:Gate Selector points to illegal descriptor with type %x",cs_desc.Type());
+					//E_Exit("INT:Gate Selector points to illegal descriptor with type %x",cs_desc.Type());
 				}
 
 				Segs.val[cs]=(gate_sel&0xfffc) | cpu.cpl;
@@ -902,7 +905,10 @@ void CPU_IRET(bool use32,Bitu oldeip) {
 				EXCEPTION_GP,n_cs_sel & 0xfffc)
 			break;
 		default:
-			E_Exit("IRET:Illegal descriptor type %X",n_cs_desc.Type());
+			if ( !n_cs_desc.Type() == 0){
+				//LOG_MSG("IRET:Illegal descriptor type %X",n_cs_desc.Type());
+				E_Exit("IRET:Illegal descriptor type %X",n_cs_desc.Type());
+			}
 		}
 		CPU_CHECK_COND(!n_cs_desc.saved.seg.p,
 			"IRET with nonpresent code segment",
@@ -1295,7 +1301,8 @@ call_code:
 			CPU_Exception(EXCEPTION_GP,selector & 0xfffc);
 			return;
 		default:
-			E_Exit("CALL:Descriptor type %x unsupported",call.Type());
+			//E_Exit("CALL:Descriptor type %x unsupported",call.Type());
+			LOG_MSG("CALL:Descriptor type %x unsupported",call.Type());
 		}
 	}
 	assert(1);
@@ -1353,7 +1360,12 @@ void CPU_RET(bool use32,Bitu bytes,Bitu oldeip) {
 					EXCEPTION_GP,selector & 0xfffc)
 				break;
 			default:
-				E_Exit("RET from illegal descriptor type %X",desc.Type());
+				LOG_MSG("CPU : cpu.cpp (RET From Illegal Descriptor Type %X)",desc.Type());
+				/* E_Exit Disabled				
+				   Microsoft DirectX Diagnosting Tool, On Close it brings a Type 0 Descriptor
+				   Seen only on this. No Idea but the System Works.                     				   
+				   E_Exit("RET from illegal descriptor type %X",desc.Type());*/
+				break;
 			}
 RET_same_level:
 			if (!desc.saved.seg.p) {
@@ -2008,9 +2020,9 @@ bool CPU_PopSeg(SegNames seg,bool use32) {
 	Bitu val=mem_readw(SegPhys(ss) + (reg_esp & cpu.stack.mask));
 	Bitu addsp = use32 ? 0x04 : 0x02;
 	//Calcullate this beforehande since the stack mask might change
-	Bit32u new_esp  = (reg_esp&cpu.stack.notmask) | ((reg_esp + addsp)&cpu.stack.mask);
+	Bit32u new_esp  = (reg_esp&cpu.stack.notmask) | ((reg_esp + addsp)&cpu.stack.mask);	
 	if (CPU_SetSegGeneral(seg,val)) return true;
-	reg_esp = new_esp;
+		reg_esp = new_esp;
 	return false;
 }
 
@@ -2035,6 +2047,38 @@ bool CPU_CPUID(void) {
 			reg_ebx=0;			/* Not Supported */
 			reg_ecx=0;			/* No features */
 			reg_edx=0x00000011;	/* FPU+TimeStamp/RDTSC */
+		} else if (CPU_ArchitectureType==CPU_ARCHTYPE_PPROSLOW) {
+			
+			switch(CPU_Kennung){
+				/* http://www.cpu-world.com/cgi-bin/CPUID.pl?MANUF=&FAMILY=&MODEL=&SIGNATURE=5425&PART=&ACTION=Filter&STEPPING= */
+				case 513:  {reg_eax=0x513; }break; /* intel pentium */	
+				case 610:  {reg_eax=0x610; }break; /* intel pentium pro */				
+				case 611:  {reg_eax=0x611; }break; /* intel pentium pro */				
+				case 612:  {reg_eax=0x612; }break; /* intel pentium pro */
+				case 616:  {reg_eax=0x616; }break; /* intel pentium pro */
+				case 621:  {reg_eax=0x621; }break; /* AMD Athlon */	
+				case 631:  {reg_eax=0x631; }break; /* AMD Duron */	
+				case 634:  {reg_eax=0x634; }break; /* Intel Pentium II */					
+				case 642:  {reg_eax=0x642; }break; /* AMD Athlon */
+				case 650:  {reg_eax=0x650; }break; /* Intel Pentium II*/		
+				case 660:  {reg_eax=0x660; }break; /* IIntel Celeron*/
+				case 672:  {reg_eax=0x672; }break; /* Intel Pentium III*/					
+				case 673:  {reg_eax=0x673; }break; /* Intel Pentium III*/					
+				case 683:  {reg_eax=0x683; }break; /* Intel Celeron / Pentium III / Pentium III Xeon */		
+				case 1531: {reg_eax=0x1531;}break; /* Intel Pentium Overdrive 63MHz */		
+				case 1532: {reg_eax=0x1532;}break; /* Intel Pentium Overdrive 83MHz */			
+				case 1543: {reg_eax=0x1543;}break; /* Intel Pentium MMX Overdrive 200Mhz */		
+				case 1544: {reg_eax=0x1544;}break; /* Intel Pentium MMX Overdrive 166Mhz */					
+				case 1632: {reg_eax=0x1632;}break; /* Intel Pentium II Overdrive	333 Mhz*/		
+				case 10661:{reg_eax=0x10661;}break; /* Intel Celeron */				
+				case 20650:{reg_eax=0x20650;}break; /* Intel Core i7 Mobile*/
+				//case 50651:{reg_eax=0x50651;}break; /* Intel Xeon 1,5Ghz*/					
+				
+				default:   reg_eax=CPU_Kennung;		
+			}			
+			reg_ebx=0;			/* Not Supported */
+			reg_ecx=0;			/* No features */
+			reg_edx=0x00008011;	/* FPU+TimeStamp/RDTSC+CMOVcc */			
 		} else {
 			return false;
 		}
@@ -2108,7 +2152,7 @@ static void CPU_CycleIncrease(bool pressed) {
 	if (!pressed) return;
 	if (CPU_CycleAutoAdjust) {
 		CPU_CyclePercUsed+=5;
-		if (CPU_CyclePercUsed>105) CPU_CyclePercUsed=105;
+		if (CPU_CyclePercUsed>1000) CPU_CyclePercUsed=1000;
 		LOG_MSG("CPU speed: max %d percent.",CPU_CyclePercUsed);
 		GFX_SetTitle(CPU_CyclePercUsed,-1,false);
 	} else {
@@ -2122,7 +2166,7 @@ static void CPU_CycleIncrease(bool pressed) {
 		CPU_CycleLeft=0;CPU_Cycles=0;
 		if (CPU_CycleMax==old_cycles) CPU_CycleMax++;
 		if(CPU_CycleMax > 15000 ) 
-			LOG_MSG("CPU speed: fixed %d cycles. If you need more than 20000, try core=dynamic in DOSBox's options.",CPU_CycleMax);
+			LOG_MSG("CPU speed: fixed %d cycles.\nIf you need more than 20000, try core=dynamic in DOSBox's options.\n",CPU_CycleMax);
 		else
 			LOG_MSG("CPU speed: fixed %d cycles.",CPU_CycleMax);
 		GFX_SetTitle(CPU_CycleMax,-1,false);
@@ -2135,7 +2179,7 @@ static void CPU_CycleDecrease(bool pressed) {
 		CPU_CyclePercUsed-=5;
 		if (CPU_CyclePercUsed<=0) CPU_CyclePercUsed=1;
 		if(CPU_CyclePercUsed <=70)
-			LOG_MSG("CPU speed: max %d percent. If the game runs too fast, try a fixed cycles amount in DOSBox's options.",CPU_CyclePercUsed);
+			LOG_MSG("CPU speed: max %d percent.\nIf the game runs too fast, try a fixed cycles amount in DOSBox's options.\n",CPU_CyclePercUsed);
 		else
 			LOG_MSG("CPU speed: max %d percent.",CPU_CyclePercUsed);
 		GFX_SetTitle(CPU_CyclePercUsed,-1,false);
@@ -2175,7 +2219,7 @@ void CPU_Reset_AutoAdjust(void) {
 	ticksScheduled = 0;
 }
 
-class CPU: public Module_base {
+class CPU : public Module_base {
 private:
 	static bool inited;
 public:
@@ -2245,10 +2289,14 @@ public:
 		CPU_Cycles=0;
 		CPU_SkipCycleAutoAdjust=false;
 
+
 		Prop_multival* p = section->Get_multival("cycles");
 		std::string type = p->GetSection()->Get_string("type");
 		std::string str ;
 		CommandLine cmd(0,p->GetSection()->Get_string("parameters"));
+		
+		LOG_MSG("CPU : Current Cycle Type = %s\n",(const char*)p->GetSection()->Get_string("type"));
+		
 		if (type=="max") {
 			CPU_CycleMax=0;
 			CPU_CyclePercUsed=100;
@@ -2261,7 +2309,7 @@ public:
 						int percval=0;
 						std::istringstream stream(str);
 						stream >> percval;
-						if ((percval>0) && (percval<=105)) CPU_CyclePercUsed=(Bit32s)percval;
+						if ((percval>0) && (percval<=505)) CPU_CyclePercUsed=(Bit32s)percval;
 					} else if (str=="limit") {
 						cmdnum++;
 						if (cmd.FindCommand(cmdnum,str)) {
@@ -2306,12 +2354,88 @@ public:
 						}
 					}
 				}
-			} else if(type =="fixed") {
+			} else if(type =="i80386DX/25") {								
+				CPU_CycleMax=5592;
+				
+			}else if(type =="fixed") {
 				cmd.FindCommand(1,str);
 				int rmdval=0;
 				std::istringstream stream(str);
 				stream >> rmdval;
 				CPU_CycleMax=(Bit32s)rmdval;
+							
+			} else if(type =="i8088_477") {
+				CPU_CycleMax=341;	
+				
+			} else if(type =="i8088_716") {
+				CPU_CycleMax=460;		
+				
+			} else if(type =="i8088_954") {
+				CPU_CycleMax=618;	
+
+			} else if(type =="i286_10") {
+				CPU_CycleMax=1778;	
+				
+			} else if(type =="i286_12") {
+				CPU_CycleMax=2616;	
+
+			} else if(type =="i286_16") {
+				CPU_CycleMax=3360;					
+				
+			} else if(type =="i286_20") {
+				CPU_CycleMax=4440;					
+				
+			} else if(type =="i286_25") {
+				CPU_CycleMax=5240;		
+
+			} else if(type =="i386dx_25") {
+				CPU_CycleMax=7785;
+
+			} else if(type =="i386dx_33") {
+				CPU_CycleMax=9349;	
+				
+			} else if(type =="i386dx_40") {
+				CPU_CycleMax=9384;	
+				
+			} else if(type =="i486sx_25") {
+				CPU_CycleMax=9870;
+							
+			} else if(type =="i486dx_33") {
+				CPU_CycleMax=13350;	
+				
+			} else if(type =="i486sx_33") {
+				CPU_CycleMax=13461;		
+
+			} else if(type =="i486sx_40") {
+				CPU_CycleMax=16100;					
+				
+			} else if(type =="i486dx_50") {
+				CPU_CycleMax=20100;					
+								
+			} else if(type =="i486dx2_66") {
+				CPU_CycleMax=27182;	
+
+			} else if(type =="i486sx2_80") {
+				CPU_CycleMax=32501;		
+
+			} else if(type =="i486dx2_100") {
+				CPU_CycleMax=40042;
+
+			} else if(type =="i486dx4_100") {
+				CPU_CycleMax=50821;	
+
+			} else if(type =="i486dx4_120") {
+				CPU_CycleMax=60174;	
+
+			} else if(type =="p60") {
+				CPU_CycleMax=51330;	
+				
+			} else if(type =="p75") {
+				CPU_CycleMax=69159;					
+
+			} else if(type =="p100") {
+				CPU_CycleMax=77500;								
+				
 			} else {
 				std::istringstream stream(type);
 				int rmdval=0;
@@ -2394,8 +2518,12 @@ public:
 			}
 		} else if (cputype == "pentium_slow") {
 			CPU_ArchitectureType = CPU_ARCHTYPE_PENTIUMSLOW;
+		} else if (cputype == "pentiumpro_slow") {
+			CPU_ArchitectureType = CPU_ARCHTYPE_PPROSLOW;			
 		}
 
+		CPU_Kennung = section->Get_int("cpuident");
+		
 		if (CPU_ArchitectureType>=CPU_ARCHTYPE_486NEWSLOW) CPU_extflags_toggle=(FLAG_ID|FLAG_AC);
 		else if (CPU_ArchitectureType>=CPU_ARCHTYPE_486OLDSLOW) CPU_extflags_toggle=(FLAG_AC);
 		else CPU_extflags_toggle=0;
@@ -2427,4 +2555,4 @@ void CPU_Init(Section* sec) {
 	sec->AddDestroyFunction(&CPU_ShutDown,true);
 }
 //initialize static members
-bool CPU::inited=false;
+bool CPU ::inited=false;

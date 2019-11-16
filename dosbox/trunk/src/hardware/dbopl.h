@@ -240,7 +240,7 @@ struct Chip {
 	void GenerateBlock3( Bitu samples, Bit32s* output );
 
 	//Update the synth handlers in all channels
-	void UpdateSynths();
+	void UpdateSynths();	
 	void Generate( Bit32u samples );
 	void Setup( Bit32u r );
 

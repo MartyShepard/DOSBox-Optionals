@@ -50,7 +50,7 @@ void Msg(const char fmt[], ...) {
   
   va_start(val, fmt);
   wvsprintf(buf, fmt, val);
-  va_end(val);
+  va_end(val);  
 
   const COORD _80x50 = {80,50};
   static BOOL startup = (AllocConsole(), SetConsoleScreenBufferSize(GetStdHandle(STD_OUTPUT_HANDLE), _80x50));
@@ -221,7 +221,7 @@ static bool CanCompress(LPBITMAPINFOHEADER lpbiIn, LPBITMAPINFOHEADER lpbiOut, b
 		//Needs to match our 4cc format
 		if (memcmp(&lpbiOut->biCompression,CODEC_4CC, 4))
 			return false;
-	} else
+	} else 
 		return !requireOutput;
 	return true;
 }

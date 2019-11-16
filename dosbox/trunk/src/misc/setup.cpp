@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <limits>
 #include <limits.h>
+#include <math.h>
 
 using namespace std;
 static std::string current_config_dir; // Set by parseconfigfile so Prop_path can use it to construct the realpath
@@ -50,6 +51,7 @@ void Value::plaincopy(Value const& in) throw(){
 	type = in.type;
 	_int = in._int;
 	_double = in._double;
+    _float = in._float;	
 	_bool = in._bool;
 	_hex = in._hex;
 	if(type == V_STRING) _string = new string(*in._string);
@@ -75,6 +77,10 @@ Value::operator double () const {
 	return _double;
 }
 
+Value::operator float () const {
+	if(type != V_FLOAT) throw WrongType();
+	return _float;
+}
 Value::operator char const* () const {
 	if(type != V_STRING) throw WrongType();
 	return _string->c_str();
@@ -96,6 +102,9 @@ bool Value::operator==(Value const& other) {
 		case V_DOUBLE:
 			if(_double == other._double) return true;
 			break;
+		case V_FLOAT:
+			if(_float == other._float) return true;
+			break;			
 		case V_STRING:
 			if((*_string) == (*other._string)) return true;
 			break;
@@ -131,7 +140,10 @@ bool Value::SetValue(string const& in,Etype _type) {
 		case V_DOUBLE:
 			retval = set_double(in);
 			break;
-
+		case V_FLOAT:
+			retval = set_float(in);
+			break;
+			
 		case V_NONE:
 		case V_CURRENT:
 		default:
@@ -167,6 +179,15 @@ bool Value::set_double(string const &in) {
 	if(result == std::numeric_limits<double>::infinity()) return false;
 	_double = result;
 	return true;
+}
+
+bool Value::set_float(string const &in) {
+    istringstream input(in);
+    float result = std::numeric_limits<float>::infinity();
+    input >> result;
+    if(result == std::numeric_limits<float>::infinity()) return false;
+    _float = result;
+    return true;
 }
 
 bool Value::set_bool(string const &in) {
@@ -210,6 +231,10 @@ string Value::ToString() const {
 		case V_DOUBLE:
 			oss.precision(2);
 			oss << fixed << _double;
+			break;		
+		case V_FLOAT:		
+			oss.precision(2);
+			oss << fixed << _float;
 			break;
 		case V_NONE:
 		case V_CURRENT:
@@ -291,10 +316,80 @@ bool Prop_int::CheckValue(Value const& in, bool warn) {
 	return false;
 }
 
-bool Prop_double::SetValue(std::string const& input) {
-	Value val;
-	if(!val.SetValue(input,Value::V_DOUBLE)) return false;
-	return SetVal(val,false,true);
+bool Prop_double::SetValue(std::string const& input){
+    Value val;
+    if(!val.SetValue(input,Value::V_DOUBLE)) return false;
+    return SetVal(val,false,/*warn*/true);
+}
+
+bool Prop_double::CheckValue(Value const& in, bool warn)
+{
+	if(suggested_values.empty() && Property::CheckValue(in, warn)) 
+		return true;
+
+	const auto mi = static_cast<double>(min);
+	const auto ma = static_cast<double>(max);
+	const auto va = static_cast<double>(Value(in));
+	const auto same = [](const double a, const double b, const double epsilon) {
+		return fabs(a - b < epsilon);
+	};
+	const auto tolerance = 0.0000001;
+	
+	if(same(mi, -1.0, tolerance) && same(ma, -1.0, tolerance)) 
+		return true;
+
+	if(va >= mi && va <= ma)
+		return true;
+
+	if(warn)
+		LOG_MSG(
+			"%s lies outside the range %s-%s for variable: %s.\nIt might now be reset to the default value: %s",
+			in.ToString().c_str(), 
+			min.ToString().c_str(), 
+			max.ToString().c_str(), 
+			propname.c_str(), 
+			default_value.ToString().c_str()
+		);
+
+	return false;
+}
+
+bool Prop_float::SetValue(std::string const& input){
+    Value val;
+    if(!val.SetValue(input,Value::V_FLOAT)) return false;
+    return SetVal(val,false,/*warn*/true);
+}
+
+bool Prop_float::CheckValue(Value const& in, bool warn)
+{
+	if(suggested_values.empty() && Property::CheckValue(in, warn)) 
+		return true;
+
+	const auto mi = static_cast<float>(min);
+	const auto ma = static_cast<float>(max);
+	const auto va = static_cast<float>(Value(in));
+	const auto same = [](const float a, const float b, const float epsilon) {
+		return fabs(a - b < epsilon);
+	};
+	const auto tolerance = 0.0000001;
+	
+	if(same(mi, -1.0, tolerance) && same(ma, -1.0, tolerance)) 
+		return true;
+
+	if(va >= mi && va <= ma)
+		return true;
+
+	if(warn)
+		LOG_MSG(
+			"%s lies outside the range %s-%s for variable: %s.\nIt might now be reset to the default value: %s",
+			in.ToString().c_str(), 
+			min.ToString().c_str(), 
+			max.ToString().c_str(), 
+			propname.c_str(), 
+			default_value.ToString().c_str()
+		);
+
+	return false;
 }
 
 //void Property::SetValue(char* input){
@@ -430,8 +525,8 @@ bool Prop_multival::SetValue(std::string const& input) {
 	//No properties in this section. do nothing
 	if (!p) return false;
 	Value::Etype prevtype = Value::V_NONE;
-	string prevargument = "";
-
+	string prevargument = "";	
+	
 	string::size_type loc = string::npos;
 	while( (p = section->Get_prop(i++)) ) {
 		//trim leading separators
@@ -507,6 +602,17 @@ void Property::Set_values(const char * const *in) {
 		i++;
 	}
 }
+Prop_float* Section_prop::Add_float(string const& _propname, Property::Changeable::Value when, float _value) {
+    Prop_float* test=new Prop_float(_propname,when,_value);
+    properties.push_back(test);
+    return test;
+}
+
+Prop_double* Section_prop::Add_double(string const& _propname, Property::Changeable::Value when, double _value) {
+    Prop_double* test=new Prop_double(_propname,when,_value);
+    properties.push_back(test);
+    return test;
+}
 
 Prop_int* Section_prop::Add_int(string const& _propname, Property::Changeable::Value when, int _value) {
 	Prop_int* test=new Prop_int(_propname,when,_value);
@@ -567,14 +673,23 @@ bool Section_prop::Get_bool(string const& _propname) const {
 	}
 	return false;
 }
-
 double Section_prop::Get_double(string const& _propname) const {
-	for(const_it tel=properties.begin();tel!=properties.end();tel++){
-		if ((*tel)->propname==_propname){
-			return ((*tel)->GetValue());
-		}
-	}
-	return 0.0;
+    for(const_it tel=properties.begin();tel!=properties.end();tel++){
+        if((*tel)->propname==_propname){
+            return ((*tel)->GetValue());
+        }
+    }
+    return 0.0;
+}
+
+
+float Section_prop::Get_float(string const& _propname) const {
+    for(const_it tel=properties.begin();tel!=properties.end();tel++){
+        if((*tel)->propname==_propname){
+            return ((*tel)->GetValue());
+        }
+    }
+    return 0.0;
 }
 
 Prop_path* Section_prop::Get_path(string const& _propname) const {
@@ -855,10 +970,11 @@ bool Config::ParseConfigFile(char const * const configfilename) {
 	ifstream in(configfilename);
 	if (!in) return false;
 	const char * settings_type;
-	settings_type = (configfiles.size() == 0)? "primary":"additional";
+	settings_type = (configfiles.size() == 0)? "Primary":"Additional";
 	configfiles.push_back(configfilename);
 
-	LOG_MSG("CONFIG: Loading %s settings from config file %s", settings_type,configfilename);
+	LOG_MSG("CONFIG: Successfully Loading %s Settings from Config File\n"
+			"        %s\n", settings_type,configfilename);
 
 	//Get directory from configfilename, used with relative paths.
 	current_config_dir=configfilename;
@@ -948,7 +1064,7 @@ bool CommandLine::FindExist(char const * const name,bool remove) {
 	return true;
 }
 
-bool CommandLine::FindHex(char const * const name,int & value,bool remove) {
+bool CommandLine::FindHex(char const * const name, unsigned int & value,bool remove) {
 	cmd_it it,it_next;
 	if (!(FindEntry(name,it,true))) return false;
 	it_next=it;it_next++;

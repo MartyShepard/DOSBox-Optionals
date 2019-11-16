@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <memory.h>
 
-#if C_DEBUG
+#if defined(C_DEBUG)
 #include <stdio.h>
 #include <stdarg.h>
 #endif
@@ -100,7 +100,7 @@ public:
 	}
 
 	void logerror(const char* format, ...) {
-#if C_DEBUG
+#if defined(C_DEBUG)
 		char buf[512*2];
 		va_list msg;
 		va_start(msg,format);
@@ -123,8 +123,6 @@ public:
 	device_t(const machine_config &mconfig, device_type type, const char *tag, device_t *owner, u32 _clock) : clockRate( _clock ) {
 	}
 
-	virtual ~device_t() {
-	}
 };
 
 

@@ -76,7 +76,7 @@ protected:
 	char basedir[CROSS_LEN];
 private:
 	friend void DOS_Shell::CMD_SUBST(char* args);
-protected:
+protected:	
 	struct {
 		char srch_dir[CROSS_LEN];
 	} srchInfo[MAX_OPENDIRS];
@@ -406,7 +406,7 @@ public:
 	bool isRemote(void);
 	virtual bool isRemovable(void);
 	virtual Bits UnMount(void);
-	virtual char const* GetLabel(void);
+	virtual char const* GetLabel(void);	
 private:
 	VFILE_Block * search_file;
 };
@@ -438,7 +438,7 @@ private:
 	void add_DOSname_to_cache(const char* name);
 	void remove_DOSname_from_cache(const char* name);
 	void add_DOSdir_to_cache(const char* name);
-	void remove_DOSdir_from_cache(const char* name);
+	void remove_DOSdir_from_cache(const char* name);	
 	void update_cache(bool read_directory_contents = false);
 	
 	std::vector<std::string> deleted_files_in_base; //Set is probably better, or some other solution (involving the disk).
@@ -461,7 +461,7 @@ private:
 	void convert_overlay_to_DOSname_in_base(char* dirname );
 	//For caching the update_cache routine.
 	std::vector<std::string> DOSnames_cache; //Also set is probably better.
-	std::vector<std::string> DOSdirs_cache; //Can not blindly change its type. it is important that subdirs come after the parent directory.
+	std::vector<std::string> DOSdirs_cache; //Can not blindly change its type. it is important that subdirs come after the parent directory.	
 	const std::string special_prefix;
 };
 

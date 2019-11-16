@@ -439,7 +439,7 @@
 					<File
 						RelativePath="..\src\dos\drive_overlay.cpp">
 					</File>
-					<File
+					<File					
 						RelativePath="..\src\dos\drive_virtual.cpp">
 					</File>
 					<File
@@ -483,6 +483,9 @@
 				<File
 					RelativePath="..\src\hardware\mixer.cpp">
 				</File>
+ 				<File
+					RelativePath="..\src\hardware\ne2000.cpp">
+				</File>				
 				<File
 					RelativePath="..\src\hardware\pci_bus.cpp">
 				</File>
@@ -557,6 +560,9 @@
 						RelativePath="..\src\hardware\gus.cpp">
 					</File>
 					<File
+						RelativePath="..\src\hardware\innova.cpp">
+					</File>
+					<File					
 						RelativePath="..\src\hardware\mpu401.cpp">
 					</File>
 					<File
@@ -574,7 +580,7 @@
 						<File
 							RelativePath="..\src\hardware\mame\emu.h">
 						</File>
-						<File
+						<File						
 							RelativePath="..\src\hardware\mame\fmopl.cpp">
 						</File>
 						<File
@@ -604,7 +610,86 @@
 						<File
 							RelativePath="..\src\hardware\mame\ymf262.h">
 						</File>
-					</Filter>
+					</Filter>					
+					<Filter
+						Name="reSID"
+						Filter="">
+						<File
+							RelativePath="..\src\hardware\reSID\envelope.cpp">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\envelope.h">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\extfilt.cpp">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\extfilt.h">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\filter.cpp">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\filter.h">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\pot.cpp">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\pot.h">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\sid.cpp">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\sid.h">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\siddefs.h">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\spline.h">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\version.cpp">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\voice.cpp">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\voice.h">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\wave.cpp">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\wave.h">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\wave6581__ST.cpp">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\wave6581_P_T.cpp">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\wave6581_PS_.cpp">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\wave6581_PST.cpp">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\wave8580__ST.cpp">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\wave8580_P_T.cpp">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\wave8580_PS_.cpp">
+						</File>
+						<File
+							RelativePath="..\src\hardware\reSID\wave8580_PST.cpp">
+						</File>
+					</Filter>					
 				</Filter>
 				<Filter
 					Name="serialport"
@@ -869,8 +954,14 @@
 				RelativePath="..\include\mixer.h">
 			</File>
 			<File
+				RelativePath="..\include\modules.h">
+			</File>
+			<File
 				RelativePath="..\include\mouse.h">
 			</File>
+ 			<File
+				RelativePath="..\include\ne2000.h">
+			</File>			
 			<File
 				RelativePath="..\include\paging.h">
 			</File>

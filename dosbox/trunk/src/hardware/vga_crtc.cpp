@@ -361,7 +361,7 @@ void vga_write_p3d5(Bitu port,Bitu val,Bitu iolen) {
 		if (svga.write_p3d5) {
 			svga.write_p3d5(crtc(index), val, iolen);
 		} else {
-			LOG(LOG_VGAMISC,LOG_NORMAL)("VGA:CRTC:Write to unknown index %X",crtc(index));
+			LOG(LOG_VGAMISC,LOG_NORMAL)("VGA: CRTC: Write to unknown index %X",crtc(index));
 		}
 		break;
 	}

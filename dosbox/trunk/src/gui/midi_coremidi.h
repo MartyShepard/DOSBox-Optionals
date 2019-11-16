@@ -58,6 +58,7 @@ public:
 			}
 		}
 		if (destId >= numDests) destId = 0;
+		
 		if (destId < numDests)
 		{
 			m_endpoint = MIDIGetDestination(destId);

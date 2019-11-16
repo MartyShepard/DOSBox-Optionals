@@ -491,6 +491,7 @@ static bool IsEnhancedKey(Bit16u &key) {
 	}
 	/* convert key if necessary (extended keys) */
 	if ((key>>8) && ((key&0xff)==0xe0))  {
+		LOG_MSG("TEST File %s Line %d",__FILE__,__LINE__);
 		key&=0xff00;
 	}
 	return false;

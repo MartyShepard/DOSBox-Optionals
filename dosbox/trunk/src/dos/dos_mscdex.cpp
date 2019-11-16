@@ -48,7 +48,6 @@
 #define	REQUEST_STATUS_ERROR	0x8000
 
 // Use cdrom Interface
-int useCdromInterface	= CDROM_USE_SDL;
 int forceCD				= -1;
 
 static Bitu MSCDEX_Strategy_Handler(void); 
@@ -113,7 +112,7 @@ public:
 	void		GetDrives			(PhysPt data);
 	void		GetDriverInfo		(PhysPt data);
 	bool		GetVolumeName		(Bit8u subUnit, char* name);
-	bool		GetFileName			(Bit16u drive, Bit16u pos, PhysPt data);	
+	bool		GetFileName			(Bit16u drive, Bit16u pos, PhysPt data);
 	bool		GetDirectoryEntry	(Bit16u drive, bool copyFlag, PhysPt pathname, PhysPt buffer, Bit16u& error);
 	bool		ReadVTOC			(Bit16u drive, Bit16u volume, PhysPt data, Bit16u& offset, Bit16u& error);
 	bool		ReadSectors			(Bit16u drive, Bit32u sector, Bit16u num, PhysPt data);
@@ -253,48 +252,6 @@ int CMscdex::AddDrive(Bit16u _drive, char* physicalPath, Bit8u& subUnit)
 	int result = 0;
 	// Get Mounttype and init needed cdrom interface
 	switch (CDROM_GetMountType(physicalPath,forceCD)) {
-	case 0x00: {	
-		LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: Mounting physical cdrom: %s"	,physicalPath);
-#if defined (WIN32)
-		// Check OS
-		OSVERSIONINFO osi;
-		osi.dwOSVersionInfoSize = sizeof(osi);
-		GetVersionEx(&osi);
-		if ((osi.dwPlatformId==VER_PLATFORM_WIN32_NT) && (osi.dwMajorVersion>4)) {
-			// only WIN NT/200/XP
-			if (useCdromInterface==CDROM_USE_IOCTL_DIO) {
-				cdrom[numDrives] = new CDROM_Interface_Ioctl(CDROM_Interface_Ioctl::CDIOCTL_CDA_DIO);
-				LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: IOCTL Interface.");
-				break;
-			}
-			if (useCdromInterface==CDROM_USE_IOCTL_DX) {
-				cdrom[numDrives] = new CDROM_Interface_Ioctl(CDROM_Interface_Ioctl::CDIOCTL_CDA_DX);
-				LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: IOCTL Interface (digital audio extraction).");
-				break;
-			}
-			if (useCdromInterface==CDROM_USE_IOCTL_MCI) {
-				cdrom[numDrives] = new CDROM_Interface_Ioctl(CDROM_Interface_Ioctl::CDIOCTL_CDA_MCI);
-				LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: IOCTL Interface (media control interface).");
-				break;
-			}
-		}
-		if (useCdromInterface==CDROM_USE_ASPI) {
-			// all Wins - ASPI
-			cdrom[numDrives] = new CDROM_Interface_Aspi();
-			LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: ASPI Interface.");
-			break;
-		}
-#endif
-#if defined (LINUX) || defined(OS2)
-		// Always use IOCTL in Linux or OS/2
-		cdrom[numDrives] = new CDROM_Interface_Ioctl();
-		LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: IOCTL Interface.");
-#else
-		// Default case windows and other oses
-		cdrom[numDrives] = new CDROM_Interface_SDL();
-		LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: SDL Interface.");
-#endif
-		} break;
 	case 0x01:	// iso cdrom interface	
 		LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: Mounting iso file as cdrom: %s", physicalPath);
 		cdrom[numDrives] = new CDROM_Interface_Image((Bit8u)numDrives);
@@ -721,7 +678,7 @@ bool CMscdex::GetDirectoryEntry(Bit16u drive, bool copyFlag, PhysPt pathname, Ph
 				// skip associated files
 				index += entryLength;
 				continue;
-			}
+			}			
 			nameLength  = mem_readb(defBuffer+index+32);
 			MEM_StrCopy(defBuffer+index+33,entryName,nameLength);
 			// strip separator and file version number
@@ -730,12 +687,13 @@ bool CMscdex::GetDirectoryEntry(Bit16u drive, bool copyFlag, PhysPt pathname, Ph
 			// strip trailing period
 			size_t entrylen = strlen(entryName);
 			if (entrylen>0 && entryName[entrylen-1]=='.') entryName[entrylen-1] = 0;
-
+			
 			if (strcmp(entryName,useName)==0) {
 				//LOG(LOG_MISC,LOG_ERROR)("MSCDEX: Get DirEntry : Found : %s",useName);
 				foundName = true;
 				break;
 			}
+			
 			index += entryLength;
 		} while (index+33<=2048);
 		
@@ -1332,11 +1290,6 @@ bool MSCDEX_HasMediaChanged(Bit8u subUnit)
 		leadOut[subUnit].fr	 = 0;
 	}
 	return true;
-}
-
-void MSCDEX_SetCDInterface(int intNr, int numCD) {
-	useCdromInterface = intNr;
-	forceCD	= numCD;
 }
 
 void MSCDEX_ShutDown(Section* /*sec*/) {

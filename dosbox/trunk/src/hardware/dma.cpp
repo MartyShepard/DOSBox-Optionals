@@ -25,6 +25,7 @@
 #include "pic.h"
 #include "paging.h"
 #include "setup.h"
+#include "control.h"					
 
 DmaController *DmaControllers[2];
 
@@ -50,7 +51,7 @@ static void DMA_BlockRead(PhysPt spage,PhysPt offset,void * data,Bitu size,Bit8u
 	Bit32u dma_wrap = ((0xffff<<dma16)+dma16) | dma_wrapping;
 	for ( ; size ; size--, offset++) {
 		if (offset>(dma_wrapping<<dma16)) {
-			LOG_MSG("DMA segbound wrapping (read): %x:%x size %x [%x] wrap %x",spage,offset,size,dma16,dma_wrapping);
+			//LOG_MSG("DMA: segbound wrapping (read): %x:%x size %x [%x] wrap %x",spage,offset,size,dma16,dma_wrapping);
 		}
 		offset &= dma_wrap;
 		Bitu page = highpart_addr_page+(offset >> 12);
@@ -71,7 +72,7 @@ static void DMA_BlockWrite(PhysPt spage,PhysPt offset,void * data,Bitu size,Bit8
 	Bit32u dma_wrap = ((0xffff<<dma16)+dma16) | dma_wrapping;
 	for ( ; size ; size--, offset++) {
 		if (offset>(dma_wrapping<<dma16)) {
-			LOG_MSG("DMA segbound wrapping (write): %x:%x size %x [%x] wrap %x",spage,offset,size,dma16,dma_wrapping);
+			//LOG_MSG("DMA: segbound wrapping (write): %x:%x size %x [%x] wrap %x",spage,offset,size,dma16,dma_wrapping);
 		}
 		offset &= dma_wrap;
 		Bitu page = highpart_addr_page+(offset >> 12);
@@ -109,7 +110,7 @@ bool SecondDMAControllerAvailable(void) {
 }
 
 static void DMA_Write_Port(Bitu port,Bitu val,Bitu /*iolen*/) {
-	//LOG(LOG_DMACONTROL,LOG_ERROR)("Write %X %X",port,val);
+	//LOG(LOG_DMACONTROL,LOG_ERROR)("Write %X %X",port,val);	
 	if (port<0x10) {
 		/* write to the first DMA controller (channels 0-3) */
 		DmaControllers[0]->WriteControllerReg(port,val,1);
@@ -132,7 +133,7 @@ static void DMA_Write_Port(Bitu port,Bitu val,Bitu /*iolen*/) {
 }
 
 static Bitu DMA_Read_Port(Bitu port,Bitu iolen) {
-	//LOG(LOG_DMACONTROL,LOG_ERROR)("Read %X",port);
+	//LOG(LOG_DMACONTROL,LOG_ERROR)("Read %X",port);	
 	if (port<0x10) {
 		/* read from the first DMA controller (channels 0-3) */
 		return DmaControllers[0]->ReadControllerReg(port,iolen);
@@ -370,7 +371,7 @@ public:
 		DmaControllers[0]->DMA_WriteHandler[0x10].Install(0x81,DMA_Write_Port,IO_MB,3);
 		DmaControllers[0]->DMA_ReadHandler[0x10].Install(0x81,DMA_Read_Port,IO_MB,3);
 		DmaControllers[0]->DMA_WriteHandler[0x11].Install(0x87,DMA_Write_Port,IO_MB,1);
-		DmaControllers[0]->DMA_ReadHandler[0x11].Install(0x87,DMA_Read_Port,IO_MB,1);
+		DmaControllers[0]->DMA_ReadHandler[0x11].Install(0x87,DMA_Read_Port,IO_MB,1);		
 
 		if (IS_EGAVGA_ARCH) {
 			/* install handlers for ports 0x89-0x8B (on the second DMA controller) */

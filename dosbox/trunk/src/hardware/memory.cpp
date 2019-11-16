@@ -24,11 +24,12 @@
 #include "paging.h"
 #include "regs.h"
 
+#include "voodoo.h"				   
 #include <string.h>
 
 #define PAGES_IN_BLOCK	((1024*1024)/MEM_PAGE_SIZE)
 #define SAFE_MEMORY	32
-#define MAX_MEMORY	64
+#define MAX_MEMORY	1025
 #define MAX_PAGE_ENTRIES (MAX_MEMORY*1024*1024/4096)
 #define LFB_PAGES	512
 #define MAX_LINKS	((MAX_MEMORY*1024/4)+4096)		//Hopefully enough
@@ -39,7 +40,11 @@ struct LinkBlock {
 };
 
 static struct MemoryBlock {
+	MemoryBlock() : pages(0), handler_pages(0), reported_pages(0), phandlers(NULL), mhandles(NULL), mem_alias_pagemask(0), mem_alias_pagemask_active(0), address_bits(0) { }
+	
 	Bitu pages;
+	Bitu handler_pages;
+	Bitu reported_pages;	
 	PageHandler * * phandlers;
 	MemHandle * mhandles;
 	LinkBlock links;
@@ -51,38 +56,51 @@ static struct MemoryBlock {
 		PageHandler *mmiohandler;
 	} lfb;
 	struct {
+		Bitu		start_page;
+		Bitu		end_page;
+		Bitu		pages;
+		PageHandler *handler;
+    } lfb_mmio;		
+	struct {		
 		bool enabled;
 		Bit8u controlport;
 	} a20;
+	Bit32u mem_alias_pagemask;
+	Bit32u mem_alias_pagemask_active;
+	Bit32u address_bits;	
 } memory;
+
+Bit32u MEM_get_address_bits() {
+	return memory.address_bits;
+}
 
 HostPt MemBase;
 
+
 class IllegalPageHandler : public PageHandler {
 public:
-	IllegalPageHandler() {
-		flags=PFLAG_INIT|PFLAG_NOCODE;
+	IllegalPageHandler() { flags=PFLAG_INIT|PFLAG_NOCODE;
 	}
 	Bitu readb(PhysPt addr) {
-#if C_DEBUG
+#if defined(C_DEBUG)
 		LOG_MSG("Illegal read from %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
 #else
 		static Bits lcount=0;
 		if (lcount<1000) {
 			lcount++;
-			LOG_MSG("Illegal read from %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
+			LOG_MSG("MEM: Illegal read from %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
 		}
 #endif
 		return 0xff;
 	} 
 	void writeb(PhysPt addr,Bitu val) {
-#if C_DEBUG
+#if defined(C_DEBUG)
 		LOG_MSG("Illegal write to %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
 #else
 		static Bits lcount=0;
 		if (lcount<1000) {
 			lcount++;
-			LOG_MSG("Illegal write to %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
+			LOG_MSG("MEM: Illegal write to %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
 		}
 #endif
 	}
@@ -140,6 +158,8 @@ PageHandler * MEM_GetPageHandler(Bitu phys_page) {
 	} else if ((phys_page>=memory.lfb.start_page+0x01000000/4096) &&
 				(phys_page<memory.lfb.start_page+0x01000000/4096+16)) {
 		return memory.lfb.mmiohandler;
+	} else if (VOODOO_PCI_CheckLFBPage(phys_page)) {
+		return VOODOO_GetPageHandler();									 
 	}
 	return &illegal_page_handler;
 }
@@ -186,8 +206,32 @@ void MEM_BlockRead(PhysPt pt,void * data,Bitu size) {
 
 void MEM_BlockWrite(PhysPt pt,void const * const data,Bitu size) {
 	Bit8u const * read = reinterpret_cast<Bit8u const * const>(data);
-	while (size--) {
-		mem_writeb_inline(pt++,*read++);
+	if (size==0)
+		return;
+
+	if ((pt >> 12) == ((pt+size-1)>>12)) { // Always same TLB entry
+		HostPt tlb_addr=get_tlb_write(pt);
+		if (!tlb_addr) {
+			Bit8u val = *read++;
+			get_tlb_writehandler(pt)->writeb(pt,val);
+			tlb_addr=get_tlb_write(pt);
+			pt++; size--;
+			if (!tlb_addr) {
+				// Slow path
+				while (size--) {
+					mem_writeb_inline(pt++,*read++);
+				}
+				return;
+			}
+		}
+		// Fast path
+		memcpy(tlb_addr+pt, read, size);
+	}
+	else {
+		const Bitu current = (((pt>>12)+1)<<12) - pt;
+		Bitu remainder = size - current;
+		MEM_BlockWrite(pt, data, current);
+		MEM_BlockWrite(pt+current, reinterpret_cast<Bit8u const * const>(data)+current, remainder);
 	}
 }
 
@@ -300,7 +344,7 @@ MemHandle MEM_AllocatePages(Bitu pages,bool sequence) {
 		MemHandle * next=&ret;
 		while (pages) {
 			Bitu index=BestMatch(1);
-			if (!index) E_Exit("MEM:corruption during allocate");
+			if (!index) E_Exit("MEM: Corruption during allocate");
 			while (pages && (!memory.mhandles[index])) {
 				*next=index;
 				next=&memory.mhandles[index];
@@ -317,6 +361,11 @@ MemHandle MEM_GetNextFreePage(void) {
 }
 
 void MEM_ReleasePages(MemHandle handle) {
+	if (memory.mhandles == NULL) {
+		LOG(LOG_MISC,LOG_WARN)("MEMORY: MEM_ReleasePages() called when mhandles==NULL, nothing to release");
+		return;
+	}
+
 	while (handle>0) {
 		MemHandle next=memory.mhandles[handle];
 		memory.mhandles[handle]=0;
@@ -512,7 +561,7 @@ void mem_writed(PhysPt address,Bit32u val) {
 
 static void write_p92(Bitu port,Bitu val,Bitu iolen) {	
 	// Bit 0 = system reset (switch back to real mode)
-	if (val&1) E_Exit("XMS: CPU reset via port 0x92 not supported.");
+	if (val&1) E_Exit("MEM: XMS - CPU reset via port 0x92 not supported.");
 	memory.a20.controlport = val & ~2;
 	MEM_A20_Enable((val & 2)>0);
 }
@@ -552,19 +601,20 @@ public:
 		if (memsize < 1) memsize = 1;
 		/* max 63 to solve problems with certain xms handlers */
 		if (memsize > MAX_MEMORY-1) {
-			LOG_MSG("Maximum memory size is %d MB",MAX_MEMORY - 1);
+			LOG_MSG("MEM: Maximum memory size is %d MB",MAX_MEMORY - 1);
 			memsize = MAX_MEMORY-1;
 		}
 		if (memsize > SAFE_MEMORY-1) {
-			LOG_MSG("Memory sizes above %d MB are NOT recommended.",SAFE_MEMORY - 1);
-			LOG_MSG("Stick with the default values unless you are absolutely certain.");
+			LOG_MSG("MEM: Memory sizes is now %d.\n"
+					"     Above %d MB are NOT recommended.",memsize,SAFE_MEMORY - 1);
+			LOG_MSG("MEM: Stick with the default values unless you are absolutely certain.\n");
 		}
-		MemBase = new Bit8u[memsize*1024*1024];
+		MemBase = new(std::nothrow) Bit8u[memsize*1024ul*1024ul];
 		if (!MemBase) E_Exit("Can't allocate main memory of %d MB",memsize);
 		/* Clear the memory, as new doesn't always give zeroed memory
 		 * (Visual C debug mode). We want zeroed memory though. */
-		memset((void*)MemBase,0,memsize*1024*1024);
-		memory.pages = (memsize*1024*1024)/4096;
+		memset((void*)MemBase,0,memsize*1024ul*1024ul);
+		memory.pages = (memsize*1024ul*1024ul)/4096ul;
 		/* Allocate the data for the different page information blocks */
 		memory.phandlers=new  PageHandler * [memory.pages];
 		memory.mhandles=new MemHandle [memory.pages];

@@ -64,9 +64,9 @@ typedef PhysPt EAPoint;
 Bits CPU_Core_Full_Run(void) {
 	FullData inst;	
 	while (CPU_Cycles-->0) {
-#if C_DEBUG
+#if defined(C_DEBUG)
 		cycle_count++;
-#if C_HEAVY_DEBUG
+#if defined(C_HEAVY_DEBUG)
 		if (DEBUG_HeavyIsBreakpoint()) {
 			FillFlags();
 			return debugCallback;

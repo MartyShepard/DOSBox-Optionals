@@ -1130,7 +1130,7 @@ CSerial::CSerial(Bitu id, CommandLine* cmd) {
 	txOverrunErrors=0;
 	overrunIF0=0;
 	breakErrors=0;
-
+	
 	for (Bitu i = 0; i <= 7; i++) {
 		WriteHandler[i].Install (i + base, SERIAL_Write, IO_MB);
 		ReadHandler[i].Install (i + base, SERIAL_Read, IO_MB);

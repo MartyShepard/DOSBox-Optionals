@@ -118,6 +118,10 @@ struct VideoModeBlock {
 extern VideoModeBlock ModeList_VGA[];
 extern VideoModeBlock * CurMode;
 
+/* Patches for Various Screenmodes */
+extern VideoModeBlock ModeTableA_S3_Fixes[];
+extern VideoModeBlock ModeTableA_S3_32Bit[];
+
 typedef struct {
 	struct {
 		RealPt font_8_first;
@@ -140,14 +144,34 @@ typedef struct {
 		Bit16u pmode_interface_start;
 		Bit16u pmode_interface_window;
 		Bit16u pmode_interface_palette;
+		Bit16u vesa_alloc_modes;
 		Bit16u used;
 	} rom;
 	Bit16u vesa_setmode;
+	/* Custom S3 VGA /////////////////////////////////////////////////////////////////////////////////////////////*/
+	Bit8u vesa_refresh[14];
+	bool vesa_no24bpp;
+	/* Custom S3 VGA /////////////////////////////////////////////////////////////////////////////////////////////*/
 	bool vesa_nolfb;
 	bool vesa_oldvbe;
+
+	bool bModePatch0x013;
+	bool bModePatch0x153;
+	bool bModePatch0x166;	
+	bool bModePatch0x211;
+	bool bVesaPatch32bit;
+	bool bExtraVGA_Debug;
+	bool LogingCountMode;
+	bool bAspectRatio;
+	int  nModeListCut;	
+	bool nModeListLog;
+
+	
 } Int10Data;
 
 extern Int10Data int10;
+
+
 
 static inline Bit8u CURSOR_POS_COL(Bit8u page) {
 	return real_readb(BIOSMEM_SEG,BIOSMEM_CURSOR_POS+page*2);

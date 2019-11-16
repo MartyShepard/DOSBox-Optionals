@@ -46,6 +46,7 @@
 #define CPU_ARCHTYPE_486OLDSLOW		0x40
 #define CPU_ARCHTYPE_486NEWSLOW		0x45
 #define CPU_ARCHTYPE_PENTIUMSLOW	0x50
+#define CPU_ARCHTYPE_PPROSLOW   	0x60 // Via Patch
 
 /* CPU Cycle Timing */
 extern Bit32s CPU_Cycles;

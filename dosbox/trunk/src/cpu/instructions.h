@@ -389,6 +389,7 @@
 	lflags.type=t_SHLw;
 
 #define SHLD(op1,op2,load,save)								\
+	if (!op2) break;										\
 	lf_var1d=load(op1);lf_var2b=op2;				\
 	lf_resd=lf_var1d << lf_var2b;			\
 	save(op1,lf_resd);								\
@@ -439,6 +440,7 @@
 	lflags.type=t_SARw;
 
 #define SARD(op1,op2,load,save)								\
+	if (!op2) break;								\
 	lf_var2b=op2;lf_var1d=load(op1);			\
 	if (lf_var1d & 0x80000000) {						\
 		lf_resd=(lf_var1d >> lf_var2b)|		\
@@ -569,7 +571,6 @@
 	} else EXCEPTION(0);									\
 }
 
-
 //Took this from bochs, i seriously hate these weird bcd opcodes
 #define AAD(op1)											\
 	{														\
@@ -586,10 +587,16 @@
 		lflags.type=t_UNKNOWN;								\
 	}
 
+////////////////////////////////////////////////////////////////////// (A320 Fix)
+#define PARITY16(x)  (parity_lookup[((x)>>8)&0xff]^parity_lookup[(x)&0xff]^FLAG_PF)
+#define PARITY32(x)  (PARITY16((x)&0xffff)^PARITY16(((x)>>16)&0xffff)^FLAG_PF)
+////////////////////////////////////////////////////////////////////// (A320 Fix)
+
 #define MULB(op1,load,save)									\
 	reg_ax=reg_al*load(op1);								\
 	FillFlagsNoCFOF();										\
 	SETFLAGBIT(ZF,reg_al == 0);								\
+	SETFLAGBIT(PF,PARITY16(reg_ax));						\
 	if (reg_ax & 0xff00) {									\
 		SETFLAGBIT(CF,true);SETFLAGBIT(OF,true);			\
 	} else {												\
@@ -603,6 +610,7 @@
 	reg_dx=(Bit16u)(tempu >> 16);							\
 	FillFlagsNoCFOF();										\
 	SETFLAGBIT(ZF,reg_ax == 0);								\
+	SETFLAGBIT(PF,PARITY16(reg_ax)^PARITY16(reg_dx)^FLAG_PF);\
 	if (reg_dx) {											\
 		SETFLAGBIT(CF,true);SETFLAGBIT(OF,true);			\
 	} else {												\
@@ -617,6 +625,7 @@
 	reg_edx=(Bit32u)(tempu >> 32);							\
 	FillFlagsNoCFOF();										\
 	SETFLAGBIT(ZF,reg_eax == 0);							\
+	SETFLAGBIT(PF,PARITY32(reg_eax)^PARITY32(reg_edx)^FLAG_PF);\
 	if (reg_edx) {											\
 		SETFLAGBIT(CF,true);SETFLAGBIT(OF,true);			\
 	} else {												\
@@ -634,7 +643,13 @@
 	if (quo>0xff) EXCEPTION(0);								\
 	reg_ah=rem;												\
 	reg_al=quo8;											\
-	SETFLAGBIT(OF,false);									\
+	FillFlags();											\
+	SETFLAGBIT(AF,0);/*FIXME*/								\
+	SETFLAGBIT(SF,0);/*FIXME*/								\
+	SETFLAGBIT(OF,0);/*FIXME*/								\
+	SETFLAGBIT(ZF,(rem==0)&&((quo8&1)!=0));					\
+	SETFLAGBIT(CF,((rem&3) >= 1 && (rem&3) <= 2)); 			\
+	SETFLAGBIT(PF,parity_lookup[rem&0xff]^parity_lookup[quo8&0xff]^FLAG_PF);\
 }
 
 
@@ -642,20 +657,26 @@
 {															\
 	Bitu val=load(op1);										\
 	if (val==0)	EXCEPTION(0);								\
-	Bitu num=((Bit32u)reg_dx<<16)|reg_ax;							\
+	Bitu num=((Bit32u)reg_dx<<16)|reg_ax;					\
 	Bitu quo=num/val;										\
 	Bit16u rem=(Bit16u)(num % val);							\
 	Bit16u quo16=(Bit16u)(quo&0xffff);						\
 	if (quo!=(Bit32u)quo16) EXCEPTION(0);					\
 	reg_dx=rem;												\
 	reg_ax=quo16;											\
-	SETFLAGBIT(OF,false);									\
+	FillFlags();											\
+	SETFLAGBIT(AF,0);/*FIXME*/								\
+	SETFLAGBIT(SF,0);/*FIXME*/								\
+	SETFLAGBIT(OF,0);/*FIXME*/								\
+	SETFLAGBIT(ZF,(rem==0)&&((quo16&1)!=0));				\
+	SETFLAGBIT(CF,((rem&3) >= 1 && (rem&3) <= 2)); 			\
+	SETFLAGBIT(PF,PARITY16(rem&0xffff)^PARITY16(quo16&0xffff)^FLAG_PF);\
 }
 
 #define DIVD(op1,load,save)									\
 {															\
 	Bitu val=load(op1);										\
-	if (val==0) EXCEPTION(0);									\
+	if (val==0) EXCEPTION(0);								\
 	Bit64u num=(((Bit64u)reg_edx)<<32)|reg_eax;				\
 	Bit64u quo=num/val;										\
 	Bit32u rem=(Bit32u)(num % val);							\
@@ -663,7 +684,13 @@
 	if (quo!=(Bit64u)quo32) EXCEPTION(0);					\
 	reg_edx=rem;											\
 	reg_eax=quo32;											\
-	SETFLAGBIT(OF,false);									\
+	FillFlags();											\
+	SETFLAGBIT(AF,0);/*FIXME*/								\
+	SETFLAGBIT(SF,0);/*FIXME*/								\
+	SETFLAGBIT(OF,0);/*FIXME*/								\
+	SETFLAGBIT(ZF,(rem==0)&&((quo32&1)!=0));				\
+	SETFLAGBIT(CF,((rem&3) >= 1 && (rem&3) <= 2)); 			\
+	SETFLAGBIT(PF,PARITY32(rem&0xffffffff)^PARITY32(quo32&0xffffffff)^FLAG_PF);\
 }
 
 
@@ -677,14 +704,20 @@
 	if (quo!=(Bit16s)quo8s) EXCEPTION(0);					\
 	reg_ah=rem;												\
 	reg_al=quo8s;											\
-	SETFLAGBIT(OF,false);									\
+	FillFlags();											\
+	SETFLAGBIT(AF,0);/*FIXME*/								\
+	SETFLAGBIT(SF,0);/*FIXME*/								\
+	SETFLAGBIT(OF,0);/*FIXME*/								\
+	SETFLAGBIT(ZF,(rem==0)&&((quo8s&1)!=0));				\
+	SETFLAGBIT(CF,((rem&3) >= 1 && (rem&3) <= 2)); 			\
+	SETFLAGBIT(PF,parity_lookup[rem&0xff]^parity_lookup[quo8s&0xff]^FLAG_PF);\
 }
 
 
 #define IDIVW(op1,load,save)								\
 {															\
 	Bits val=(Bit16s)(load(op1));							\
-	if (val==0) EXCEPTION(0);									\
+	if (val==0) EXCEPTION(0);								\
 	Bits num=(Bit32s)((reg_dx<<16)|reg_ax);					\
 	Bits quo=num/val;										\
 	Bit16s rem=(Bit16s)(num % val);							\
@@ -692,13 +725,19 @@
 	if (quo!=(Bit32s)quo16s) EXCEPTION(0);					\
 	reg_dx=rem;												\
 	reg_ax=quo16s;											\
-	SETFLAGBIT(OF,false);									\
+	FillFlags();											\
+	SETFLAGBIT(AF,0);/*FIXME*/								\
+	SETFLAGBIT(SF,0);/*FIXME*/								\
+	SETFLAGBIT(OF,0);/*FIXME*/								\
+	SETFLAGBIT(ZF,(rem==0)&&((quo16s&1)!=0));				\
+	SETFLAGBIT(CF,((rem&3) >= 1 && (rem&3) <= 2)); 			\
+	SETFLAGBIT(PF,PARITY16(rem&0xffff)^PARITY16(quo16s&0xffff)^FLAG_PF);\
 }
 
 #define IDIVD(op1,load,save)								\
 {															\
 	Bits val=(Bit32s)(load(op1));							\
-	if (val==0) EXCEPTION(0);									\
+	if (val==0) EXCEPTION(0);								\
 	Bit64s num=(((Bit64u)reg_edx)<<32)|reg_eax;				\
 	Bit64s quo=num/val;										\
 	Bit32s rem=(Bit32s)(num % val);							\

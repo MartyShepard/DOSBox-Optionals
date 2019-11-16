@@ -163,6 +163,7 @@ bool fatFile::Write(Bit8u * data, Bit16u *size) {
 	sizedec = *size;
 	sizecount = 0;
 
+
 	if(seekpos < filelength && *size == 0) {
 		/* Truncate file to current position */
 		myDrive->deleteClustChain(firstCluster, seekpos);
@@ -187,7 +188,7 @@ bool fatFile::Write(Bit8u * data, Bit16u *size) {
 		if(filelength > seekpos) filelength = seekpos;
 		if(*size == 0) goto finalizeWrite;
 	}
-
+	
 	while(sizedec != 0) {
 		/* Increase filesize if necessary */
 		if(seekpos >= filelength) {
@@ -215,7 +216,7 @@ bool fatFile::Write(Bit8u * data, Bit16u *size) {
 				myDrive->readSector(currentSector, sectorBuffer);
 				loadedSector = true;
 			}
-			filelength = seekpos+1;
+			filelength = seekpos+1;			
 		}
 		sectorBuffer[curSectOff++] = data[sizecount++];
 		seekpos++;
@@ -236,6 +237,7 @@ bool fatFile::Write(Bit8u * data, Bit16u *size) {
 			}
 			curSectOff = 0;
 			myDrive->readSector(currentSector, sectorBuffer);
+
 			loadedSector = true;
 		}
 		--sizedec;
@@ -542,7 +544,7 @@ Bit32u fatDrive::getSectorSize(void) {
 Bit32u fatDrive::getClusterSize(void) {
 	return bootbuffer.sectorspercluster * bootbuffer.bytespersector;
 }
-
+ 
 Bit32u fatDrive::getAbsoluteSectFromBytePos(Bit32u startClustNum, Bit32u bytePos) {
 	return  getAbsoluteSectFromChain(startClustNum, bytePos / bootbuffer.bytespersector);
 }
@@ -624,7 +626,7 @@ void fatDrive::deleteClustChain(Bit32u startCluster, Bit32u bytePos) {
 		} else if(countClust > endClust) {
 			/* Mark cluster as empty */
 			setClusterValue(currentClust, 0);
-		}
+		}		
 		if(isEOF) break;
 		currentClust = testvalue;
 		countClust++;
@@ -704,15 +706,18 @@ fatDrive::fatDrive(const char *sysFilename, Bit32u bytesector, Bit32u cylsector,
 		imgDTAPtr = RealMake(imgDTASeg, 0);
 		imgDTA    = new DOS_DTA(imgDTAPtr);
 	}
-
-	diskfile = fopen_wrap(sysFilename, "rb+");
+/* DOSBox-MB IMGMAKE patch. ========================================================================= */
+	diskfile = fopen64(sysFilename, "rb+");
+/* DOSBox-MB IMGMAKE patch. ========================================================================= */	
 	if(!diskfile) {created_successfully = false;return;}
-	fseek(diskfile, 0L, SEEK_END);
-	filesize = (Bit32u)ftell(diskfile) / 1024L;
+/* DOSBox-MB IMGMAKE patch. ========================================================================= */	
+	fseeko64(diskfile, 0L, SEEK_END);
+	filesize = (Bit32u)(ftello64(diskfile) / 1024L);
+/* DOSBox-MB IMGMAKE patch. ========================================================================= */
 	is_hdd = (filesize > 2880);
-
+	
 	/* Load disk image */
-	loadedDisk = new imageDisk(diskfile, sysFilename, filesize, is_hdd);
+	loadedDisk = new(std::nothrow) imageDisk(diskfile, (Bit8u *)sysFilename, filesize, is_hdd);
 	if(!loadedDisk) {
 		created_successfully = false;
 		return;
@@ -731,7 +736,7 @@ fatDrive::fatDrive(const char *sysFilename, Bit32u bytesector, Bit32u cylsector,
 		for(m=0;m<4;m++) {
 			/* Pick the first available partition */
 			if(mbrData.pentry[m].partSize != 0x00) {
-				LOG_MSG("Using partition %d on drive; skipping %d sectors", m, mbrData.pentry[m].absSectStart);
+				LOG_MSG("HDD: Using Partition %d On Drive. Skip %d Sectors", m, mbrData.pentry[m].absSectStart);
 				startSector = mbrData.pentry[m].absSectStart;
 				break;
 			}
@@ -742,7 +747,7 @@ fatDrive::fatDrive(const char *sysFilename, Bit32u bytesector, Bit32u cylsector,
 		partSectOff = startSector;
 	} else {
 		/* Get floppy disk parameters based on image size */
-		loadedDisk->Get_Geometry(&headscyl, &cylinders, &cylsector, &bytesector);
+		loadedDisk->Get_Geometry(&headscyl, &cylinders, &cylsector, &bytesector);		
 		/* Floppy disks don't have partitions */
 		partSectOff = 0;
 	}
@@ -752,7 +757,7 @@ fatDrive::fatDrive(const char *sysFilename, Bit32u bytesector, Bit32u cylsector,
 		created_successfully = false;
 		return;
 	}
-
+	
 	loadedDisk->Read_AbsoluteSector(0+partSectOff,&bootbuffer);
 
 	if (!is_hdd) {
@@ -823,16 +828,24 @@ fatDrive::fatDrive(const char *sysFilename, Bit32u bytesector, Bit32u cylsector,
 		(bootbuffer.headcount > headscyl) ||
 		(bootbuffer.sectorspertrack == 0) ||
 		(bootbuffer.sectorspertrack > cylsector)) {
-		created_successfully = false;
+			
+/* DOSBox-MB IMGMAKE patch. ========================================================================= */		
+		/* FAT32 not implemented yet */
+		//created_successfully = false;
+		LOG_MSG("HD: FAT32 not Really Supported, Mount Image Only\n");
+		fattype = FAT32;	// Avoid parsing dir entries, see fatDrive::FindFirst()...should work for unformatted images as well
+/* DOSBox-MB IMGMAKE patch. ========================================================================= */		
 		return;
 	}
 
 	/* Filesystem must be contiguous to use absolute sectors, otherwise CHS will be used */
 	absolute = ((bootbuffer.headcount == headscyl) && (bootbuffer.sectorspertrack == cylsector));
-
+ 
+ 
 	/* Determine FAT format, 12, 16 or 32 */
 
 	/* Get size of root dir in sectors */
+
 	Bit32u RootDirSectors = ((bootbuffer.rootdirentries * 32) + (bootbuffer.bytespersector - 1)) / bootbuffer.bytespersector;
 	Bit32u DataSectors;
 	if(bootbuffer.totalsectorcount != 0) {
@@ -998,6 +1011,9 @@ bool fatDrive::FileUnlink(char * name) {
 
 bool fatDrive::FindFirst(char *_dir, DOS_DTA &dta,bool /*fcb_findfirst*/) {
 	direntry dummyClust;
+/* DOSBox-MB IMGMAKE patch. ========================================================================= */	
+	if(fattype==FAT32) return false;
+/* DOSBox-MB IMGMAKE patch. ========================================================================= */	
 #if 0
 	Bit8u attr;char pattern[DOS_NAMELENGTH_ASCII];
 	dta.GetSearchParams(attr,pattern);
@@ -1224,7 +1240,7 @@ bool fatDrive::directoryChange(Bit32u dirClustNumber, direntry *useEntry, Bit32s
 	}
 	if(tmpsector != 0) {
         memcpy(&sectbuf[entryoffset], useEntry, sizeof(direntry));
-		writeSector(tmpsector, sectbuf);
+		loadedDisk->Write_AbsoluteSector(tmpsector, sectbuf);
         return true;
 	} else {
 		return false;

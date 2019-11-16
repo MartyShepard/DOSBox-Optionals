@@ -97,7 +97,7 @@ public:
 		case 0xA0:
 			snd_seq_ev_set_keypress(&ev, chanID, msg[1], msg[2]);
 			send_event(1);
-			break;
+			break;			
 		case 0xB0:
 			snd_seq_ev_set_controller(&ev, chanID, msg[1], msg[2]);
 			send_event(1);

@@ -387,7 +387,7 @@ static INLINE void gen_lea(HostReg dest_reg,Bitu scale,Bits imm) {
 
 // generate a call to a parameterless function
 static void INLINE gen_call_function_raw(void * func) {
-#if C_DEBUG
+#if defined(C_DEBUG)
 	if ((cache.pos ^ func) & 0xf0000000) LOG_MSG("jump overflow\n");
 #endif
 	temp1_valid = false;
@@ -474,7 +474,7 @@ static Bit32u INLINE gen_create_branch_on_nonzero(HostReg reg,bool dword) {
 
 // calculate relative offset and fill it into the location pointed to by data
 static void INLINE gen_fill_branch(DRC_PTR_SIZE_IM data) {
-#if C_DEBUG
+#if defined(C_DEBUG)
 	Bits len=(Bit32u)cache.pos-data;
 	if (len<0) len=-len;
 	if (len>126) LOG_MSG("Big jump %d",len);

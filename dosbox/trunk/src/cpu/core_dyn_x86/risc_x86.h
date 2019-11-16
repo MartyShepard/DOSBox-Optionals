@@ -388,7 +388,7 @@ static void gen_dop_byte_imm_mem(DualOps op,DynReg * dr1,Bit8u di1,void* data) {
 	case DOP_AND:	tmp=0x0522; break;
 	case DOP_OR:	tmp=0x050a; break;
 	case DOP_TEST:	tmp=0x0584; goto nochange;	//Doesn't change
-	case DOP_MOV:	tmp=0x058A; break;
+	case DOP_MOV:	tmp=0x058A; break;			//SVN r4252 chnaged from 0x0585;
 	default:
 		IllegalOption("gen_dop_byte_imm_mem");
 	}
@@ -769,7 +769,7 @@ static void gen_call_function(void * func,char const* ops,...) {
 			}
 			ops++;
 		}
-		va_end(params);
+		va_end(params);		
 
 #if defined (MACOSX)
 		/* align stack */
@@ -965,7 +965,7 @@ static Bit8u * gen_create_branch(BranchTypes type) {
 }
 
 static void gen_fill_branch(Bit8u * data,Bit8u * from=cache.pos) {
-#if C_DEBUG
+#if defined(C_DEBUG)
 	Bits len=from-data;
 	if (len<0) len=-len;
 	if (len>126) LOG_MSG("Big jump %d",len);

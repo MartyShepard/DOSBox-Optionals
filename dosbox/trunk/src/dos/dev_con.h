@@ -135,7 +135,7 @@ bool device_CON::Write(Bit8u * data,Bit16u * size) {
 					Output(' ');
 					col=CURSOR_POS_COL(page);
 				} while(col%8);
-				count++;
+				count++;				
 				continue;
 			} else { 
 				Output(data[count]);

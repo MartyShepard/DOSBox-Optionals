@@ -356,7 +356,7 @@ switch (inst.code.op) {
 		CPU_JMP(true,inst_op2_d,inst_op1_d,GetIP());
 		continue;
 	case O_INT:
-#if C_DEBUG
+#if defined(C_DEBUG)
 		FillFlags();
 		if (((inst.entry & 0xFF)==0xcc) && DEBUG_Breakpoint()) 
 			return debugCallback;

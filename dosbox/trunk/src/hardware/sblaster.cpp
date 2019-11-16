@@ -73,7 +73,7 @@ enum DSP_MODES {
 	MODE_DMA_MASKED
 
 };
- 
+
 enum DMA_MODES {
 	DSP_DMA_NONE,
 	DSP_DMA_2,DSP_DMA_3,DSP_DMA_4,DSP_DMA_8,
@@ -93,7 +93,7 @@ struct SB_INFO {
 		Bit32u singlesize;		//size for single cycle transfers
 		Bit32u autosize;		//size for auto init transfers
 		Bitu left;				//Left in active cycle
-		Bitu min;			
+		Bitu min;
 		Bit64u start;
 		union {
 			Bit8u  b8[DMA_BUFSIZE];
@@ -248,7 +248,9 @@ static void DSP_SetSpeaker(bool how) {
 }
 
 static INLINE void SB_RaiseIRQ(SB_IRQS type) {
-	LOG(LOG_SB,LOG_NORMAL)("Raising IRQ");
+	#if defined(C_DEBUG)
+		//LOG(LOG_SB,LOG_NORMAL)("Raising IRQ");
+	#endif
 	switch (type) {
 	case SB_IRQ_8:
 		if (sb.irq.pending_8bit) {
@@ -275,7 +277,6 @@ static INLINE void DSP_FlushData(void) {
 	sb.dsp.out.used=0;
 	sb.dsp.out.pos=0;
 }
-
 static double last_dma_callback = 0.0f;
 
 static void DSP_DMA_CallBack(DmaChannel * chan, DMAEvent event) {
@@ -295,7 +296,7 @@ static void DSP_DMA_CallBack(DmaChannel * chan, DMAEvent event) {
 			min_size *= 2;
 			if (sb.dma.left > min_size) {
 				if (s > (sb.dma.left-min_size)) s = sb.dma.left - min_size;
-				if (s) GenerateDMASound(s);
+					if (s) GenerateDMASound(s);
 			}
 			sb.mode = MODE_DMA_MASKED;
 //			DSP_ChangeMode(MODE_DMA_MASKED);
@@ -310,7 +311,8 @@ static void DSP_DMA_CallBack(DmaChannel * chan, DMAEvent event) {
 		}
 	}
 	else {
-		E_Exit("Unknown sblaster dma event");
+		//E_Exit("Unknown sblaster dma event");
+		LOG_MSG("Unknown Soundblater DMA Event");
 	}
 }
 
@@ -418,7 +420,7 @@ static void GenerateDMASound(Bitu size) {
 	Bitu read=0;Bitu done=0;Bitu i=0;
 	last_dma_callback = PIC_FullIndex();
 
-	//Determine how much you should read
+	//Determine how much you should read	
 	if(sb.dma.autoinit) {
 		if (sb.dma.left <= size) 
 			size = sb.dma.left;
@@ -427,7 +429,7 @@ static void GenerateDMASound(Bitu size) {
 			size = sb.dma.left;
 	}
 
-	//Read the actual data, process it and send it off to the mixer
+	//Read the actual data, process it and send it off to the mixer	
 	switch (sb.dma.mode) {
 	case DSP_DMA_2:
 		read=sb.dma.chan->Read(size,sb.dma.buf.b8);
@@ -525,7 +527,7 @@ static void GenerateDMASound(Bitu size) {
 		if (sb.dma.mode==DSP_DMA_16_ALIASED) read=read<<1;
 		break;
 	default:
-		LOG_MSG("Unhandled dma mode %d",sb.dma.mode);
+		LOG_MSG("SOUNDBLASTER: Unhandled dma mode %d",sb.dma.mode);
 		sb.mode=MODE_NONE;
 		return;
 	}
@@ -548,16 +550,16 @@ static void GenerateDMASound(Bitu size) {
 			else {
 				//A single size transfer is still waiting, handle that now
 				sb.dma.left = sb.dma.singlesize;
-				sb.dma.singlesize = 0;
+				sb.dma.singlesize = 0;			
 				LOG(LOG_SB, LOG_NORMAL)("Switch to Single cycle transfer begun");
-			}
+			}			
 		} else {
 			if (!sb.dma.autosize) {
 				LOG(LOG_SB,LOG_NORMAL)("Auto-init transfer with 0 size");
 				sb.mode=MODE_NONE;
 			}
 			//Continue with a new auto init transfer
-			sb.dma.left = sb.dma.autosize;
+			sb.dma.left = sb.dma.autosize;			
 
 		}
 	}
@@ -588,7 +590,7 @@ static void DMA_Silent_Event(Bitu val) {
 	if (!sb.dma.left) {
 		if (sb.dma.mode >= DSP_DMA_16) SB_RaiseIRQ(SB_IRQ_16);
 		else SB_RaiseIRQ(SB_IRQ_8);
-		//FIX, use the auto to single switch mechanics here as well or find a better way to silence
+		//FIX, use the auto to single switch mechanics here as well or find a better way to silence		
 		if (sb.dma.autoinit) 
 			sb.dma.left=sb.dma.autosize;
 		else {
@@ -639,7 +641,7 @@ static void DSP_DoDMATransfer(DMA_MODES mode,Bitu freq,bool autoinit, bool stere
 	//Starting a new transfer will clear any active irqs?
 	sb.irq.pending_8bit = false;
 	sb.irq.pending_16bit = false;
-	PIC_DeActivateIRQ(sb.hw.irq);
+	PIC_DeActivateIRQ(sb.hw.irq);	
 
 	switch (mode) {
 	case DSP_DMA_2:
@@ -687,7 +689,7 @@ static void DSP_DoDMATransfer(DMA_MODES mode,Bitu freq,bool autoinit, bool stere
 	}
 	sb.dma.autoinit = autoinit;
 	sb.dma.mode = mode;
-	sb.dma.stereo = stereo;
+	sb.dma.stereo = stereo;	
 	//Double the reading speed for stereo mode
 	if (sb.dma.stereo) 
 		sb.dma.mul*=2;
@@ -697,9 +699,9 @@ static void DSP_DoDMATransfer(DMA_MODES mode,Bitu freq,bool autoinit, bool stere
 
 	PIC_RemoveEvents(END_DMA_Event);
 	//Set to be masked, the dma call can change this again.
-	sb.mode = MODE_DMA_MASKED;
+	sb.mode = MODE_DMA_MASKED;	
 	sb.dma.chan->Register_Callback(DSP_DMA_CallBack);
-
+	
 #if (C_DEBUG)
 	LOG(LOG_SB, LOG_NORMAL)("DMA Transfer:%s %s %s freq %d rate %d size %d",
 		type,
@@ -712,7 +714,7 @@ static void DSP_DoDMATransfer(DMA_MODES mode,Bitu freq,bool autoinit, bool stere
 
 static void DSP_PrepareDMA_Old(DMA_MODES mode,bool autoinit,bool sign) {
 	sb.dma.sign=sign;
-	if (!autoinit) 
+	if (!autoinit)
 		sb.dma.singlesize=1+sb.dsp.in.data[0]+(sb.dsp.in.data[1] << 8);
 	sb.dma.chan=GetDMAChannel(sb.hw.dma8);
 	DSP_DoDMATransfer(mode,sb.freq / (sb.mixer.stereo ? 2 : 1), autoinit, sb.mixer.stereo);
@@ -1017,11 +1019,11 @@ static void DSP_DoCommand(void) {
 		}
 		break;
 	case 0xd9:  /* Exit Autoinitialize 16-bit */
-		DSP_SB16_ONLY;
+			DSP_SB16_ONLY;
 	case 0xda:	/* Exit Autoinitialize 8-bit */
-		DSP_SB2_ABOVE;
-		LOG(LOG_SB, LOG_NORMAL)("Exit Autoinit command");
-		sb.dma.autoinit=false;		//Should stop itself
+			DSP_SB2_ABOVE;
+			LOG(LOG_SB, LOG_NORMAL)("Exit Autoinit command");
+			sb.dma.autoinit=false;		//Should stop itself
 		break;
 	case 0xe0:	/* DSP Identification - SB2.0+ */
 		DSP_FlushData();
@@ -1375,8 +1377,9 @@ static void CTMIXER_Write(Bit8u val) {
 		break;
 	default:
 
-		if(	((sb.type == SBT_PRO1 || sb.type == SBT_PRO2) && sb.mixer.index==0x0c) || /* Input control on SBPro */
-			 (sb.type == SBT_16 && sb.mixer.index >= 0x3b && sb.mixer.index <= 0x47)) /* New SB16 registers */
+		if(	((sb.type == SBT_PRO1 || sb.type == SBT_PRO2) && sb.mixer.index == 0x0c) || 	/* Input control on SBPro */
+		   /*(sb.type == SBT_16 && sb.mixer.index >= 0x3b && sb.mixer.index <= 0x47)) 		/* New SB16 registers */
+			 (sb.type == SBT_16 && sb.mixer.index >= 0x3b && sb.mixer.index <= 0x83)) 		/* New SB16 registers */			 
 			sb.mixer.unhandled[sb.mixer.index] = val;
 		LOG(LOG_SB,LOG_WARN)("MIXER:Write %X to unhandled index %X",val,sb.mixer.index);
 	}
@@ -1479,11 +1482,12 @@ static Bit8u CTMIXER_Read(void) {
 				((sb.type == SBT_16) ? 0x20 : 0);
 	default:
 		if (	((sb.type == SBT_PRO1 || sb.type == SBT_PRO2) && sb.mixer.index==0x0c) || /* Input control on SBPro */
-			(sb.type == SBT_16 && sb.mixer.index >= 0x3b && sb.mixer.index <= 0x47)) /* New SB16 registers */
+			//(sb.type == SBT_16 && sb.mixer.index >= 0x3b && sb.mixer.index <= 0x47)) /* New SB16 registers */
+			(sb.type == SBT_16 && sb.mixer.index >= 0x3b && sb.mixer.index <= 0x83)) /* New SB16 registers */
 			ret = sb.mixer.unhandled[sb.mixer.index];
 		else
 			ret=0xa;
-		LOG(LOG_SB,LOG_WARN)("MIXER:Read from unhandled index %X",sb.mixer.index);
+		//LOG(LOG_SB,LOG_WARN)("MIXER:Read from unhandled index %X",sb.mixer.index);
 	}
 	return ret;
 }

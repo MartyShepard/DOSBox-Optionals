@@ -23,8 +23,11 @@
 #include "pic.h"
 #include "timer.h"
 #include "setup.h"
+#include "control.h"
 
 #define PIC_QUEUESIZE 512
+
+bool CPU_RealTest = false;
 
 struct PIC_Controller {
 	Bitu icw_words;
@@ -257,8 +260,8 @@ static void write_data(Bitu port,Bitu val,Bitu iolen) {
 		
 		LOG(LOG_PIC,LOG_NORMAL)("%d:ICW 4 %X",port==0x21 ? 0 : 1,val);
 
-		if ((val&0x01)==0) E_Exit("PIC:ICW4: %x, 8085 mode not handled",val);
-		if ((val&0x10)!=0) LOG_MSG("PIC:ICW4: %x, special fully-nested mode not handled",val);
+		if ((val&0x01)==0) E_Exit("PIC: ICW4: %x, 8085 mode not handled",val);
+		if ((val&0x10)!=0) LOG_MSG("PIC: ICW4: %x, special fully-nested mode not handled",val);
 
 		if(pic->icw_index++ >= pic->icw_words) pic->icw_index=0;
 		break;
@@ -536,11 +539,24 @@ void TIMER_AddTickHandler(TIMER_TickHandler handler) {
 	firstticker=newticker;
 }
 
+static unsigned long PIC_benchstart = 0;
+static unsigned long PIC_tickstart = 0;
+
 void TIMER_AddTick(void) {
 	/* Setup new amount of cycles for PIC */
+		PIC_Ticks++;
+	if (CPU_RealTest){		
+		if ((PIC_Ticks&0x3fff) == 0) {
+			unsigned long ticks = GetTicks();
+			int delta = (PIC_Ticks-PIC_tickstart)*10000/(ticks-PIC_benchstart)+5;
+			LOG_MSG("PIC: DOSBox Time: %d.%d of real time\n",delta/100,(delta/10)%10);
+			PIC_benchstart = ticks;
+			PIC_tickstart = PIC_Ticks;
+		}
+	}
 	CPU_CycleLeft=CPU_CycleMax;
 	CPU_Cycles=0;
-	PIC_Ticks++;
+	//PIC_Ticks++;
 	/* Go through the list of scheduled events and lower their index with 1000 */
 	PICEntry * entry=pic_queue.next_entry;
 	while (entry) {
@@ -606,6 +622,9 @@ public:
 		pic_queue.entries[PIC_QUEUESIZE-1].next=0;
 		pic_queue.free_entry=&pic_queue.entries[0];
 		pic_queue.next_entry=0;
+		
+		Section_prop *section = static_cast<Section_prop *>(control->GetSection("cpu"));
+		CPU_RealTest = section->Get_bool("speedmeter");;
 	}
 
 	~PIC_8259A(){

@@ -1,4 +1,4 @@
-/*
+ /*
  *  Copyright (C) 2002-2019  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -35,7 +35,7 @@ class PageHandler;
 enum VGAModes {
 	M_CGA2, M_CGA4,
 	M_EGA, M_VGA,
-	M_LIN4, M_LIN8, M_LIN15, M_LIN16, M_LIN32,
+	M_LIN4, M_LIN8, M_LIN15, M_LIN16, M_LIN24, M_LIN32,
 	M_TEXT,
 	M_HERC_GFX, M_HERC_TEXT,
 	M_CGA16, M_TANDY2, M_TANDY4, M_TANDY16, M_TANDY_TEXT,
@@ -58,8 +58,10 @@ enum VGAModes {
 #define S3_XGA_640		0x40
 #define S3_XGA_800		0x80
 #define S3_XGA_1280		0xc0
-#define S3_XGA_WMASK	(S3_XGA_640|S3_XGA_800|S3_XGA_1024|S3_XGA_1152|S3_XGA_1280)
-
+/* Custom S3 VGA /////////////////////////////////////////////////////////////////////////////////////////////*/
+#define S3_XGA_1600		0x81
+#define S3_XGA_WMASK	(S3_XGA_640|S3_XGA_800|S3_XGA_1024|S3_XGA_1152|S3_XGA_1280|S3_XGA_1600)
+/* Custom S3 VGA /////////////////////////////////////////////////////////////////////////////////////////////*/
 #define S3_XGA_8BPP  0x00
 #define S3_XGA_16BPP 0x10
 #define S3_XGA_32BPP 0x30
@@ -219,6 +221,7 @@ typedef struct {
 typedef struct {
 	Bit8u mode_control;
 	Bit8u enable_bits;
+	bool blend;
 } VGA_HERC;
 
 typedef struct {
@@ -341,6 +344,9 @@ typedef struct {
 	Bit8u combine[16];
 	RGBEntry rgb[0x100];
 	Bit16u xlat16[256];
+	Bit32u xlat32[256];
+	Bit8u hidac_counter;
+	Bit8u reg02;	
 } VGA_Dac;
 
 typedef struct {
@@ -412,6 +418,11 @@ typedef struct {
 
 /* Hercules Palette function */
 void Herc_Palette(void);
+void StartHerc_Palette(void);
+
+/* CGA Mono Palette function */
+void Mono_CGA_Palette(void);
+void StartMonoCGAPal(void);
 
 /* Functions for different resolutions */
 void VGA_SetMode(VGAModes mode);

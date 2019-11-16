@@ -24,10 +24,13 @@
 #include "mem.h"
 #include "mixer.h"
 #include "timer.h"
+#include "control.h"
 
 #define KEYBUFSIZE 32
 #define KEYDELAY 0.300f			//Considering 20-30 khz serial clock and 11 bits/char
 
+bool PC_SpeakerPatch = false;
+	
 enum KeyCommands {
 	CMD_NONE,
 	CMD_SETLEDS,
@@ -173,17 +176,30 @@ static void write_p60(Bitu port,Bitu val,Bitu iolen) {
 extern bool TIMER_GetOutput2(void);
 static Bit8u port_61_data = 0;
 static Bitu read_p61(Bitu port,Bitu iolen) {
-	if (TIMER_GetOutput2()) port_61_data|=0x20;
+	if (TIMER_GetOutput2()) port_61_data|=0x20;				
 	else					port_61_data&=~0x20;
 	port_61_data^=0x10;
-	return port_61_data;
+	//Unorthodox methods of PCjr detection
+   if (machine==MCH_CGA || machine==MCH_HERC){
+	   port_61_data^=0x40;
+   }
+   // ===========================================
+   return port_61_data;
 }
 
 extern void TIMER_SetGate2(bool);
 static void write_p61(Bitu port,Bitu val,Bitu iolen) {
 	if ((port_61_data ^ val) & 3) {
 		if((port_61_data ^ val) & 1) TIMER_SetGate2(val&0x1);
-		PCSPEAKER_SetType(val & 3);
+		
+		if (!PC_SpeakerPatch){
+			PCSPEAKER_SetType(val & 3,0,0);
+			
+		} else {
+			bool pit_clock_gate_enabled = val & 1;
+			bool pit_output_enabled = val & 2;
+			PCSPEAKER_SetType(0, pit_clock_gate_enabled, pit_output_enabled);			
+		}
 	}
 	port_61_data = val;
 }
@@ -191,7 +207,7 @@ static void write_p61(Bitu port,Bitu val,Bitu iolen) {
 static Bitu read_p62(Bitu port,Bitu iolen) {
 	Bit8u ret=~0x20;
 	if (TIMER_GetOutput2()) ret|=0x20;
-	return ret;
+	return ret;	
 }
 
 static void write_p64(Bitu port,Bitu val,Bitu iolen) {
@@ -340,7 +356,7 @@ void KEYBOARD_AddKey(KBD_KEYS keytype,bool pressed) {
 	case KBD_down:extend=true;ret=80;break;
 	case KBD_pagedown:extend=true;ret=81;break;
 	case KBD_insert:extend=true;ret=82;break;
-	case KBD_delete:extend=true;ret=83;break;
+	case KBD_delete:extend=true;ret=83;break;	
 	case KBD_pause:
 		KEYBOARD_AddBuffer(0xe1);
 		KEYBOARD_AddBuffer(29|(pressed?0:0x80));
@@ -352,14 +368,40 @@ void KEYBOARD_AddKey(KBD_KEYS keytype,bool pressed) {
 		KEYBOARD_AddBuffer(0xe0);
 		KEYBOARD_AddBuffer(55|(pressed?0:0x80));
 		return;
-	default:
-		E_Exit("Unsupported key press");
-		break;
-	}
+	case KBD_lwindows:extend=true;ret=0x5B;break;
+	case KBD_rwindows:extend=true;ret=0x5C;break;
+	case KBD_rwinmenu:extend=true;ret=0x5D;break;
+	
+	case KBD_audiomute:
+		 KEYBOARD_AddBuffer(0xe0);
+		 KEYBOARD_AddBuffer(32|(pressed?0:0x80));
+		 break;
+	case KBD_volumedown:
+		 KEYBOARD_AddBuffer(0xe0);
+		 KEYBOARD_AddBuffer(46|(pressed?0:0x80));
+		 break;	
+	case KBD_volumeup:
+		 KEYBOARD_AddBuffer(0xe0);
+		 KEYBOARD_AddBuffer(48|(pressed?0:0x80));
+		 break;		 
+	// case KBD_audiomute :extend=true;ret=32;break;//0x20
+	// case KBD_volumedown:extend=true;ret=46;break;//0x2e
+	// case KBD_volumeup  :extend=true;ret=48;break;//0x30
+	
+    default:
+        LOG_MSG("Unsupported key press %lu", (unsigned long)keytype);
+        return;
+    }
+
 	/* Add the actual key in the keyboard queue */
 	if (pressed) {
-		if (keyb.repeat.key == keytype) keyb.repeat.wait = keyb.repeat.rate;		
-		else keyb.repeat.wait = keyb.repeat.pause;
+		if (keyb.repeat.key == keytype){
+			keyb.repeat.wait = keyb.repeat.rate;		
+		}
+		else 
+		{
+			keyb.repeat.wait = keyb.repeat.pause;
+		}
 		keyb.repeat.key = keytype;
 	} else {
 		if (keyb.repeat.key == keytype) {
@@ -371,6 +413,17 @@ void KEYBOARD_AddKey(KBD_KEYS keytype,bool pressed) {
 	}
 	if (extend) KEYBOARD_AddBuffer(0xe0);
 	KEYBOARD_AddBuffer(ret);
+	
+	Section_prop *section = static_cast<Section_prop *>(control->GetSection("speaker"));
+	const char * pcmode = section->Get_string("pcspeaker.mode");
+	if (!strcasecmp(pcmode,"old")){
+		PC_SpeakerPatch=false;
+		
+	}else if (!strcasecmp(pcmode,"new")){
+		PC_SpeakerPatch=true;
+	}
+	
+
 }
 
 static void KEYBOARD_TickHandler(void) {

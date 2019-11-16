@@ -140,7 +140,8 @@ bool Overlay_Drive::MakeDir(char * dir) {
 #if OVERLAY_DIR
 	if (logoverlay) LOG_MSG("Overlay trying to make directory: %s",dir);
 #else
-	E_Exit("Overlay trying to make directory: %s",dir);
+	LOG_MSG("Overlay (Cloudsave): Create a Directory: %s",dir);	
+	//E_Exit("Overlay trying to make directory: %s",dir);
 #endif
 	/* Overlay: Create in Overlay only and add it to drive_cache + some entries else the drive_cache will try to access it. Needs an AddEntry for directories. */ 
 
@@ -462,7 +463,6 @@ bool Overlay_Drive::FileCreate(DOS_File * * file,char * name,Bit16u /*attributes
 	
 	//check if leading part of filename is a deleted directory
 	if (check_if_leading_is_deleted(name)) return false;
-
 	FILE* f = create_file_in_overlay(name,"wb+");
 	if(!f) {
 		if (logoverlay) LOG_MSG("File creation in overlay system failed %s",name);

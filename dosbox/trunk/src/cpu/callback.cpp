@@ -192,7 +192,7 @@ Bitu CALLBACK_SetupExtra(Bitu callback, Bitu type, PhysPt physAddress, bool use_
 			physAddress+=4;
 		}
 		phys_writeb(physAddress+0x01,(Bit8u)0xCB);		//A RETF Instruction
-		return (use_cb?6:2);
+		return (use_cb?6:2);		
 	case CB_IRET:
 		if (use_cb) {
 			phys_writeb(physAddress+0x00,(Bit8u)0xFE);	//GRP 4
@@ -455,6 +455,28 @@ Bitu CALLBACK_SetupExtra(Bitu callback, Bitu type, PhysPt physAddress, bool use_
 		phys_writeb(physAddress+0x0d,(Bit8u)0x1f);		// pop ds
 		phys_writeb(physAddress+0x0e,(Bit8u)0xcf);		//An IRET Instruction
 		return 0x0f; */
+	/* Custom S3 VGA /////////////////////////////////////////////////////////////////////////////////////////////*/		
+	case CB_VESA_START: {	// pseudocode: if(reg_bl==0x80) while(!(inportb(0x3da)&0x8));
+		phys_writew(physAddress+0x00,(Bit16u)0x38fe);	// grp4	cb
+		phys_writew(physAddress+0x02,(Bit16u)0x9090);
+		phys_writew(physAddress+0x04,(Bit16u)0xfb80);	// cmp	bl, 0x80
+		phys_writeb(physAddress+0x06,(Bit8u)0x80);
+		phys_writew(physAddress+0x07,(Bit16u)0x1175);	// jne	novret
+		phys_writew(physAddress+0x09,(Bit16u)0x5066);	// push	ax
+		phys_writew(physAddress+0x0b,(Bit16u)0x5266);	// push	dx
+		phys_writew(physAddress+0x0d,(Bit16u)0xba66);	// mov	dx, 0x3dah
+		phys_writew(physAddress+0x0f,(Bit16u)0x03da);
+														// again:
+		phys_writeb(physAddress+0x11,(Bit8u)0xec);		// in	al,dx
+		phys_writew(physAddress+0x12,(Bit16u)0x0824);	// and	al ,8
+		phys_writew(physAddress+0x14,(Bit16u)0xfb74);	// je	again
+		phys_writew(physAddress+0x16,(Bit16u)0x5a66);	// pop	dx
+		phys_writew(physAddress+0x18,(Bit16u)0x5866);	// pop	ax
+														// novret:
+		phys_writeb(physAddress+0x1a,(Bit8u)0xc3);		// retn
+		phys_writew(physAddress+0x02,callback);			// callback number
+		return 27; }	
+	/* Custom S3 VGA /////////////////////////////////////////////////////////////////////////////////////////////*/
 	case CB_INT21:
 		phys_writeb(physAddress+0x00,(Bit8u)0xFB);		//STI
 		if (use_cb) {

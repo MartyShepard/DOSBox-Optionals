@@ -34,9 +34,9 @@
 #define CMD_MAXLINE 4096
 #define CMD_MAXCMDS 20
 #define CMD_OLDSIZE 4096
-extern Bitu call_shellstop;
 class DOS_Shell;
 
+extern Bitu call_shellstop;
 /* first_shell is used to add and delete stuff from the shell env 
  * by "external" programs. (config) */
 extern DOS_Shell * first_shell;
@@ -79,11 +79,11 @@ public:
 	void InputCommand(char * line);
 	void ShowPrompt();
 	void DoCommand(char * cmd);
-	bool Execute(char * name,char * args);
+	bool Execute(const char * name, const char * args);
 	/* Checks if it matches a hardware-property */
 	bool CheckConfig(char* cmd_in,char*line);
 /* Some internal used functions */
-	char * Which(char * name);
+	const char * Which(const char * name);
 /* Some supported commands */
 	void CMD_HELP(char * args);
 	void CMD_CLS(char * args);
@@ -113,6 +113,14 @@ public:
 	void CMD_PATH(char * args);
 	void CMD_SHIFT(char * args);
 	void CMD_VER(char * args);
+	void CMD_ADDKEY(char * args);
+	void CMD_MOVE(char * args);
+	void CMD_VOL(char * args);
+	void CMD_PROMPT(char * args);
+	void CMD_LABEL(char * args);
+	void CMD_MORE(char * args);	
+	void CMD_MOUSECAP(char * args);
+	void CMD_VERO(char * args);	
 	/* The shell's variables */
 	Bit16u input_handle;
 	BatchFile * bf;

@@ -50,7 +50,7 @@ void INT10_SetSinglePaletteRegister(Bit8u reg,Bit8u val) {
 			else reg |= 0x10;
 			WriteTandyACTL(reg+0x10,val);
 			break;
-		case M_TANDY4: {
+		case M_TANDY4:
 			if (CurMode->mode!=0x0a) {
 				// Palette values are kept constand by the BIOS.
 				// The four colors are mapped to special palette values by hardware.
@@ -66,8 +66,7 @@ void INT10_SetSinglePaletteRegister(Bit8u reg,Bit8u val) {
 			} 
 			// 4-color high resolution mode 0x0a isn't handled specially
 			else WriteTandyACTL(reg+0x10,val);
-			break;
-		}
+			break;					
 		default:
 			WriteTandyACTL(reg+0x10,val);
 			break;
@@ -83,6 +82,9 @@ void INT10_SetSinglePaletteRegister(Bit8u reg,Bit8u val) {
 		}
 		IO_Write(VGAREG_ACTL_ADDRESS,32);		//Enable output and protect palette
 		break;
+	default:
+		LOG_MSG("INT10 PAL: Enumeration value(%u) not handled in switch " __FILE__ ":%d", machine, __LINE__);
+		break;		
 	}
 }
 
@@ -100,6 +102,9 @@ void INT10_SetOverscanBorderColor(Bit8u val) {
 		IO_Write(VGAREG_ACTL_WRITE_DATA,val);
 		IO_Write(VGAREG_ACTL_ADDRESS,32);		//Enable output and protect palette
 		break;
+	default:
+		LOG_MSG("INT10 PAL: Enumeration value(%u) not handled in switch " __FILE__ ":%d", machine, __LINE__);
+		break;		
 	}
 }
 
@@ -128,6 +133,9 @@ void INT10_SetAllPaletteRegisters(PhysPt data) {
 		IO_Write(VGAREG_ACTL_WRITE_DATA,mem_readb(data));
 		IO_Write(VGAREG_ACTL_ADDRESS,32);		//Enable output and protect palette
 		break;
+	default:
+		LOG_MSG("INT10 MODES: Enumeration value(%u) not handled in switch " __FILE__ ":%d", machine, __LINE__);
+		break;		
 	}
 }
 
@@ -363,6 +371,9 @@ void INT10_SetBackgroundBorder(Bit8u val) {
 		val+=2;
 		INT10_SetSinglePaletteRegister( 3, val );
 		break;
+	default:
+		LOG_MSG("INT10 PAL: Enumeration value(%u) not handled in switch " __FILE__ ":%d", machine, __LINE__);
+		break;		
 	}
 }
 
@@ -374,18 +385,19 @@ void INT10_SetColorSelect(Bit8u val) {
 		IO_Write(0x3d9,temp);
 	else if (machine == MCH_PCJR) {
 		IO_Read(VGAREG_TDY_RESET); // reset the flipflop
-		switch(vga.mode) {
-		case M_TANDY2:
-			IO_Write(VGAREG_TDY_ADDRESS, 0x11);
-			IO_Write(VGAREG_PCJR_DATA, val&1? 0xf:0);
-			break;
-		case M_TANDY4:
+		switch(CurMode->mode) {
+		case 4:
+		case 5:
 			for(Bit8u i = 0x11; i < 0x14; i++) {
 				const Bit8u t4_table[] = {0,2,4,6, 0,3,5,0xf};
 				IO_Write(VGAREG_TDY_ADDRESS, i);
 				IO_Write(VGAREG_PCJR_DATA, t4_table[(i-0x10)+(val&1? 4:0)]);
 			}
 			break;
+		case 6:
+				IO_Write(VGAREG_TDY_ADDRESS, 0x11);
+				IO_Write(VGAREG_PCJR_DATA, val&1? 0xf:0);
+			break;			
 		default:
 			// 16-color modes: always write the same palette
 			for(Bit8u i = 0x11; i < 0x20; i++) {

@@ -24,7 +24,7 @@ enum DMAEvent {
 	DMA_REACHED_TC,
 	DMA_MASKED,
 	DMA_UNMASKED,
-//	DMA_TRANSFEREND, this shouldn't really be a ignal
+	//DMA_TRANSFEREND, this shouldn't really be a ignal
 };
 
 class DmaChannel;
@@ -39,6 +39,10 @@ public:
 	Bit16u currcnt;
 	Bit8u channum;
 	Bit8u pagenum;
+	/// Taken from Dosbox-X ///////////////////////////////////////////////////////
+	Bit8u DMA16_PAGESHIFT;
+    Bit32u DMA16_ADDRMASK;
+	/// Taken from Dosbox-X ///////////////////////////////////////////////////////	
 	Bit8u DMA16;
 	bool increment;
 	bool autoinit;

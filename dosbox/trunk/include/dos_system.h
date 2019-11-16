@@ -162,7 +162,7 @@ public:
 
 	void		CacheOut			(const char* path, bool ignoreLastDir = false);
 	void		AddEntry			(const char* path, bool checkExist = false);
-	void		AddEntryDirOverlay			(const char* path, bool checkExist = false);
+	void		AddEntryDirOverlay	(const char* path, bool checkExist = false);	
 
 	void		DeleteEntry			(const char* path, bool ignoreLastDir = false);
 

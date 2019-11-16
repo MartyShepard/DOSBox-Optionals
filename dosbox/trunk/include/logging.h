@@ -28,6 +28,7 @@ enum LOG_TYPES {
 	LOG_MOUSE,LOG_BIOS,LOG_GUI,LOG_MISC,
 	LOG_IO,
 	LOG_PCI,
+	LOG_VOODOO,			
 	LOG_MAX
 };
 
@@ -37,7 +38,7 @@ enum LOG_SEVERITIES {
 	LOG_ERROR
 };
 
-#if C_DEBUG
+#if defined(C_DEBUG)
 class LOG 
 { 
 	LOG_TYPES       d_type;
@@ -84,7 +85,8 @@ struct LOG
 void GFX_ShowMsg(char const* format,...) GCC_ATTRIBUTE(__format__(__printf__, 1, 2));
 #define LOG_MSG GFX_ShowMsg
 
-#endif //C_DEBUG
+#endif
+//C_DEBUG
 
 
 #endif //DOSBOX_LOGGING_H

@@ -155,7 +155,7 @@ bool DOS_IOCTL(void) {
 			if (drive < 2 && !Drives[drive]) {
 				DOS_SetError(DOSERR_ACCESS_DENIED);
 				return false;
-			}
+			}			
 			if (reg_ch != 0x08 || Drives[drive]->isRemovable()) {
 				DOS_SetError(DOSERR_FUNCTION_NUMBER_INVALID);
 				return false;
@@ -170,7 +170,7 @@ bool DOS_IOCTL(void) {
 				mem_writeb(ptr+6,0x00);					// media type (00=other type)
 				// bios parameter block following
 				mem_writew(ptr+7,0x0200);				// bytes per sector (Win3 File Mgr. uses it)
-				break;
+ 				break;
 			case 0x46:	/* Set volume serial number */
 				break;
 			case 0x66:	/* Get volume serial number */

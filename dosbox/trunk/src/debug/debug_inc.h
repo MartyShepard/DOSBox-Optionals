@@ -19,7 +19,7 @@
 /* Local Debug Function */
 
 
-#include <curses.h>
+#include <ncurses\curses.h>
 #include "mem.h"
 
 #define PAIR_BLACK_BLUE 1

@@ -135,7 +135,8 @@ struct JoyStick {
 };
 
 JoystickType joytype;
-static JoyStick stick[2];
+HostControlType HostCtrlType;
+static JoyStick stick[3];
 
 static Bitu last_write = 0;
 static bool write_active = false;
@@ -143,6 +144,7 @@ static bool swap34 = false;
 bool button_wrapping_enabled = true;
 
 extern bool autofire; //sdl_mapper.cpp
+extern int  nJoyButtons;
 
 static Bitu read_p201(Bitu port,Bitu iolen) {
 	/* Reset Joystick to 0 after TIMEOUT ms */
@@ -151,7 +153,14 @@ static Bitu read_p201(Bitu port,Bitu iolen) {
 		stick[0].xcount = 0;
 		stick[1].xcount = 0;
 		stick[0].ycount = 0;
-		stick[1].ycount = 0;
+		stick[1].ycount = 0;		
+		
+		/* Joystick Support for Saitek Flight Systems with more Axes and Buttons */
+		if (joytype == JOY_CHVP )
+		{
+			stick[2].xcount = 0;
+			stick[2].ycount = 0;			
+		}
 //		LOG_MSG("reset by time %d %d",PIC_Ticks,last_write);
 	}
 
@@ -177,6 +186,15 @@ static Bitu read_p201(Bitu port,Bitu iolen) {
 		if (stick[1].button[0]) ret&=~64;
 		if (stick[1].button[1]) ret&=~128;
 	}
+	
+	/* Joystick Support for Saitek Flight Systems with more Axes and Buttons */
+	if ( (stick[2].enabled) && (joytype == JOY_CHVP) )
+	{
+		if (stick[2].xcount) stick[2].xcount--; else ret&=~4;
+		if (stick[2].ycount) stick[2].ycount--; else ret&=~8;
+		if (stick[2].button[0]) ret&=~64;
+		if (stick[2].button[1]) ret&=~128;
+	}							
 	return ret;
 }
 
@@ -191,6 +209,13 @@ static Bitu read_p201_timed(Bitu port,Bitu iolen) {
 		if( stick[1].xtick < currentTick ) ret &=~4;
 		if( stick[1].ytick < currentTick ) ret &=~8;
 	}
+	
+	/* Joystick Support for Saitek Flight Systems with more Axes and Buttons */	
+	if ( ( stick[2].enabled ) && (joytype == JOY_CHVP) )
+	{
+		if( stick[2].xtick < currentTick ) ret &=~4;
+		if( stick[2].ytick < currentTick ) ret &=~8;
+	}				
 
 	if (stick[0].enabled) {
 		if (stick[0].button[0]) ret&=~16;
@@ -200,6 +225,13 @@ static Bitu read_p201_timed(Bitu port,Bitu iolen) {
 		if (stick[1].button[0]) ret&=~64;
 		if (stick[1].button[1]) ret&=~128;
 	}
+	
+	/* Joystick Support for Saitek Flight Systems with more Axes and Buttons */	
+	if ( ( stick[2].enabled ) && (joytype == JOY_CHVP) )
+	{
+		if (stick[2].button[0]) ret&=~64;
+		if (stick[2].button[1]) ret&=~128;
+	}			
 	return ret;
 }
 
@@ -216,6 +248,13 @@ static void write_p201(Bitu port,Bitu val,Bitu iolen) {
 		stick[1].xcount=(Bitu)(((swap34? stick[1].ypos : stick[1].xpos)*RANGE)+RANGE);
 		stick[1].ycount=(Bitu)(((swap34? stick[1].xpos : stick[1].ypos)*RANGE)+RANGE);
 	}
+	
+	/* Joystick Support for Saitek Flight Systems with more Axes and Buttons */	
+	if ( ( stick[2].enabled ) && (joytype == JOY_CHVP) )
+	{
+		stick[2].xcount=(Bitu)(((swap34? stick[2].ypos : stick[2].xpos)*RANGE)+RANGE);
+		stick[2].ycount=(Bitu)(((swap34? stick[2].xpos : stick[2].ypos)*RANGE)+RANGE);
+	}																		 
 
 }
 static void write_p201_timed(Bitu port,Bitu val,Bitu iolen) {
@@ -236,6 +275,18 @@ static void write_p201_timed(Bitu port,Bitu val,Bitu iolen) {
 		stick[1].ytick = currentTick + 1000.0*( JOY_S_CONSTANT + S_PER_OHM *
 		                 (double)((swap34? stick[1].xpos : stick[1].ypos)+1.0) * OHMS);
 	}
+	/* Joystick Support for Saitek Flight Systems with more Axes and Buttons
+	   Swap Axis Support. By Axis 3/4 (Axis 4(Y) is Throttle, Axis 3(x) is Left and Right Strafe) 
+	*/	
+	 
+	if ( ( stick[2].enabled ) && (joytype == JOY_CHVP) )
+	{
+		stick[2].transform_input();
+		stick[2].xtick = currentTick + 1000.0*( JOY_S_CONSTANT + S_PER_OHM *
+		                 (double)((swap34? stick[2].ypos : stick[1].xpos)+1.0) * OHMS);
+		stick[2].ytick = currentTick + 1000.0*( JOY_S_CONSTANT + S_PER_OHM *
+		                 (double)((swap34? stick[2].ypos : stick[1].xpos)+1.0) * OHMS);
+	}
 }
 
 void JOYSTICK_Enable(Bitu which,bool enabled) {
@@ -243,11 +294,13 @@ void JOYSTICK_Enable(Bitu which,bool enabled) {
 }
 
 void JOYSTICK_Button(Bitu which,Bitu num,bool pressed) {
-	if ((which<2) && (num<2)) stick[which].button[num] = pressed;
+	//if ((which<2) && (num<2)) 
+		stick[which].button[num] = pressed;
+	
 }
 
 void JOYSTICK_Move_X(Bitu which,float x) {
-	if(which > 2) return;
+	if(which > 3) return;
 	if (stick[which].xpos == x) return;
 	stick[which].xpos = x;
 	stick[which].transformed = false;
@@ -256,19 +309,19 @@ void JOYSTICK_Move_X(Bitu which,float x) {
 }
 
 void JOYSTICK_Move_Y(Bitu which,float y) {
-	if(which > 2) return;
+	if(which > 3) return;
 	if (stick[which].ypos == y) return;
 	stick[which].ypos = y;
 	stick[which].transformed = false;
 }
 
 bool JOYSTICK_IsEnabled(Bitu which) {
-	if (which<2) return stick[which].enabled;
+	if (which<3) return stick[which].enabled;
 	return false;
 }
 
 bool JOYSTICK_GetButton(Bitu which, Bitu num) {
-	if ((which<2) && (num<2)) return stick[which].button[num];
+	if ((which<3) && (num<2)) return stick[which].button[num];
 	return false;
 }
 
@@ -299,9 +352,28 @@ public:
 		else if (!strcasecmp(type,"4axis"))   joytype = JOY_4AXIS;
 		else if (!strcasecmp(type,"4axis_2")) joytype = JOY_4AXIS_2;
 		else if (!strcasecmp(type,"fcs"))     joytype = JOY_FCS;
+		else if (!strcasecmp(type,"fcslw"))   joytype = JOY_FCSLW;
 		else if (!strcasecmp(type,"ch"))      joytype = JOY_CH;
+		else if (!strcasecmp(type,"chvp"))    joytype = JOY_CHVP;
+		else if (!strcasecmp(type,"chgs"))    joytype = JOY_CHGS;
+		else if (!strcasecmp(type,"qshot6"))  joytype = JOY_SHOT6;	
+		else if (!strcasecmp(type,"capcom"))  joytype = JOY_CAPCOM;	
+		else if (!strcasecmp(type,"inter6"))  joytype = JOY_INTER6;	
+		else if (!strcasecmp(type,"fcs2"))    joytype = JOY_FCSII;
+		else if (!strcasecmp(type,"wheel"))    joytype = JOY_WHEEL;	
+		
 		else joytype = JOY_AUTO;
 
+		
+		const char * host = section->Get_string("joystickhost");
+		if (!strcasecmp(host,"default"))      HostCtrlType = HOSTJOY_DEFAULT;		
+		else if (!strcasecmp(host,"saitekx45"))   HostCtrlType = HOSTJOY_SAITEKX45;
+		else if (!strcasecmp(host,"lgex3dpro"))   HostCtrlType = HOSTJOY_LEXT3DPRO;
+		else if (!strcasecmp(host,"tfhotasone"))   HostCtrlType = HOSTJOY_TFLIGHTHO;
+		else if (!strcasecmp(host,"ldriveforcepro"))   HostCtrlType = HOSTJOY_LDRIVINGF;		
+		else HostCtrlType = HOSTJOY_DEFAULT;
+		
+		
 		bool timed = section->Get_bool("timed");
 		if (timed) {
 			ReadHandler.Install(0x201,read_p201_timed,IO_MB);
@@ -323,6 +395,33 @@ public:
 		bool circ = section->Get_bool("circularinput");
 		if (circ) stick[0].mapstate = JoyStick::JOYMAP_CIRCLE;
 		stick[0].deadzone = section->Get_int("deadzone");
+		
+		nJoyButtons =  section->Get_int("buttons");
+	
+		/* Force Buttons Config for Special Types */
+		switch(joytype){
+			case JOY_WHEEL:
+			case JOY_FCSLW:
+			{
+				nJoyButtons = 4;
+			}
+			case JOY_CH:
+			case JOY_SHOT6:
+			case JOY_CAPCOM:
+			case JOY_INTER6:
+			{
+				nJoyButtons = 6;
+			}
+			break;
+			case JOY_CHVP:
+			case JOY_CHGS:			
+			{
+				nJoyButtons = 10;
+			}
+			break;			
+			
+		}
+		
 	}
 };
 static JOYSTICK* test;

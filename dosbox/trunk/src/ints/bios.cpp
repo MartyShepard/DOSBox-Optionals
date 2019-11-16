@@ -16,7 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-
+#include <assert.h>
 #include "dosbox.h"
 #include "mem.h"
 #include "bios.h"
@@ -720,6 +720,7 @@ static Bitu INT14_Handler(void) {
 static Bitu INT15_Handler(void) {
 	static Bit16u biosConfigSeg=0;
 	switch (reg_ah) {
+	case 0x06:
 	case 0xC0:	/* Get Configuration*/
 		{
 			if (biosConfigSeg==0) biosConfigSeg = DOS_GetMemory(1); //We have 16 bytes
@@ -838,17 +839,17 @@ static Bitu INT15_Handler(void) {
 		}
 	case 0x87:	/* Copy extended memory */
 		{
-			bool enabled = MEM_A20_Enabled();
-			MEM_A20_Enable(true);
-			Bitu   bytes	= reg_cx * 2;
-			PhysPt data		= SegPhys(es)+reg_si;
-			PhysPt source	= (mem_readd(data+0x12) & 0x00FFFFFF) + (mem_readb(data+0x16)<<24);
-			PhysPt dest		= (mem_readd(data+0x1A) & 0x00FFFFFF) + (mem_readb(data+0x1E)<<24);
-			MEM_BlockCopy(dest,source,bytes);
-			reg_ax = 0x00;
-			MEM_A20_Enable(enabled);
-			CALLBACK_SCF(false);
-			break;
+            bool enabled = MEM_A20_Enabled();
+            MEM_A20_Enable(true);
+            Bitu   bytes    = reg_cx * 2u;
+            PhysPt data     = SegPhys(es)+reg_si;
+            PhysPt source   = (mem_readd(data+0x12u) & 0x00FFFFFFu) + ((unsigned int)mem_readb(data+0x17u)<<24u); /* DOSBox.X */
+            PhysPt dest     = (mem_readd(data+0x1Au) & 0x00FFFFFFu) + ((unsigned int)mem_readb(data+0x1Fu)<<24u); /* DOSBox.X */
+            MEM_BlockCopy(dest,source,bytes);
+            reg_ax = 0x00;
+            MEM_A20_Enable(enabled);
+            CALLBACK_SCF(false);
+            break;
 		}	
 	case 0x88:	/* SYSTEM - GET EXTENDED MEMORY SIZE (286+) */
 		reg_ax=other_memsystems?0:size_extended;
@@ -871,8 +872,17 @@ static Bitu INT15_Handler(void) {
 			CPU_SetFlags(0,FMASK_ALL);
 			reg_ax=0;
 			CPU_JMP(false,0x30,reg_cx,0);
-		}
+		}		
 		break;
+    case 0x8A:  /* EXTENDED MEMORY SIZE */
+        {
+            Bitu sz = MEM_TotalPages()*4;
+            if (sz >= 1024) sz -= 1024;
+            else sz = 0;
+            reg_ax = sz & 0xFFFF;
+            reg_dx = sz >> 16;
+            CALLBACK_SCF(false);
+        }		
 	case 0x90:	/* OS HOOK - DEVICE BUSY */
 		CALLBACK_SCF(false);
 		reg_ah=0;
@@ -910,7 +920,7 @@ static Bitu INT15_Handler(void) {
 				CALLBACK_SCF(true);
 				reg_ah=2;
 				break;
-			}
+			}		
 			Mouse_SetPS2State(false);
 			CALLBACK_SCF(false);
 			reg_ah=0;
@@ -953,6 +963,88 @@ static Bitu INT15_Handler(void) {
 		LOG(LOG_BIOS,LOG_NORMAL)("INT15:Function %X called, bios mouse not supported",reg_ah);
 		CALLBACK_SCF(true);
 		break;
+    //case 0x53: // APM BIOS		
+	case 0xe8:
+		switch (reg_al) {
+		case 0x01: { /* E801: memory size */
+			    Bitu sz = MEM_TotalPages()*4;
+			    if (sz >= 1024)
+				{
+					sz -= 1024;
+				}
+			    else
+				{
+					sz = 0;
+				}
+			    
+				reg_ax = reg_cx = (sz > 0x3C00) ? 0x3C00 : sz; /* extended memory between 1MB and 16MB in KBs */
+			    sz    -= reg_ax;
+			    sz    /= 64;	/* extended memory size from 16MB in 64KB blocks */
+			    
+				if (sz > 65535)
+				{
+					sz = 65535;
+				}
+			    reg_bx = reg_dx = sz;
+			    CALLBACK_SCF(false);
+			}
+			break;
+			/* **************** DOSBOX-X ***************************************************************************/
+			case 0x20:  /* E820: MEMORY LISTING */
+			{
+				if (reg_edx == 0x534D4150 && reg_ecx >= 20 && (MEM_TotalPages()*4) >= 24000) {
+                /* return a minimalist list:
+                 *
+                 *    0) 0x000000-0x09EFFF       Free memory
+                 *    1) 0x0C0000-0x0FFFFF       Reserved
+                 *    2) 0x100000-...            Free memory (no ACPI tables) */
+					if (reg_ebx < 3) {
+						uint32_t base,len,type;
+                        Bitu seg = SegValue(es);
+
+                        assert((MEM_TotalPages()*4096) >= 0x100000);
+
+                        switch (reg_ebx)
+						{
+							case 0: base=0x000000; len=0x09F000; type=1; break;
+                            case 1: base=0x0C0000; len=0x040000; type=2; break;
+                            case 2: base=0x100000; len=(MEM_TotalPages()*4096)-0x100000; type=1; break;
+                            default: E_Exit("Despite checks EBX is wrong value"); /* BUG! */
+						};
+
+                        /* write to ES:DI */
+                        real_writed(seg,reg_di+0x00,base);
+                        real_writed(seg,reg_di+0x04,0);
+                        real_writed(seg,reg_di+0x08,len);
+                        real_writed(seg,reg_di+0x0C,0);
+                        real_writed(seg,reg_di+0x10,type);
+                        reg_ecx = 20;
+
+                        /* return EBX pointing to next entry. wrap around, as most BIOSes do.
+                         * the program is supposed to stop on CF=1 or when we return EBX == 0 */
+                        if (++reg_ebx >= 3) reg_ebx = 0;
+                   }
+                   else
+				   {
+						CALLBACK_SCF(true);
+                   }
+
+                   reg_eax = 0x534D4150;
+				}
+                else
+				{
+					reg_eax = 0x8600;
+                    CALLBACK_SCF(true);
+				}
+			}
+            break;	
+			/* **************** DOSBOX-X ***************************************************************************/
+		default:
+			LOG(LOG_BIOS,LOG_ERROR)("INT15:Unknown call %4X",reg_ax);
+			reg_ah=0x86;
+			CALLBACK_SCF(true);
+		}
+		break;		
 	default:
 		LOG(LOG_BIOS,LOG_ERROR)("INT15:Unknown call %4X",reg_ax);
 		reg_ah=0x86;
@@ -976,7 +1068,7 @@ static Bitu Default_IRQ_Handler(void) {
 			IO_WriteB(0xa0,0x20);
 		} else IO_WriteB(0x21,IO_ReadB(0x21)|(master_isr&~4));
 		IO_WriteB(0x20,0x20);
-#if C_DEBUG
+#if defined(C_DEBUG)
 		Bit16u irq=0,isr=master_isr;
 		if (slave_isr) isr=slave_isr<<8;
 		while (isr>>=1) irq++;
@@ -989,7 +1081,8 @@ static Bitu Default_IRQ_Handler(void) {
 
 static Bitu Reboot_Handler(void) {
 	// switch to text mode, notify user (let's hope INT10 still works)
-	const char* const text = "\n\n   Reboot requested, quitting now.";
+	const char* const text = "\n\n\n\n\n            Reboot Requested\n\n\n"
+	                                                   "             Shutdown System. Please Restart Dosbox";
 	reg_ax = 0;
 	CALLBACK_RunRealInt(0x10);
 	reg_ah = 0xe;
@@ -1109,14 +1202,27 @@ public:
 		RealSetVec(0x19,rptr);
 
 		// The farjump at the processor reset entry point (jumps to POST routine)
-		phys_writeb(0xFFFF0,0xEA);		// FARJMP
-		phys_writew(0xFFFF1,RealOff(BIOS_DEFAULT_RESET_LOCATION));	// offset
-		phys_writew(0xFFFF3,RealSeg(BIOS_DEFAULT_RESET_LOCATION));	// segment
-
-		// Compatible POST routine location: jump to the callback
-		phys_writeb(Real2Phys(BIOS_DEFAULT_RESET_LOCATION)+0,0xEA);				// FARJMP
-		phys_writew(Real2Phys(BIOS_DEFAULT_RESET_LOCATION)+1,RealOff(rptr));	// offset
-		phys_writew(Real2Phys(BIOS_DEFAULT_RESET_LOCATION)+3,RealSeg(rptr));	// segment
+		// Unorthodox methods of PCjr detection
+		// http://www.vogons.org/viewtopic.php?f=41&t=50417
+      if (machine == MCH_PCJR) {
+         #define BIOS_PCJR_RESET_LOCATION (RealMake(0xf000,0x0043))
+         phys_writeb(0xFFFF0,0xEA);      // FARJMP
+         phys_writew(0xFFFF1,RealOff(BIOS_PCJR_RESET_LOCATION));   // offset
+         phys_writew(0xFFFF3,RealSeg(BIOS_PCJR_RESET_LOCATION));   // segment
+		 
+         // Compatible POST routine location: jump to the callback
+         phys_writeb(Real2Phys(BIOS_PCJR_RESET_LOCATION)+0,0xEA);            // FARJMP
+         phys_writew(Real2Phys(BIOS_PCJR_RESET_LOCATION)+1,RealOff(rptr));   // offset
+         phys_writew(Real2Phys(BIOS_PCJR_RESET_LOCATION)+3,RealSeg(rptr));   // segment
+      } else {
+         phys_writeb(0xFFFF0,0xEA);      // FARJMP
+         phys_writew(0xFFFF1,RealOff(BIOS_DEFAULT_RESET_LOCATION));   // offset
+         phys_writew(0xFFFF3,RealSeg(BIOS_DEFAULT_RESET_LOCATION));   // segment
+         // Compatible POST routine location: jump to the callback
+         phys_writeb(Real2Phys(BIOS_DEFAULT_RESET_LOCATION)+0,0xEA);            // FARJMP
+         phys_writew(Real2Phys(BIOS_DEFAULT_RESET_LOCATION)+1,RealOff(rptr));   // offset
+         phys_writew(Real2Phys(BIOS_DEFAULT_RESET_LOCATION)+3,RealSeg(rptr));   // segment
+      }
 
 		/* Irq 2 */
 		Bitu call_irq2=CALLBACK_Allocate();	
@@ -1132,7 +1238,7 @@ public:
 		RealSetVec(0x0f,CALLBACK_RealPointer(call_irq_default)); // IRQ 7
 		RealSetVec(0x72,CALLBACK_RealPointer(call_irq_default)); // IRQ 10
 		RealSetVec(0x73,CALLBACK_RealPointer(call_irq_default)); // IRQ 11
-
+		
 		// INT 05h: Print Screen
 		// IRQ1 handler calls it when PrtSc key is pressed; does nothing unless hooked
 		phys_writeb(Real2Phys(BIOS_DEFAULT_INT5_LOCATION),0xcf);
@@ -1289,7 +1395,7 @@ public:
 		// Gameport
 		config |= 0x1000;
 		mem_writew(BIOS_CONFIGURATION,config);
-		if (IS_EGAVGA_ARCH) config &= ~0x30; //EGA/VGA startup display mode differs in CMOS
+		if (IS_EGAVGA_ARCH) config &= ~0x30; //EGA/VGA startup display mode differs in CMOS // r4186
 		CMOS_SetRegister(0x14,(Bit8u)(config&0xff)); //Should be updated on changes
 		/* Setup extended memory size */
 		IO_Write(0x70,0x30);
@@ -1344,7 +1450,7 @@ void BIOS_SetComPorts(Bit16u baseaddr[]) {
 	equipmentword &= (~0x0E00);
 	equipmentword |= (portcount << 9);
 	mem_writew(BIOS_CONFIGURATION,equipmentword);
-	if (IS_EGAVGA_ARCH) equipmentword &= ~0x30; //EGA/VGA startup display mode differs in CMOS
+	if (IS_EGAVGA_ARCH) equipmentword &= ~0x30; //EGA/VGA startup display mode differs in CMOS // r4186
 	CMOS_SetRegister(0x14,(Bit8u)(equipmentword&0xff)); //Should be updated on changes
 }
 

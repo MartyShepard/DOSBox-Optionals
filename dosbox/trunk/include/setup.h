@@ -39,6 +39,7 @@
 #ifndef CH_STRING
 #define CH_STRING
 #include <string>
+
 #endif
 
 #ifndef CH_CSTDIO
@@ -71,9 +72,10 @@ private:
 	int _int;
 	std::string* _string;
 	double _double;
+	float _float;
 public:
 	class WrongType { }; // Conversion error class
-	enum Etype { V_NONE, V_HEX, V_BOOL, V_INT, V_STRING, V_DOUBLE,V_CURRENT} type;
+	enum Etype { V_NONE, V_HEX, V_BOOL, V_INT, V_STRING, V_DOUBLE,V_CURRENT,V_FLOAT} type;
 
 	/* Constructors */
 	Value()                      :_hex(0), _bool(false),_int(0), _string(0),                  _double(0), type(V_NONE)   { };
@@ -81,17 +83,19 @@ public:
 	Value(int in)                :_hex(0), _bool(false),_int(in),_string(0),                  _double(0), type(V_INT)    { };
 	Value(bool in)               :_hex(0), _bool(in)   ,_int(0), _string(0),                  _double(0), type(V_BOOL)   { };
 	Value(double in)             :_hex(0), _bool(false),_int(0), _string(0),                  _double(in),type(V_DOUBLE) { };
+	Value(float in)              :_hex(0), _bool(false),_int(0), _string(0),				  _float(in), type(V_FLOAT)  { };	
 	Value(std::string const& in) :_hex(0), _bool(false),_int(0), _string(new std::string(in)),_double(0), type(V_STRING) { };
 	Value(char const * const in) :_hex(0), _bool(false),_int(0), _string(new std::string(in)),_double(0), type(V_STRING) { };
 	Value(Value const& in):_string(0) {plaincopy(in);}
 	~Value() { destroy();};
-	Value(std::string const& in,Etype _t) :_hex(0),_bool(false),_int(0),_string(0),_double(0),type(V_NONE) {SetValue(in,_t);}
+	Value(std::string const& in,Etype _t) :_hex(0),_bool(false),_int(0),_string(0),_double(0),_float(0),type(V_NONE) {SetValue(in,_t);}
 
 	/* Assigment operators */
 	Value& operator= (Hex in)                 { return copy(Value(in));}
 	Value& operator= (int in)                 { return copy(Value(in));}
 	Value& operator= (bool in)                { return copy(Value(in));}
 	Value& operator= (double in)              { return copy(Value(in));}
+	Value& operator= (float in)               { return copy(Value(in));}	
 	Value& operator= (std::string const& in)  { return copy(Value(in));}
 	Value& operator= (char const * const in)  { return copy(Value(in));}
 	Value& operator= (Value const& in)        { return copy(Value(in));}
@@ -101,6 +105,7 @@ public:
 	operator Hex () const;
 	operator int () const;
 	operator double () const;
+	operator float () const;	
 	operator char const* () const;
 	bool SetValue(std::string const& in,Etype _type = V_CURRENT);
 	std::string ToString() const;
@@ -114,6 +119,7 @@ private:
 	bool set_bool(std::string const& in);
 	void set_string(std::string const& in);
 	bool set_double(std::string const& in);
+	bool set_float(std::string const& in);	
 };
 
 class Property {
@@ -181,14 +187,52 @@ private:
 	Value min,max;
 };
 
+class Prop_float:public Property {
+public:
+	Prop_float(std::string const & _propname, Changeable::Value when, float _value)
+		:Property(_propname,when){
+		default_value = value = _value;
+		min = max = -999.0;
+	}
+	Prop_float(std::string const & propname, Changeable::Value when, float _value, float _min, float _max)
+		:Property(propname, when)
+	{
+		default_value = value = _value;
+		min = _min;
+		max = _max;
+	}
+	float getMin() const { return min; }
+	float getMax() const { return max; }
+	void SetMinMax(Value const& min, Value const& max) { this->min = min; this->max = max; }
+	bool SetValue(std::string const& input);
+	virtual ~Prop_float(){ }
+	virtual bool CheckValue(Value const& in, bool warn);
+private:
+	Value min, max;
+};
+
 class Prop_double:public Property {
 public:
 	Prop_double(std::string const & _propname, Changeable::Value when, double _value)
 		:Property(_propname,when){
 		default_value = value = _value;
+		min = max = -1.0;
 	}
+	Prop_double(std::string const & propname, Changeable::Value when, double _value, double _min, double _max)
+		:Property(propname, when)
+	{
+		default_value = value = _value;
+		min = _min;
+		max = _max;
+	}
+	double getMin() const { return min; }
+	double getMax() const { return max; }
+	void SetMinMax(Value const& min, Value const& max) { this->min = min; this->max = max; }
 	bool SetValue(std::string const& input);
-	~Prop_double(){ }
+	virtual ~Prop_double(){ }
+	virtual bool CheckValue(Value const& in, bool warn);
+private:
+	Value min, max;
 };
 
 class Prop_bool:public Property {
@@ -276,16 +320,19 @@ private:
 public:
 	Section_prop(std::string const&  _sectionname):Section(_sectionname){}
 	Prop_int* Add_int(std::string const& _propname, Property::Changeable::Value when, int _value=0);
+	Prop_float* Add_float(std::string const& _propname, Property::Changeable::Value when, float _value=0.0);
 	Prop_string* Add_string(std::string const& _propname, Property::Changeable::Value when, char const * const _value=NULL);
 	Prop_path* Add_path(std::string const& _propname, Property::Changeable::Value when, char const * const _value=NULL);
 	Prop_bool*  Add_bool(std::string const& _propname, Property::Changeable::Value when, bool _value=false);
 	Prop_hex* Add_hex(std::string const& _propname, Property::Changeable::Value when, Hex _value=0);
 //	void Add_double(char const * const _propname, double _value=0.0);
+	Prop_double* Add_double(std::string const& _propname, Property::Changeable::Value when, double _value=0.0); 
 	Prop_multival *Add_multi(std::string const& _propname, Property::Changeable::Value when,std::string const& sep);
 	Prop_multival_remain *Add_multiremain(std::string const& _propname, Property::Changeable::Value when,std::string const& sep);
 
 	Property* Get_prop(int index);
 	int Get_int(std::string const& _propname) const;
+	float Get_float(std::string const& _propname) const;	
 	const char* Get_string(std::string const& _propname) const;
 	bool Get_bool(std::string const& _propname) const;
 	Hex Get_hex(std::string const& _propname) const;

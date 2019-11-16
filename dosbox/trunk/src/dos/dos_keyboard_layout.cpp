@@ -537,6 +537,7 @@ bool keyboard_layout::layout_key(Bitu key, Bit8u flags1, Bit8u flags2, Bit8u fla
 			case 0x46:			/* Scroll Lock */
 				break;
 			default:
+				LOG_MSG("key %d, (0x%x)",key,key );
 				if (diacritics_character-200>=diacritics_entries) {
 					diacritics_character=0;
 					return true;

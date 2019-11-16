@@ -22,11 +22,16 @@
 
 #include <math.h>
 #include <float.h>
+/* Taken from DOSBOX-X ///////////////////////////////////////////////////////////////*/
+#include "paging.h"		
+/* Taken from DOSBOX-X ///////////////////////////////////////////////////////////////*/		   
 #include "cross.h"
 #include "mem.h"
 #include "fpu.h"
 #include "cpu.h"
-
+/* Taken from DOSBOX-X ///////////////////////////////////////////////////////////////*/
+#include "../cpu/lazyflags.h"							 
+/* Taken from DOSBOX-X ///////////////////////////////////////////////////////////////*/
 FPU_rec fpu;
 
 void FPU_FLDCW(PhysPt addr){
@@ -41,11 +46,15 @@ Bit16u FPU_GetTag(void){
 	return tag;
 }
 
+bool debuglog = true;
+
 #if C_FPU_X86
 #include "fpu_instructions_x86.h"
 #else
 #include "fpu_instructions.h"
 #endif
+
+
 
 /* WATCHIT : ALWAYS UPDATE REGISTERS BEFORE AND AFTER USING THEM 
 			STATUS WORD =>	FPU_SET_TOP(TOP) BEFORE a read
@@ -131,11 +140,11 @@ void FPU_ESC1_EA(Bitu rm,PhysPt addr) {
 	Bitu sub=(rm & 7);
 	switch(group){
 	case 0x00: /* FLD float*/
-		FPU_PREP_PUSH();
-		FPU_FLD_F32(addr,TOP);
+				FPU_PREP_PUSH();
+				FPU_FLD_F32(addr,TOP);
 		break;
 	case 0x01: /* UNKNOWN */
-		LOG(LOG_FPU,LOG_WARN)("ESC EA 1:Unhandled group %d subfunction %d",group,sub);
+		LOG(LOG_FPU,LOG_WARN)("ESC EA 1:Unhandled group %d subfunction %d",(int)group,(int)sub);
 		break;
 	case 0x02: /* FST float*/
 		FPU_FST_F32(addr);
@@ -157,7 +166,7 @@ void FPU_ESC1_EA(Bitu rm,PhysPt addr) {
 		mem_writew(addr,fpu.cw);
 		break;
 	default:
-		LOG(LOG_FPU,LOG_WARN)("ESC EA 1:Unhandled group %d subfunction %d",group,sub);
+		LOG(LOG_FPU,LOG_WARN)("ESC EA 1:Unhandled group %d subfunction %d",(int)group,(int)sub);
 		break;
 	}
 }
@@ -193,7 +202,7 @@ void FPU_ESC1_Normal(Bitu rm) {
 			break;
 		case 0x02:       /* UNKNOWN */
 		case 0x03:       /* ILLEGAL */
-			LOG(LOG_FPU,LOG_WARN)("ESC 1:Unhandled group %X subfunction %X",group,sub);
+			LOG(LOG_FPU,LOG_WARN)("ESC 1:Unhandled group %X subfunction %X",(int)group,(int)sub);
 			break;
 		case 0x04:       /* FTST */
 			FPU_FTST();
@@ -203,7 +212,7 @@ void FPU_ESC1_Normal(Bitu rm) {
 			break;
 		case 0x06:       /* FTSTP (cyrix)*/
 		case 0x07:       /* UNKNOWN */
-			LOG(LOG_FPU,LOG_WARN)("ESC 1:Unhandled group %X subfunction %X",group,sub);
+			LOG(LOG_FPU,LOG_WARN)("ESC 1:Unhandled group %X subfunction %X",(int)group,(int)sub);
 			break;
 		}
 		break;
@@ -231,7 +240,7 @@ void FPU_ESC1_Normal(Bitu rm) {
 			FPU_FLDZ();
 			break;
 		case 0x07:       /* ILLEGAL */
-			LOG(LOG_FPU,LOG_WARN)("ESC 1:Unhandled group %X subfunction %X",group,sub);
+			LOG(LOG_FPU,LOG_WARN)("ESC 1:Unhandled group %X subfunction %X",(int)group,(int)sub);
 			break;
 		}
 		break;
@@ -262,7 +271,7 @@ void FPU_ESC1_Normal(Bitu rm) {
 			TOP = (TOP + 1) & 7;
 			break;
 		default:
-			LOG(LOG_FPU,LOG_WARN)("ESC 1:Unhandled group %X subfunction %X",group,sub);
+			LOG(LOG_FPU,LOG_WARN)("ESC 1:Unhandled group %X subfunction %X",(int)group,(int)sub);
 			break;
 		}
 		break;
@@ -293,12 +302,12 @@ void FPU_ESC1_Normal(Bitu rm) {
 			FPU_FCOS();
 			break;
 		default:
-			LOG(LOG_FPU,LOG_WARN)("ESC 1:Unhandled group %X subfunction %X",group,sub);
+			LOG(LOG_FPU,LOG_WARN)("ESC 1:Unhandled group %X subfunction %X",(int)group,(int)sub);
 			break;
 		}
 		break;
 		default:
-			LOG(LOG_FPU,LOG_WARN)("ESC 1:Unhandled group %X subfunction %X",group,sub);
+			LOG(LOG_FPU,LOG_WARN)("ESC 1:Unhandled group %X subfunction %X",(int)group,(int)sub);
 	}
 }
 
@@ -313,6 +322,32 @@ void FPU_ESC2_Normal(Bitu rm) {
 	Bitu group=(rm >> 3) & 7;
 	Bitu sub=(rm & 7);
 	switch(group){
+/* Taken from DOSBOX-X ///////////////////////////////////////////////////////////////*/
+	case 0x00: /* FCMOVB STi */
+		if (TFLG_B) FPU_FCMOV(TOP,STV(sub));
+			if (debuglog){
+				LOG_MSG("FPU: (TFLG_B) FPU_FCMOV(TOP,STV(sub))");
+			}		
+		break;
+	case 0x01: /* FCMOVE STi */
+		if (TFLG_Z) FPU_FCMOV(TOP,STV(sub));
+			if (debuglog){		
+				LOG_MSG("FPU: (TFLG_Z) FPU_FCMOV(TOP,STV(sub))");
+			}
+		
+		break;
+	case 0x02: /* FCMOVBE STi */
+		if (TFLG_BE) FPU_FCMOV(TOP,STV(sub));
+			if (debuglog){		
+				LOG_MSG("FPU: (TFLG_BE) FPU_FCMOV(TOP,STV(sub))");		
+			}
+		break;
+	case 0x03: /* FCMOVU STi */
+		if (TFLG_P) FPU_FCMOV(TOP,STV(sub));
+			if (debuglog){
+				LOG_MSG("FPU: (FPU_FCMOV) FPU_FCMOV(TOP,STV(sub))");		
+			}
+/* Taken from DOSBOX-X ///////////////////////////////////////////////////////////////*/
 	case 0x05:
 		switch(sub){
 		case 0x01:		/* FUCOMPP */
@@ -321,12 +356,12 @@ void FPU_ESC2_Normal(Bitu rm) {
 			FPU_FPOP();
 			break;
 		default:
-			LOG(LOG_FPU,LOG_WARN)("ESC 2:Unhandled group %d subfunction %d",group,sub); 
+			LOG(LOG_FPU,LOG_WARN)("ESC 2:Unhandled group %d subfunction %d",(int)group,(int)sub);
 			break;
 		}
 		break;
 	default:
-	   	LOG(LOG_FPU,LOG_WARN)("ESC 2:Unhandled group %d subfunction %d",group,sub);
+	   	LOG(LOG_FPU,LOG_WARN)("ESC 2:Unhandled group %d subfunction %d",(int)group,(int)sub);
 		break;
 	}
 }
@@ -341,7 +376,7 @@ void FPU_ESC3_EA(Bitu rm,PhysPt addr) {
 		FPU_FLD_I32(addr,TOP);
 		break;
 	case 0x01:	/* FISTTP */
-		LOG(LOG_FPU,LOG_WARN)("ESC 3 EA:Unhandled group %d subfunction %d",group,sub);
+		LOG(LOG_FPU,LOG_WARN)("ESC 3 EA:Unhandled group %d subfunction %d",(int)group,(int)sub);
 		break;
 	case 0x02:	/* FIST */
 		FPU_FST_I32(addr);
@@ -359,7 +394,7 @@ void FPU_ESC3_EA(Bitu rm,PhysPt addr) {
 		FPU_FPOP();
 		break;
 	default:
-		LOG(LOG_FPU,LOG_WARN)("ESC 3 EA:Unhandled group %d subfunction %d",group,sub);
+		LOG(LOG_FPU,LOG_WARN)("ESC 3 EA:Unhandled group %d subfunction %d",(int)group,(int)sub);
 	}
 }
 
@@ -367,11 +402,36 @@ void FPU_ESC3_Normal(Bitu rm) {
 	Bitu group=(rm >> 3) & 7;
 	Bitu sub=(rm & 7);
 	switch (group) {
+/* Taken from DOSBOX-X ///////////////////////////////////////////////////////////////*/
+	case 0x00: /* FCMOVNB STi */
+		if (TFLG_NB) FPU_FCMOV(TOP,STV(sub));
+			if (debuglog){
+				LOG_MSG("FPU:  (TFLG_NB) FPU_FCMOV(TOP,STV(sub))");
+			}			
+		break;
+	case 0x01: /* FCMOVNE STi */
+		if (TFLG_NZ) FPU_FCMOV(TOP,STV(sub));
+			if (debuglog){
+				LOG_MSG("FPU:  (TFLG_NZ) FPU_FCMOV(TOP,STV(sub))");
+			}			
+		break;
+	case 0x02: /* FCMOVNBE STi */
+		if (TFLG_NBE) FPU_FCMOV(TOP,STV(sub));
+			if (debuglog){
+				LOG_MSG("FPU:  (TFLG_NBE) FPU_FCMOV(TOP,STV(sub))");
+			}			
+		break;
+	case 0x03: /* FCMOVNU STi */
+		if (TFLG_NP) FPU_FCMOV(TOP,STV(sub));
+			if (debuglog){
+				LOG_MSG("FPU:  (TFLG_NP) FPU_FCMOV(TOP,STV(sub))");
+			}			
+/* Taken from DOSBOX-X ///////////////////////////////////////////////////////////////*/	
 	case 0x04:
 		switch (sub) {
 		case 0x00:				//FNENI
 		case 0x01:				//FNDIS
-			LOG(LOG_FPU,LOG_ERROR)("8087 only fpu code used esc 3: group 4: subfuntion :%d",sub);
+			LOG(LOG_FPU,LOG_ERROR)("8087 only fpu code used esc 3: group 4: subfuntion :%d",(int)sub);
 			break;
 		case 0x02:				//FNCLEX FCLEX
 			FPU_FCLEX();
@@ -385,11 +445,25 @@ void FPU_ESC3_Normal(Bitu rm) {
 			FPU_FNOP();
 			break;
 		default:
-			E_Exit("ESC 3:ILLEGAL OPCODE group %d subfunction %d",group,sub);
+			E_Exit("ESC 3:ILLEGAL OPCODE group %d subfunction %d",(int)group,(int)sub);
 		}
 		break;
+/* Taken from DOSBOX-X ///////////////////////////////////////////////////////////////*/		
+	case 0x05:		/* FUCOMI STi */
+		FPU_FUCOMI(TOP,STV(sub));
+			if (debuglog){
+				LOG_MSG("FPU:  (FPU_FUCOMI(TOP,STV(sub))");
+			}			
+		break;
+	case 0x06:		/* FCOMI STi */	
+		FPU_FCOMI(TOP,STV(sub));
+			if (debuglog){
+				LOG_MSG("FPU:  (FPU_FCOMI(TOP,STV(sub))");
+			}			
+		break;	
+/* Taken from DOSBOX-X ///////////////////////////////////////////////////////////////*/		
 	default:
-		LOG(LOG_FPU,LOG_WARN)("ESC 3:Unhandled group %d subfunction %d",group,sub);
+		LOG(LOG_FPU,LOG_WARN)("ESC 3:Unhandled group %d subfunction %d",(int)group,(int)sub);
 		break;
 	}
 	return;
@@ -446,7 +520,7 @@ void FPU_ESC5_EA(Bitu rm,PhysPt addr) {
 		FPU_FLD_F64(addr,TOP);
 		break;
 	case 0x01:  /* FISTTP longint*/
-		LOG(LOG_FPU,LOG_WARN)("ESC 5 EA:Unhandled group %d subfunction %d",group,sub);
+		LOG(LOG_FPU,LOG_WARN)("ESC 5 EA:Unhandled group %d subfunction %d",(int)group,(int)sub);
 		break;
 	case 0x02:   /* FST double real*/
 		FPU_FST_F64(addr);
@@ -467,7 +541,7 @@ void FPU_ESC5_EA(Bitu rm,PhysPt addr) {
 		//seems to break all dos4gw games :)
 		break;
 	default:
-		LOG(LOG_FPU,LOG_WARN)("ESC 5 EA:Unhandled group %d subfunction %d",group,sub);
+		LOG(LOG_FPU,LOG_WARN)("ESC 5 EA:Unhandled group %d subfunction %d",(int)group,(int)sub);
 	}
 }
 
@@ -496,7 +570,7 @@ void FPU_ESC5_Normal(Bitu rm) {
 		FPU_FPOP();
 		break;
 	default:
-	LOG(LOG_FPU,LOG_WARN)("ESC 5:Unhandled group %d subfunction %d",group,sub);
+	LOG(LOG_FPU,LOG_WARN)("ESC 5:Unhandled group %d subfunction %d",(int)group,(int)sub);
 	break;
 	}
 }
@@ -524,7 +598,7 @@ void FPU_ESC6_Normal(Bitu rm) {
 		break;	/* TODO IS THIS ALLRIGHT ????????? */
 	case 0x03:  /*FCOMPP*/
 		if(sub != 1) {
-			LOG(LOG_FPU,LOG_WARN)("ESC 6:Unhandled group %d subfunction %d",group,sub);
+			LOG(LOG_FPU,LOG_WARN)("ESC 6:Unhandled group %d subfunction %d",(int)group,(int)sub);
 			return;
 		}
 		FPU_FCOM(TOP,STV(1));
@@ -558,7 +632,7 @@ void FPU_ESC7_EA(Bitu rm,PhysPt addr) {
 		FPU_FLD_I16(addr,TOP);
 		break;
 	case 0x01:
-		LOG(LOG_FPU,LOG_WARN)("ESC 7 EA:Unhandled group %d subfunction %d",group,sub);
+		LOG(LOG_FPU,LOG_WARN)("ESC 7 EA:Unhandled group %d subfunction %d",(int)group,(int)sub);
 		break;
 	case 0x02:   /* FIST Bit16s */
 		FPU_FST_I16(addr);
@@ -584,7 +658,7 @@ void FPU_ESC7_EA(Bitu rm,PhysPt addr) {
 		FPU_FPOP();
 		break;
 	default:
-		LOG(LOG_FPU,LOG_WARN)("ESC 7 EA:Unhandled group %d subfunction %d",group,sub);
+		LOG(LOG_FPU,LOG_WARN)("ESC 7 EA:Unhandled group %d subfunction %d",(int)group,(int)sub);
 		break;
 	}
 }
@@ -612,12 +686,27 @@ void FPU_ESC7_Normal(Bitu rm) {
 				reg_ax = fpu.sw;
 				break;
 			default:
-				LOG(LOG_FPU,LOG_WARN)("ESC 7:Unhandled group %d subfunction %d",group,sub);
+				LOG(LOG_FPU,LOG_WARN)("ESC 7:Unhandled group %d subfunction %d",(int)group,(int)sub);
 				break;
 		}
 		break;
+		/* Taken from DOSBOX-X ///////////////////////////////////////////////////////////////*/
+	case 0x05:		/* FUCOMIP STi */
+		FPU_FUCOMI(TOP,STV(sub));
+		FPU_FPOP();
+			if (debuglog){
+				LOG_MSG("FPU:  FPU_FUCOMI(TOP,STV(sub)) & FPU_FPOP()");
+			}		
+		break;
+	case 0x06:		/* FCOMIP STi */
+		FPU_FCOMI(TOP,STV(sub));
+		FPU_FPOP();
+			if (debuglog){
+				LOG_MSG("FPU:  FPU_FCOMI(TOP,STV(sub)) & FPU_FPOP()");
+			}		
+/* Taken from DOSBOX-X ///////////////////////////////////////////////////////////////*/		
 	default:
-		LOG(LOG_FPU,LOG_WARN)("ESC 7:Unhandled group %d subfunction %d",group,sub);
+		LOG(LOG_FPU,LOG_WARN)("ESC 7:Unhandled group %d subfunction %d",(int)group,(int)sub);
 		break;
 	}
 }

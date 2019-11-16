@@ -430,6 +430,10 @@ Bit32u get_OF(void) {
 	}
 	return false;
 }
+////////////////////////////////////////////////////////////////////////// Thalion Airbus 320 Fix
+#define PARITY16(x)  (parity_lookup[((x)>>8)&0xff]^parity_lookup[(x)&0xff]^FLAG_PF)
+#define PARITY32(x)  (PARITY16((x)&0xffff)^PARITY16(((x)>>16)&0xffff)^FLAG_PF)
+////////////////////////////////////////////////////////////////////////// Thalion Airbus 320 Fix
 
 Bit16u parity_lookup[256] = {
   FLAG_PF, 0, 0, FLAG_PF, 0, FLAG_PF, FLAG_PF, 0, 0, FLAG_PF, FLAG_PF, 0, FLAG_PF, 0, 0, FLAG_PF,
@@ -454,6 +458,28 @@ Bit32u get_PF(void) {
 	switch (lflags.type) {
 	case t_UNKNOWN:
 		return GETFLAG(PF);
+		////////////////////////////////////// Thalion Airbus 320 Fix
+		case t_XORd:
+		case t_ADDd:
+		case t_SUBd:
+		case t_ANDd:
+		case t_ADCd:
+		case t_SHRd:
+		case t_SHLd:
+		case t_SARd:
+		case t_ORd:
+			return	PARITY32(lf_resd);
+		case t_XORw:
+		case t_ADDw:
+		case t_SUBw:
+		case t_ANDw:
+		case t_ADCw:
+		case t_SHRw:
+		case t_SHLw:
+		case t_SARw:
+		case t_ORw:
+		////////////////////////////////////// Thalion Airbus 320 Fix		
+			return	PARITY16(lf_resw);		
 	default:
 		return	(parity_lookup[lf_resb]);
 	};

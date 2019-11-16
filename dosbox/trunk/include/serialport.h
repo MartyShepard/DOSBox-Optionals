@@ -39,7 +39,7 @@
 // set this to 1 for serial debugging in release mode
 #define SERIAL_DBG_FORCED 0
 
-#if (C_DEBUG || SERIAL_DBG_FORCED)
+#if defined(C_DEBUG) || defined(SERIAL_DBG_FORCED)
 #define SERIAL_DEBUG 1
 #endif
 

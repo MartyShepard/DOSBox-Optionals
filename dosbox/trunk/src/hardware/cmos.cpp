@@ -194,9 +194,12 @@ static Bitu cmos_readreg(Bitu port,Bitu iolen) {
 		return ((drive_a << 4) | (drive_b));
 	/* First harddrive info */
 	case 0x12:
+		/* NTS: DOSBox 0.74 mainline has these backwards: the upper nibble is the first hard disk,
+		   the lower nibble is the second hard disk. It makes a big difference to stupid OS's like
+		   Windows 95. */	
 		hdparm = 0;
-		if(imageDiskList[2] != NULL) hdparm |= 0xf;
-		if(imageDiskList[3] != NULL) hdparm |= 0xf0;
+		if(imageDiskList[3] != NULL) hdparm |= 0xf;
+		if(imageDiskList[2] != NULL) hdparm |= 0xf0;
 		return hdparm;
 	case 0x19:
 		if(imageDiskList[2] != NULL) return 47; /* User defined type */

@@ -30,7 +30,7 @@ void vga_write_p3d5(Bitu port,Bitu val,Bitu iolen);
 Bitu vga_read_p3d5(Bitu port,Bitu iolen);
 
 Bitu vga_read_p3da(Bitu port,Bitu iolen) {
-	Bit8u retval=4;	// bit 2 set, needed by Blues Brothers
+	Bit8u retval=4;	// bit 2 set, needed by Blues Brothers, was 0 (comes with r4266)
 	double timeInFrame = PIC_FullIndex()-vga.draw.delay.framestart;
 
 	vga.internal.attrindex=false;
@@ -44,14 +44,20 @@ Bitu vga_read_p3da(Bitu port,Bitu iolen) {
 		timeInFrame <= vga.draw.delay.vrend)
 		retval |= 8;
 	if (timeInFrame >= vga.draw.delay.vdend) {
-		retval |= 1;
+		retval |= 1; // vertical blanking
 	} else {
 		double timeInLine=fmod(timeInFrame,vga.draw.delay.htotal);
 		if (timeInLine >= vga.draw.delay.hblkstart && 
 			timeInLine <= vga.draw.delay.hblkend) {
-			retval |= 1;
+			retval |= 1; // horizontal blanking
 		}
 	}
+	
+    if (timeInFrame >= vga.draw.delay.vrstart &&
+        timeInFrame <= vga.draw.delay.vrend) {
+        retval |= 8; // vertical retrace
+    }
+		
 	return retval;
 }
 

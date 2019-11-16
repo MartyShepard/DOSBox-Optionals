@@ -447,7 +447,7 @@ restart_prefix:
 
 		// int/iret
 #if !(C_DEBUG)
-		case 0xcd:dyn_interrupt(decode_fetchb());goto finish_block;
+ 		case 0xcd:dyn_interrupt(decode_fetchb());goto finish_block;
 #endif
 		case 0xcf:dyn_iret();goto finish_block;
 

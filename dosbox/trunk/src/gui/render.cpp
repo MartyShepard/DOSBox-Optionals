@@ -49,8 +49,6 @@ static void Check_Palette(void) {
 	Bitu i;
 	switch (render.scale.outMode) {
 	case scalerMode8:
-		GFX_SetPalette(render.pal.first,render.pal.last-render.pal.first+1,(GFX_PalEntry *)&render.pal.rgb[render.pal.first]);
-		break;
 	case scalerMode15:
 	case scalerMode16:
 		for (i=render.pal.first;i<=render.pal.last;i++) {
@@ -227,8 +225,11 @@ void RENDER_EndUpdate( bool abort ) {
 		render.frameskip.hadSkip[render.frameskip.index] = 1;
 		for (i = 0;i<RENDER_SKIP_CACHE;i++) 
 			total += render.frameskip.hadSkip[i];
-		LOG_MSG( "Skipped frame %d %d", PIC_Ticks, (total * 100) / RENDER_SKIP_CACHE );
+		LOG_MSG( "RENDERER: Skipped frame %d %d", PIC_Ticks, (total * 100) / RENDER_SKIP_CACHE );
 #endif
+		// Force output to update the screen even if nothing changed...
+		// works only with custom GLSL shaders (GFX_StartUpdate() was probably not even called)
+		if (render.forceUpdate) GFX_EndUpdate( 0 );
 	}
 	render.frameskip.index = (render.frameskip.index + 1) & (RENDER_SKIP_CACHE - 1);
 	render.updating=false;
@@ -358,7 +359,7 @@ forcenormal:
 	if (complexBlock) {
 #if RENDER_USE_ADVANCED_SCALERS>1
 		if ((width >= SCALER_COMPLEXWIDTH - 16) || height >= SCALER_COMPLEXHEIGHT - 16) {
-			LOG_MSG("Scaler can't handle this resolution, going back to normal");
+			LOG_MSG("RENDERER: Scaler can't handle this resolution, going back to normal");
 			goto forcenormal;
 		}
 #else
@@ -376,11 +377,11 @@ forcenormal:
 	}
 	switch (render.src.bpp) {
 	case 8:
-			render.src.start = ( render.src.width * 1) / sizeof(Bitu);
-			if (gfx_flags & GFX_CAN_8)
-				gfx_flags |= GFX_LOVE_8;
-			else
-				gfx_flags |= GFX_LOVE_32;
+		render.src.start = ( render.src.width * 1) / sizeof(Bitu);
+		if (gfx_flags & GFX_CAN_8)
+			gfx_flags |= GFX_LOVE_8;
+		else
+			gfx_flags |= GFX_LOVE_32;
 			break;
 	case 15:
 			render.src.start = ( render.src.width * 2) / sizeof(Bitu);
@@ -392,6 +393,13 @@ forcenormal:
 			gfx_flags |= GFX_LOVE_16;
 			gfx_flags = (gfx_flags & ~GFX_CAN_8) | GFX_RGBONLY;
 			break;
+	/* Custom S3 VGA ///////////////////////////////////////////////////////////////////////////////////////*/			
+	case 24:
+			render.src.start = ( render.src.width * 3) / sizeof(Bitu);
+			gfx_flags |= GFX_LOVE_32;
+			gfx_flags = (gfx_flags & ~GFX_CAN_8) | GFX_RGBONLY;
+			break;			
+	/* Custom S3 VGA ///////////////////////////////////////////////////////////////////////////////////////*/			
 	case 32:
 			render.src.start = ( render.src.width * 4) / sizeof(Bitu);
 			gfx_flags |= GFX_LOVE_32;
@@ -457,7 +465,9 @@ forcenormal:
 	switch (render.src.bpp) {
 	case 8:
 		render.scale.lineHandler = (*lineBlock)[0][render.scale.outMode];
-		render.scale.linePalHandler = (*lineBlock)[4][render.scale.outMode];
+	/* Custom S3 VGA /////////////////////////////////////////////////////////////////////////////////////////*/			
+		render.scale.linePalHandler = (*lineBlock)[5][render.scale.outMode];
+	/* Custom S3 VGA /////////////////////////////////////////////////////////////////////////////////////////*/			
 		render.scale.inMode = scalerMode8;
 		render.scale.cachePitch = render.src.width * 1;
 		break;
@@ -473,12 +483,20 @@ forcenormal:
 		render.scale.inMode = scalerMode16;
 		render.scale.cachePitch = render.src.width * 2;
 		break;
-	case 32:
+	/* Custom S3 VGA /////////////////////////////////////////////////////////////////////////////////////////*/		
+	case 24:
 		render.scale.lineHandler = (*lineBlock)[3][render.scale.outMode];
 		render.scale.linePalHandler = 0;
 		render.scale.inMode = scalerMode32;
-		render.scale.cachePitch = render.src.width * 4;
-		break;
+		render.scale.cachePitch = render.src.width * 3;
+		break;	
+	case 32:
+		render.scale.lineHandler = (*lineBlock)[4][render.scale.outMode];
+		render.scale.linePalHandler = 0;
+		render.scale.inMode = scalerMode32;
+	/* Custom S3 VGA /////////////////////////////////////////////////////////////////////////////////////////*/			
+ 		render.scale.cachePitch = render.src.width * 4;
+ 		break;		
 	default:
 		E_Exit("RENDER:Wrong source bpp %d", render.src.bpp );
 	}
@@ -539,7 +557,7 @@ static void IncreaseFrameSkip(bool pressed) {
 	if (!pressed)
 		return;
 	if (render.frameskip.max<10) render.frameskip.max++;
-	LOG_MSG("Frame Skip at %d",render.frameskip.max);
+	LOG_MSG("RENDERER: Frame Skip at %d",render.frameskip.max);
 	GFX_SetTitle(-1,render.frameskip.max,false);
 }
 
@@ -547,7 +565,7 @@ static void DecreaseFrameSkip(bool pressed) {
 	if (!pressed)
 		return;
 	if (render.frameskip.max>0) render.frameskip.max--;
-	LOG_MSG("Frame Skip at %d",render.frameskip.max);
+	LOG_MSG("RENDERER: Frame Skip at %d",render.frameskip.max);
 	GFX_SetTitle(-1,render.frameskip.max,false);
 }
 /* Disabled as I don't want to waste a keybind for that. Might be used in the future (Qbix)
@@ -562,6 +580,14 @@ static void ChangeScaler(bool pressed) {
 	}
 	RENDER_CallBack( GFX_CallBackReset );
 } */
+
+void RENDER_SetForceUpdate(bool f) {
+	render.forceUpdate = f;
+}
+
+bool RENDER_GetForceUpdate() {
+	return render.forceUpdate;
+}
 
 void RENDER_Init(Section * sec) {
 	Section_prop * section=static_cast<Section_prop *>(sec);
@@ -578,6 +604,7 @@ void RENDER_Init(Section * sec) {
 	render.aspect=section->Get_bool("aspect");
 	render.frameskip.max=section->Get_int("frameskip");
 	render.frameskip.count=0;
+	render.forceUpdate=false;
 	std::string cline;
 	std::string scaler;
 	//Check for commandline paramters and parse them through the configclass so they get checked against allowed values

@@ -151,6 +151,7 @@ void SERIAL_getErrorString(char* buffer, size_t length) {
 		sysmsg_offset = strlen(err2text);
 		memcpy(buffer,err2text,sysmsg_offset);
 	}
+
 	
 	// Go for length > so there will be bytes left afterwards.
 	// (which are 0 due to memset, thus the buffer is 0 terminated

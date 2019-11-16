@@ -20,7 +20,12 @@
 #ifndef DOSBOX_DOSBOX_H
 #define DOSBOX_DOSBOX_H
 
+#include <string>
 #include "config.h"
+/* Custom S3 VGA /////////////////////////////////////////////////////////////////////////////////////////////*/
+#include "rgb24.h"
+/* Custom S3 VGA /////////////////////////////////////////////////////////////////////////////////////////////*/
+
 
 GCC_ATTRIBUTE(noreturn) void E_Exit(const char * message,...) GCC_ATTRIBUTE( __format__(__printf__, 1, 2));
 
@@ -60,6 +65,12 @@ enum SVGACards {
 extern SVGACards svgaCard;
 extern MachineType machine;
 extern bool SDLNetInited;
+extern bool mono_cga;
+extern bool CPU_FastForward;
+extern int nCurrentDisplay;
+extern bool bVoodooInUse;
+extern bool bVoodooOpen;
+
 
 #define IS_TANDY_ARCH ((machine==MCH_TANDY) || (machine==MCH_PCJR))
 #define IS_EGAVGA_ARCH ((machine==MCH_EGA) || (machine==MCH_VGA))
@@ -67,6 +78,10 @@ extern bool SDLNetInited;
 #define TANDY_ARCH_CASE MCH_TANDY: case MCH_PCJR
 #define EGAVGA_ARCH_CASE MCH_EGA: case MCH_VGA
 #define VGA_ARCH_CASE MCH_VGA
+
+/* Added from DOSBox-X /////////////////////////////////////////////////////*/
+#define GetHWND() (0)
+/* Added from DOSBox-X /////////////////////////////////////////////////////*/
 
 #ifndef DOSBOX_LOGGING_H
 #include "logging.h"

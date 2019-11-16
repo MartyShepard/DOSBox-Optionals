@@ -195,9 +195,10 @@ static Bitu INT10_Handler(void) {
 		case 0x1B:							/* PERFORM GRAY-SCALE SUMMING */
 			INT10_PerformGrayScaleSumming(reg_bx,reg_cx);
 			break;
-		case 0xF0:							/* ET4000: SET HiColor GRAPHICS MODE */
-		case 0xF1:							/* ET4000: GET DAC TYPE */
-		case 0xF2:							/* ET4000: CHECK/SET HiColor MODE */
+		//case 0xF0:							/* ET4000: SET HiColor GRAPHICS MODE */
+		//case 0xF1:							/* ET4000: GET DAC TYPE */
+		//case 0xF2:							/* ET4000: CHECK/SET HiColor MODE */
+
 		default:
 			LOG(LOG_INT10,LOG_ERROR)("Function 10:Unhandled EGA/VGA Palette Function %2X",reg_al);
 			break;

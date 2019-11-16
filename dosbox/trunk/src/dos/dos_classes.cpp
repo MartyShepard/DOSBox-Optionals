@@ -23,6 +23,8 @@
 #include "mem.h"
 #include "dos_inc.h"
 #include "support.h"
+#include "control.h"
+
 
 
 void DOS_ParamBlock::Clear(void) {
@@ -51,9 +53,16 @@ void DOS_ParamBlock::SaveData(void) {
 }
 
 
+
 void DOS_InfoBlock::SetLocation(Bit16u segment) {
+	
+
+	
 	seg = segment;
-	pt=PhysMake(seg,0);
+	pt  = PhysMake(seg,0);
+	
+	Section_prop *section = static_cast<Section_prop *>(control->GetSection("dos"));
+		
 	/* Clear the initial Block */
 	for(Bitu i=0;i<sizeof(sDIB);i++) mem_writeb(pt+i,0xff);
 	for(Bitu i=0;i<14;i++) mem_writeb(pt+i,0);
@@ -65,8 +74,43 @@ void DOS_InfoBlock::SetLocation(Bit16u segment) {
 	sSave(sDIB,protFCBs,(Bit16u)0);
 	sSave(sDIB,specialCodeSeg,(Bit16u)0);
 	sSave(sDIB,joindedDrives,(Bit8u)0);
-	sSave(sDIB,lastdrive,(Bit8u)0x01);//increase this if you add drives to cds-chain
-
+	
+	//increase this if you add drives to cds-chain
+	const char * sLastDrive = section->Get_string("LastDrive");
+	
+	if ( strlen(sLastDrive) == 0 || sLastDrive == NULL ){
+		sLastDrive = "a";
+	} else {
+				
+		       if (strcmp (sLastDrive,"a") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x01);	
+		} else if (strcmp (sLastDrive,"b") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x02);
+		} else if (strcmp (sLastDrive,"c") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x03);		
+		} else if (strcmp (sLastDrive,"d") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x04);
+		} else if (strcmp (sLastDrive,"e") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x05);
+		} else if (strcmp (sLastDrive,"f") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x06);
+		} else if (strcmp (sLastDrive,"g") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x07);
+		} else if (strcmp (sLastDrive,"h") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x08);
+		} else if (strcmp (sLastDrive,"i") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x09);
+		} else if (strcmp (sLastDrive,"j") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x0A);
+		} else if (strcmp (sLastDrive,"k") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x0B);
+		} else if (strcmp (sLastDrive,"l") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x0C);
+		} else if (strcmp (sLastDrive,"m") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x0D);
+		} else if (strcmp (sLastDrive,"n") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x0E);
+		} else if (strcmp (sLastDrive,"o") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x0F);
+		} else if (strcmp (sLastDrive,"p") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x10);
+		} else if (strcmp (sLastDrive,"q") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x11);
+		} else if (strcmp (sLastDrive,"r") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x12);
+		} else if (strcmp (sLastDrive,"s") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x13);
+		} else if (strcmp (sLastDrive,"t") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x14);
+		} else if (strcmp (sLastDrive,"u") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x15);		
+		} else if (strcmp (sLastDrive,"v") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x16);
+		} else if (strcmp (sLastDrive,"w") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x17);
+		} else if (strcmp (sLastDrive,"x") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x18);
+		} else if (strcmp (sLastDrive,"y") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x19);
+		} else if (strcmp (sLastDrive,"z") == 0) {sSave(sDIB,lastdrive,(Bit8u)0x1A);
+		} else {sSave(sDIB,lastdrive,(Bit8u)0x01);}		
+	}
+	
 	sSave(sDIB,diskInfoBuffer,RealMake(segment,offsetof(sDIB,diskBufferHeadPt)));
 	sSave(sDIB,setverPtr,(Bit32u)0);
 
@@ -158,7 +202,7 @@ void DOS_InfoBlock::SetUMBChainState(Bit8u _umbchaining) {
 }
 
 void DOS_InfoBlock::SetBlockDevices(Bit8u _count) {
-	sSave(sDIB,blockDevices,_count);
+	sSave(sDIB,blockDevices,_count);	
 }
 
 RealPt DOS_InfoBlock::GetPointer(void) {
@@ -241,6 +285,8 @@ Bit16u DOS_PSP::FindEntryByHandle(Bit8u handle) {
 	}	
 	return 0xFF;
 }
+
+
 
 void DOS_PSP::CopyFileTable(DOS_PSP* srcpsp,bool createchildpsp) {
 	/* Copy file table from calling process */

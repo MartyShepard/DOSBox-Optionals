@@ -30,7 +30,7 @@
 #include "debug.h"
 #include "setup.h"
 
-#define LINK_TOTAL		(64*1024)
+#define LINK_TOTAL		(64*1024)//(64*1024)
 
 #define USERWRITE_PROHIBITED			((cpu.cpl&cpu.mpl)==3)
 
@@ -130,7 +130,7 @@ static Bits PageFaultCore(void) {
 	}
 	return 0;
 }
-#if C_DEBUG
+#if defined(C_DEBUG)
 Bitu DEBUG_EnableDebugger(void);
 #endif
 
@@ -155,7 +155,7 @@ void PAGING_PageFault(PhysPt lin_addr,Bitu page_addr,Bitu faultcode) {
 	cpu.mpl=3;
 
 	CPU_Exception(EXCEPTION_PF,faultcode);
-#if C_DEBUG
+#if defined(C_DEBUG)
 //	DEBUG_EnableDebugger();
 #endif
 	DOSBOX_RunMachine();
@@ -237,6 +237,7 @@ static INLINE bool InitPage_CheckUseraccess(Bitu u1,Bitu u2) {
 	case CPU_ARCHTYPE_486OLDSLOW:
 	case CPU_ARCHTYPE_486NEWSLOW:
 	case CPU_ARCHTYPE_PENTIUMSLOW:
+	case CPU_ARCHTYPE_PPROSLOW:
 		return ((u1)==0) || ((u2)==0);
 	}
 }
@@ -342,6 +343,7 @@ public:
 					case CPU_ARCHTYPE_486OLDSLOW:
 					case CPU_ARCHTYPE_486NEWSLOW:
 					case CPU_ARCHTYPE_PENTIUMSLOW:
+					case CPU_ARCHTYPE_PPROSLOW:
 						priv_check=1;
 						break;
 					}
@@ -360,6 +362,7 @@ public:
 					case CPU_ARCHTYPE_486OLDSLOW:
 					case CPU_ARCHTYPE_486NEWSLOW:
 					case CPU_ARCHTYPE_PENTIUMSLOW:
+					case CPU_ARCHTYPE_PPROSLOW:
 						priv_check=2;
 						break;
 					}
@@ -367,6 +370,7 @@ public:
 				// check if actually failing the write-protected check
 				if (writing && USERWRITE_PROHIBITED) priv_check=3;
 			}
+						
 			if (priv_check==3) {
 				LOG(LOG_PAGING,LOG_NORMAL)("Page access denied: cpl=%i, %x:%x:%x:%x",
 					cpu.cpl,entry.block.us,table.block.us,entry.block.wr,table.block.wr);

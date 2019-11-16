@@ -733,8 +733,7 @@ void Channel::WriteC0(const Chip* chip, Bit8u val) {
 	UpdateSynth(chip);
 }
 
-void Channel::UpdateSynth( const Chip* chip ) {
-	//Select the new synth mode
+void Channel::UpdateSynth( const Chip* chip ) {	//Select the new synth mode
 	if ( chip->opl3Active ) {
 		//4-op mode enabled for this channel
 		if ( (chip->reg104 & fourMask) & 0x3f ) {
@@ -787,6 +786,13 @@ void Channel::UpdateSynth( const Chip* chip ) {
 		}
 	}
 }
+
+
+
+
+
+
+
 
 template< bool opl3Mode>
 INLINE void Channel::GeneratePercussion( Chip* chip, Bit32s* output ) {
@@ -883,6 +889,9 @@ Channel* Channel::BlockTemplate( Chip* chip, Bit32u samples, Bit32s* output ) {
 			return (this + 2);
 		}
 		break;
+	default:
+		LOG_MSG("MIDI: Enumeration value(%u) not handled in switch " __FILE__ ":%d", mode, __LINE__);
+		break;		
 	}
 	//Init the operators with the the current vibrato and tremolo values
 	Op( 0 )->Prepare( chip );
@@ -948,6 +957,9 @@ Channel* Channel::BlockTemplate( Chip* chip, Bit32u samples, Bit32s* output ) {
 			output[ i * 2 + 0 ] += sample & maskLeft;
 			output[ i * 2 + 1 ] += sample & maskRight;
 			break;
+		default:
+			LOG_MSG("MIDI: Enumeration value(%u) not handled in switch " __FILE__ ":%d", mode, __LINE__);
+			break;			
 		}
 	}
 	switch( mode ) {
@@ -1071,7 +1083,6 @@ void Chip::WriteBD( Bit8u val ) {
 	//Toggle keyoffs when we turn off the percussion
 	} else if ( change & 0x20 ) {
 		//Trigger a reset to setup the original synth handler
-		//This makes it call
 		chan[6].UpdateSynth( this );
 		chan[6].op[0].KeyOff( 0x2 );
 		chan[6].op[1].KeyOff( 0x2 );
@@ -1083,11 +1094,11 @@ void Chip::WriteBD( Bit8u val ) {
 }
 
 
-#define REGOP( _FUNC_ )															\
-	index = ( ( reg >> 3) & 0x20 ) | ( reg & 0x1f );								\
-	if ( OpOffsetTable[ index ] ) {													\
+#define REGOP( _FUNC_ )																	\
+	index = ( ( reg >> 3) & 0x20 ) | ( reg & 0x1f );									\
+	if ( OpOffsetTable[ index ] ) {														\
 		Operator* regOp = (Operator*)( ((char *)this ) + OpOffsetTable[ index ]-1 );	\
-		regOp->_FUNC_( this, val );													\
+		regOp->_FUNC_( this, val );														\
 	}
 
 #define REGCHAN( _FUNC_ )																\
@@ -1103,8 +1114,6 @@ void Chip::UpdateSynths() {
 		chan[i].UpdateSynth(this);
 	}
 }
-
-
 void Chip::WriteReg( Bit32u reg, Bit8u val ) {
 	Bitu index;
 	switch ( (reg & 0xf0) >> 4 ) {
@@ -1118,7 +1127,7 @@ void Chip::WriteReg( Bit32u reg, Bit8u val ) {
 			//Always keep the highest bit enabled, for checking > 0x80
 			reg104 = 0x80 | ( val & 0x3f );
 			//Switch synths when changing the 4op combinations
-			UpdateSynths();
+			UpdateSynths();				  
 		} else if ( reg == 0x105 ) {
 			//MAME says the real opl3 doesn't reset anything on opl3 disable/enable till the next write in another register
 			if ( !((opl3Active ^ val) & 1 ) )
@@ -1127,6 +1136,7 @@ void Chip::WriteReg( Bit32u reg, Bit8u val ) {
 			//Just tupdate the synths now that opl3 most have been enabled
 			//This isn't how the real card handles it but need to switch to stereo generating handlers
 			UpdateSynths();
+	
 		} else if ( reg == 0x08 ) {
 			reg08 = val;
 		}
@@ -1444,7 +1454,7 @@ void InitTables( void ) {
 		//Add back the bits for highest ones
 		if ( i >= 16 )
 			index += 9;
-		ChanOffsetTable[i] = 1+(Bit16u)(index*sizeof(DBOPL::Channel));
+		ChanOffsetTable[i] = (Bit16u)(index*sizeof(DBOPL::Channel));
 	}
 	//Same for operators
 	for ( Bitu i = 0; i < 64; i++ ) {
@@ -1460,7 +1470,6 @@ void InitTables( void ) {
 		OpOffsetTable[i] = ChanOffsetTable[chNum]+(Bit16u)(opNum*sizeof(DBOPL::Operator));
 	}
 #if 0
-	DBOPL::Chip* chip = 0;
 	//Stupid checks if table's are correct
 	for ( Bitu i = 0; i < 18; i++ ) {
 		Bit32u find = (Bit16u)( &(chip->chan[ i ]) );
@@ -1516,4 +1525,4 @@ void Handler::Init( Bitu rate ) {
 }
 
 
-};		//Namespace DBOPL
+}		//Namespace DBOPL

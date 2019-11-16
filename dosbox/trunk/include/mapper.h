@@ -1,4 +1,4 @@
-/*
+ /*
  *  Copyright (C) 2002-2019  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -21,7 +21,7 @@
 
 enum MapKeys {
 	MK_f1,MK_f2,MK_f3,MK_f4,MK_f5,MK_f6,MK_f7,MK_f8,MK_f9,MK_f10,MK_f11,MK_f12,
-	MK_return,MK_kpminus,MK_scrolllock,MK_printscreen,MK_pause,MK_home
+	MK_return,MK_kpminus,MK_scrolllock,MK_printscreen,MK_pause,MK_home,MK_WHDA,MK_WHDB,MK_WHDC,MK_WHDD,MK_ACVM,MK_ACVD,MK_ACVU
 
 };
 

@@ -30,7 +30,6 @@
 #include "cross.h"
 #include "inout.h"
 
-
 bool localDrive::FileCreate(DOS_File * * file,char * name,Bit16u /*attributes*/) {
 //TODO Maybe care for attributes but not likely
 	char newname[CROSS_LEN];
@@ -450,7 +449,7 @@ bool localFile::Read(Bit8u * data,Bit16u * size) {
 }
 
 bool localFile::Write(Bit8u * data,Bit16u * size) {
-	Bit32u lastflags = this->flags & 0xf;
+	Bit32u lastflags = this->flags & 0xf;							// DOSBox SVN Changes r4184
 	if (lastflags == OPEN_READ || lastflags == OPEN_READ_NO_MOD) {	// check if file opened in read-only mode
 		DOS_SetError(DOSERR_ACCESS_DENIED);
 		return false;

@@ -80,9 +80,9 @@ public:
 		memset(&hash_map,0,sizeof(hash_map));
 		memset(&write_map,0,sizeof(write_map));
 		if (invalidation_map!=NULL) {
-			free(invalidation_map);
-			invalidation_map=NULL;
-		}
+		free(invalidation_map);
+		invalidation_map=NULL;		
+	}
 	}
 	bool InvalidateRange(Bitu start,Bitu end) {
 		Bits index=1+(end>>DYN_HASH_SHIFT);
@@ -385,9 +385,9 @@ void CacheBlock::Clear(void) {
 		page.handler=0;
 	}
 	if (cache.wmapmask){
-		free(cache.wmapmask);
-		cache.wmapmask=NULL;
-	}
+	        free(cache.wmapmask);
+	        cache.wmapmask=NULL;
+        }
 }
 
 

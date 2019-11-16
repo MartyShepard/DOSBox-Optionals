@@ -114,7 +114,7 @@ enum BlockReturn {
 	BR_Cycles,
 	BR_Link1,BR_Link2,
 	BR_Opcode,
-#if (C_DEBUG)
+#if defined(C_DEBUG)
 	BR_OpcodeFull,
 #endif
 	BR_Iret,
@@ -270,8 +270,8 @@ Bits CPU_Core_Dyn_X86_Run(void) {
 	/* Determine the linear address of CS:EIP */
 restart_core:
 	PhysPt ip_point=SegPhys(cs)+reg_eip;
-#if C_DEBUG
-#if C_HEAVY_DEBUG
+#if defined(C_DEBUG)
+#if defined(C_HEAVY_DEBUG)
 		if (DEBUG_HeavyIsBreakpoint()) return debugCallback;
 #endif
 #endif
@@ -305,13 +305,13 @@ restart_core:
 run_block:
 	cache.block.running=0;
 	BlockReturn ret=gen_runcode(block->cache.start);
-#if C_DEBUG
+#if defined(C_DEBUG)
 	cycle_count += 32;
-#endif
+#endif	
 	switch (ret) {
 	case BR_Iret:
-#if C_DEBUG
-#if C_HEAVY_DEBUG
+#if defined(C_DEBUG)
+#if defined(C_HEAVY_DEBUG)
 		if (DEBUG_HeavyIsBreakpoint()) {
 			return debugCallback;
 		}
@@ -327,15 +327,15 @@ run_block:
 		return CBRET_NONE;
 	case BR_Normal:
 		/* Maybe check if we staying in the same page? */
-#if C_DEBUG
-#if C_HEAVY_DEBUG
+#if defined(C_DEBUG)
+#if defined(C_HEAVY_DEBUG)
 		if (DEBUG_HeavyIsBreakpoint()) return debugCallback;
 #endif
 #endif
 		goto restart_core;
 	case BR_Cycles:
-#if C_DEBUG
-#if C_HEAVY_DEBUG			
+#if defined(C_DEBUG)
+#if defined(C_HEAVY_DEBUG)			
 		if (DEBUG_HeavyIsBreakpoint()) return debugCallback;
 #endif
 #endif
@@ -350,7 +350,7 @@ run_block:
 		CPU_CycleLeft+=CPU_Cycles;
 		CPU_Cycles=1;
 		return CPU_Core_Normal_Run();
-#if (C_DEBUG)
+#if defined(C_DEBUG)
 	case BR_OpcodeFull:
 		CPU_CycleLeft+=CPU_Cycles;
 		CPU_Cycles=1;

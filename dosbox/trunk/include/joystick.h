@@ -41,9 +41,26 @@ enum JoystickType {
 	JOY_4AXIS,
 	JOY_4AXIS_2,
 	JOY_FCS,
-	JOY_CH
+	JOY_FCSLW,	
+	JOY_CH,
+	JOY_CHVP,
+	JOY_CHGS,	
+	JOY_SHOT6,
+	JOY_CAPCOM,
+	JOY_INTER6,
+	JOY_FCSII,
+	JOY_WHEEL
+};
+
+enum HostControlType {
+	HOSTJOY_DEFAULT,
+	HOSTJOY_SAITEKX45,
+	HOSTJOY_LEXT3DPRO,
+	HOSTJOY_TFLIGHTHO,
+	HOSTJOY_LDRIVINGF
 };
 
 extern JoystickType joytype;
+extern HostControlType HostCtrlType;
 extern bool button_wrapping_enabled;
 #endif

@@ -115,7 +115,19 @@
 #endif
 #define SRCTYPE Bit16u
 #endif
-
+/* Custom S3 VGA /////////////////////////////////////////////////////////////////////////////////////////////*/
+#if SBPP == 24
+#define SC scalerSourceCache.b32
+#if DBPP == 15
+#define PMAKE(_VAL) (PTYPE)(((_VAL&(31<<19))>>9)|((_VAL&(31<<11))>>6)|((_VAL&(31<<3))>>3))
+#elif DBPP == 16
+#define PMAKE(_VAL) (PTYPE)(((_VAL&(31<<19))>>8)|((_VAL&(63<<10))>>4)|((_VAL&(31<<3))>>3))
+#elif DBPP == 32
+#define PMAKE(_VAL) (_VAL)
+#endif
+#define SRCTYPE rgb24
+#endif
+/* Custom S3 VGA /////////////////////////////////////////////////////////////////////////////////////////////*/
 #if SBPP == 32
 #define SC scalerSourceCache.b32
 #if DBPP == 15
@@ -290,12 +302,12 @@ static void conc3d(Cache,SBPP,DBPP) (const void * s) {
 #define SCALERHEIGHT	2
 #define SCALERFUNC									\
 {													\
-	Bitu halfpixel=(((P & redblueMask) * 5) >> 3) & redblueMask;	\
-	halfpixel|=(((P & greenMask) * 5) >> 3) & greenMask;			\
+	Bitu halfpixel=(((P & redblueMask) * 2) >> 9) & redblueMask;	\
+	halfpixel|=(((P & greenMask) * 2) >> 9) & greenMask;			\
 	line0[0]=P;							\
 	line0[1]=P;							\
-	line1[0]=halfpixel;						\
-	line1[1]=halfpixel;						\
+	halfpixel=(((P & redblueMask) * 5) >> 4) & redblueMask;	\
+	halfpixel|=(((P & greenMask) * 5) >> 4) & greenMask;			\
 }
 #include "render_simple.h"
 #undef SCALERNAME

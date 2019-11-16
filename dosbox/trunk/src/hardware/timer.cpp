@@ -25,7 +25,9 @@
 #include "mixer.h"
 #include "timer.h"
 #include "setup.h"
+#include "control.h"
 
+bool PCSpeakerPatch = false;
 static INLINE void BIN2BCD(Bit16u& val) {
 	Bit16u temp=val%10 + (((val/10)%10)<<4)+ (((val/100)%10)<<8) + (((val/1000)%10)<<12);
 	val=temp;
@@ -294,6 +296,15 @@ static Bitu read_latch(Bitu port,Bitu /*iolen*/) {
 }
 
 static void write_p43(Bitu /*port*/,Bitu val,Bitu /*iolen*/) {
+	
+	Section_prop *section = static_cast<Section_prop *>(control->GetSection("speaker"));
+	const char * pcmode = section->Get_string("pcspeaker.mode");
+	if (!strcasecmp(pcmode,"old")){
+		PCSpeakerPatch=false;
+		
+	}else if (!strcasecmp(pcmode,"new")){
+		PCSpeakerPatch=true;
+	}	
 //LOG(LOG_PIT,LOG_ERROR)("port 43 %X",val);
 	Bitu latch=(val >> 6) & 0x03;
 	switch (latch) {
@@ -349,6 +360,12 @@ static void write_p43(Bitu /*port*/,Bitu val,Bitu /*iolen*/) {
 				PCSPEAKER_SetCounter(0,3);
 			}
 			pit[latch].new_mode = true;
+			if (PCSpeakerPatch) {
+				if (latch == 2) {
+					// notify pc speaker code that the control word was written
+					PCSPEAKER_SetPITControl(mode);
+				}			
+			}
 		}
 		break;
     case 3:

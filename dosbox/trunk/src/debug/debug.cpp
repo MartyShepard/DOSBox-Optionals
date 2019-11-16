@@ -18,7 +18,7 @@
 
 
 #include "dosbox.h"
-#if C_DEBUG
+#if defined(C_DEBUG)
 
 #include <string.h>
 #include <list>
@@ -102,7 +102,7 @@ bool	exitLoop	= false;
 
 
 // Heavy Debugging Vars for logging
-#if C_HEAVY_DEBUG
+#if defined(C_HEAVY_DEBUG)
 static ofstream 	cpuLogFile;
 static bool		cpuLog			= false;
 static int		cpuLogCounter	= 0;
@@ -352,7 +352,7 @@ type(BKPNT_UNKNOWN) { };
 
 void CBreakpoint::Activate(bool _active)
 {
-#if !C_HEAVY_DEBUG
+#if defined(C_HEAVY_DEBUG)
 	if (GetType() == BKPNT_PHYSICAL) {
 		if (_active) {
 			// Set 0xCC and save old value
@@ -479,7 +479,7 @@ bool CBreakpoint::CheckBreakpoint(Bitu seg, Bitu off)
 			}
 			return true;
 		} 
-#if C_HEAVY_DEBUG
+#if defined(C_HEAVY_DEBUG)
 		// Memory breakpoint support
 		else if (bp->IsActive()) {
 			if ((bp->GetType()==BKPNT_MEMORY) || (bp->GetType()==BKPNT_MEMORY_PROT) || (bp->GetType()==BKPNT_MEMORY_LINEAR)) {
@@ -573,15 +573,15 @@ bool CBreakpoint::DeleteByIndex(Bit16u index)
 CBreakpoint* CBreakpoint::FindPhysBreakpoint(Bit16u seg, Bit32u off, bool once)
 {
 	if (BPoints.empty()) return 0;
-#if !C_HEAVY_DEBUG
+//#if defined(C_HEAVY_DEBUG)
 	PhysPt adr = GetAddress(seg, off);
-#endif
+//#endif
 	// Search for matching breakpoint
 	std::list<CBreakpoint*>::iterator i;
 	CBreakpoint* bp;
 	for(i=BPoints.begin(); i != BPoints.end(); ++i) {
 		bp = (*i);
-#if C_HEAVY_DEBUG
+#if defined(C_HEAVY_DEBUG)
 		// Heavy debugging breakpoints are triggered by matching seg:off
 		bool atLocation = bp->GetSegment() == seg && bp->GetOffset() == off;
 #else
@@ -690,7 +690,7 @@ static bool StepOver()
 
 bool DEBUG_ExitLoop(void)
 {
-#if C_HEAVY_DEBUG
+#if defined(C_HEAVY_DEBUG)
 	DrawVariables();
 #endif
 
@@ -1106,7 +1106,7 @@ bool ParseCommand(char* str) {
 		return true;
 	};
 
-#if C_HEAVY_DEBUG
+#if defined(C_HEAVY_DEBUG)
 
 	if (command == "BPM") { // Add new breakpoint
 		Bit16u seg = (Bit16u)GetHexValue(found,found);found++; // skip ":"
@@ -1194,7 +1194,7 @@ bool ParseCommand(char* str) {
 		return true;
 	};
 
-#if C_HEAVY_DEBUG
+#if defined(C_HEAVY_DEBUG)
 
 	if (command == "LOG") { // Create Cpu normal log file
 		cpuLogType = 1;
@@ -1305,7 +1305,7 @@ bool ParseCommand(char* str) {
 	};
 
 
-#if C_HEAVY_DEBUG
+#if defined(C_HEAVY_DEBUG)
 	if (command == "HEAVYLOG") { // Create Cpu log file
 		logHeavy = !logHeavy;
 		DEBUG_ShowMsg("DEBUG: Heavy cpu logging %s.\n",logHeavy?"on":"off");
@@ -1326,7 +1326,7 @@ bool ParseCommand(char* str) {
 		DEBUG_ShowMsg("BPINT  [intNr] *          - Set interrupt breakpoint.\n");
 		DEBUG_ShowMsg("BPINT  [intNr] [ah] *     - Set interrupt breakpoint with ah.\n");
 		DEBUG_ShowMsg("BPINT  [intNr] [ah] [al]  - Set interrupt breakpoint with ah and al.\n");
-#if C_HEAVY_DEBUG
+#if defined(C_HEAVY_DEBUG)
 		DEBUG_ShowMsg("BPM    [segment]:[offset] - Set memory breakpoint (memory change).\n");
 		DEBUG_ShowMsg("BPPM   [selector]:[offset]- Set pmode-memory breakpoint (memory change).\n");
 		DEBUG_ShowMsg("BPLM   [linear address]   - Set linear memory breakpoint (memory change).\n");
@@ -1336,7 +1336,7 @@ bool ParseCommand(char* str) {
 		DEBUG_ShowMsg("C / D  [segment]:[offset] - Set code / data view address.\n");
 		DEBUG_ShowMsg("DOS MCBS                  - Show Memory Control Block chain.\n");
 		DEBUG_ShowMsg("INT [nr] / INTT [nr]      - Execute / Trace into interrupt.\n");
-#if C_HEAVY_DEBUG
+#if defined(C_HEAVY_DEBUG)
 		DEBUG_ShowMsg("LOG [num]                 - Write cpu log file.\n");
 		DEBUG_ShowMsg("LOGS/LOGL [num]           - Write short/long cpu log file.\n");
 		DEBUG_ShowMsg("HEAVYLOG                  - Enable/Disable automatic cpu log when dosbox exits.\n");
@@ -2044,7 +2044,7 @@ static void LogCPUInfo(void) {
 	}
 };
 
-#if C_HEAVY_DEBUG
+#if defined(C_HEAVY_DEBUG)
 static void LogInstruction(Bit16u segValue, Bit32u eipValue,  ofstream& out) {
 	static char empty[23] = { 32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,0 };
 
@@ -2288,7 +2288,10 @@ bool CDebugVar::LoadVars(char* name)
 
 	// read number of vars
 	Bit16u num;
-	if (fread(&num,sizeof(num),1,f) != 1) return false;
+	if (fread(&num,sizeof(num),1,f) != 1){
+		fclose(f);
+		return false;
+	} 
 
 	for (Bit16u i=0; i<num; i++) {
 		char name[16];
@@ -2421,7 +2424,7 @@ static void DrawVariables(void) {
 #undef DEBUG_VAR_BUF_LEN
 // HEAVY DEBUGGING STUFF
 
-#if C_HEAVY_DEBUG
+#if defined(C_HEAVY_DEBUG)
 
 const Bit32u LOGCPUMAX = 20000;
 

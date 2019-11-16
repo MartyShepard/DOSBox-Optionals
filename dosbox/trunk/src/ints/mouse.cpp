@@ -705,7 +705,7 @@ static void Mouse_Reset(void) {
 	mouse.mickey_y = 0;
 
 	mouse.buttons = 0;
-
+	
 	for (Bit16u but=0; but<MOUSE_BUTTONS; but++) {
 		mouse.times_pressed[but] = 0;
 		mouse.times_released[but] = 0;
@@ -714,7 +714,6 @@ static void Mouse_Reset(void) {
 		mouse.last_released_x[but] = 0;
 		mouse.last_released_y[but] = 0;
 	}
-
 	// Dont set max coordinates here. it is done by SetResolution!
 	mouse.x = static_cast<float>((mouse.max_x + 1)/ 2);
 	mouse.y = static_cast<float>((mouse.max_y + 1)/ 2);
@@ -728,10 +727,13 @@ static Bitu INT33_Handler(void) {
 	case 0x00:	/* Reset Driver and Read Status */
 		Mouse_ResetHardware(); /* fallthrough */
 	case 0x21:	/* Software Reset */
-		reg_ax=0xffff;
-		reg_bx=MOUSE_BUTTONS;
-		Mouse_Reset();
-		Mouse_AutoLock(true);
+		extern bool Mouse_Drv;
+		if (Mouse_Drv) {	
+			reg_ax=0xffff;
+			reg_bx=MOUSE_BUTTONS;
+			Mouse_Reset();
+			Mouse_AutoLock(true);
+		}
 		break;
 	case 0x01:	/* Show Mouse */
 		if(mouse.hidden) mouse.hidden--;
@@ -1093,7 +1095,7 @@ Bitu INT74_Ret_Handler(void) {
 }
 
 Bitu UIR_Handler(void) {
-	mouse.in_UIR = false;
+	mouse.in_UIR = false;	
 	return CBRET_NONE;
 }
 
@@ -1122,7 +1124,6 @@ void MOUSE_Init(Section* /*sec*/) {
 	call_int74=CALLBACK_Allocate();
 	CALLBACK_Setup(call_int74,&INT74_Handler,CB_IRQ12,"int 74");
 	// pseudocode for CB_IRQ12:
-	//	sti
 	//	push ds
 	//	push es
 	//	pushad
@@ -1140,11 +1141,12 @@ void MOUSE_Init(Section* /*sec*/) {
 	int74_ret_callback=CALLBACK_Allocate();
 	CALLBACK_Setup(int74_ret_callback,&INT74_Ret_Handler,CB_IRQ12_RET,"int 74 ret");
 	// pseudocode for CB_IRQ12_RET:
+	//	callback MOUSE_UserInt_CB_Handler
 	//	cli
 	//	mov al, 0x20
 	//	out 0xa0, al
 	//	out 0x20, al
-	//	callback INT74_Ret_Handler
+	//	callback INT74_Ret_Handler	
 	//	popad
 	//	pop es
 	//	pop ds

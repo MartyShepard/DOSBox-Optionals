@@ -88,6 +88,7 @@ enum FPU_Round {
 typedef struct {
 	FPU_Reg		regs[9];
 	FPU_P_Reg	p_regs[9];
+	bool		use80[9];		// if set, use the 80-bit precision version
 	FPU_Tag		tags[9];
 	Bit16u		cw,cw_mask_all;
 	Bit16u		sw;
@@ -166,11 +167,11 @@ static INLINE void FPU_SET_C3(Bitu C){
 //Currently pop is ignored in release mode and overflow is exit.
 //in debug mode: pop will log and overflow is exit. 
 #if C_DEBUG
-#define DB_FPU_STACK_CHECK_POP DB_FPU_STACK_CHECK_LOG
-#define DB_FPU_STACK_CHECK_PUSH DB_FPU_STACK_CHECK_EXIT
+	#define DB_FPU_STACK_CHECK_POP DB_FPU_STACK_CHECK_LOG
+	#define DB_FPU_STACK_CHECK_PUSH DB_FPU_STACK_CHECK_EXIT
 #else
-#define DB_FPU_STACK_CHECK_POP DB_FPU_STACK_CHECK_NONE
-#define DB_FPU_STACK_CHECK_PUSH DB_FPU_STACK_CHECK_EXIT
+	#define DB_FPU_STACK_CHECK_POP DB_FPU_STACK_CHECK_NONE
+	#define DB_FPU_STACK_CHECK_PUSH DB_FPU_STACK_CHECK_EXIT
 #endif
 
 #endif

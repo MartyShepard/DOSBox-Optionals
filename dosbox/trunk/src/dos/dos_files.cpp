@@ -39,8 +39,10 @@
 #define FCB_ERR_EOF     3
 #define FCB_ERR_WRITE   1
 
-
-DOS_File * Files[DOS_FILES];
+/******************************************** #278 "FILES= adjustable by Kippesoep" patch*/
+Bitu DOS_FILES = 127;
+DOS_File ** Files;
+/******************************************** #278 "FILES= adjustable by Kippesoep" patch*/
 DOS_Drive * Drives[DOS_DRIVES];
 
 Bit8u DOS_GetDefaultDrive(void) {
@@ -78,7 +80,7 @@ bool DOS_MakeName(char const * const name,char * const fullname,Bit8u * drive) {
 		return false; 
 	}
 	r=0;w=0;
-	while (name_int[r]!=0 && (r<DOS_PATHLENGTH)) {
+	while ((r<DOS_PATHLENGTH) && name_int[r]!=0) {
 		c=name_int[r++];
 		if ((c>='a') && (c<='z')) c-=32;
 		else if (c==' ') continue; /* should be separator */
@@ -523,8 +525,10 @@ bool DOS_CreateFile(char const * name,Bit16u attributes,Bit16u * entry,bool fcb)
 
 bool DOS_OpenFile(char const * name,Bit8u flags,Bit16u * entry,bool fcb) {
 	/* First check for devices */
-	if (flags>2) LOG(LOG_FILES,LOG_ERROR)("Special file open command %X file %s",flags,name);
-	else LOG(LOG_FILES,LOG_NORMAL)("file open command %X file %s",flags,name);
+	//if (flags>2) LOG(LOG_FILES,LOG_ERROR)("Special file open command %X file %s",flags,name);
+	//else LOG(LOG_FILES,LOG_NORMAL)("file open command %X file %s",flags,name);
+	//if (flags>2) LOG_MSG("Special file open command %X file %s",flags,name);
+	//else LOG_MSG("file open command %X file %s",flags,name);	
 
 	DOS_PSP psp(dos.psp());
 	Bit16u attr = 0;
@@ -815,8 +819,8 @@ Bit8u FCB_Parsename(Bit16u seg,Bit16u offset,Bit8u parser ,char *string, Bit8u *
 		mem_writeb(PhysMake(seg,offset),0);
 	}
 	DOS_FCB fcb(seg,offset,false);	// always a non-extended FCB
-	bool hasdrive,hasname,hasext,finished;
-	hasdrive=hasname=hasext=finished=false;
+	bool hasdrive,hasname,hasext;
+	hasdrive=hasname=hasext=false;
 	Bitu index=0;
 	Bit8u fill=' ';
 /* First get the old data from the fcb */
@@ -870,7 +874,7 @@ Bit8u FCB_Parsename(Bit16u seg,Bit16u offset,Bit8u parser ,char *string, Bit8u *
 	/* do nothing if not a valid name */
 	if(!isvalid(string[0])) goto savefcb;
 
-	hasname=true;finished=false;fill=' ';index=0;
+	hasname=true;fill=' ';index=0;
 	/* Copy the name */	
 	while (true) {
 		unsigned char nc = *reinterpret_cast<unsigned char*>(&string[0]);
@@ -894,7 +898,7 @@ Bit8u FCB_Parsename(Bit16u seg,Bit16u offset,Bit8u parser ,char *string, Bit8u *
 	string++;
 checkext:
 	/* Copy the extension */
-	hasext=true;finished=false;fill=' ';index=0;
+	hasext=true;fill=' ';index=0;
 	while (true) {
 		unsigned char nc = *reinterpret_cast<unsigned char*>(&string[0]);
 		char ncs = (char)toupper(nc);
@@ -914,9 +918,9 @@ checkext:
 		string++;
 	}
 savefcb:
-	if (!hasdrive & !(parser & PARSE_DFLT_DRIVE)) fcb_name.part.drive[0] = 0;
-	if (!hasname & !(parser & PARSE_BLNK_FNAME)) strcpy(fcb_name.part.name,"        ");
-	if (!hasext & !(parser & PARSE_BLNK_FEXT)) strcpy(fcb_name.part.ext,"   ");
+	if (!hasdrive && !(parser & PARSE_DFLT_DRIVE)) fcb_name.part.drive[0] = 0;
+	if (!hasname && !(parser & PARSE_BLNK_FNAME)) strcpy(fcb_name.part.name,"        ");
+	if (!hasext && !(parser & PARSE_BLNK_FEXT)) strcpy(fcb_name.part.ext,"   ");
 	fcb.SetName(fcb_name.part.drive[0],fcb_name.part.name,fcb_name.part.ext);
 	fcb.ClearBlockRecsize(); //Undocumented bonus work.
 	*change=(Bit8u)(string-string_begin);
@@ -970,7 +974,7 @@ bool DOS_FCBOpen(Bit16u seg,Bit16u offset) {
 	DOS_FCB fcb(seg,offset);
 	char shortname[DOS_FCBNAME];Bit16u handle;
 	fcb.GetName(shortname);
-
+	
 	/* Search for file if name has wildcards */
 	if (strpbrk(shortname,"*?")) {
 		LOG(LOG_FCB,LOG_WARN)("Wildcards in filename");
@@ -1220,7 +1224,7 @@ bool DOS_FCBDeleteFile(Bit16u seg,Bit16u offset){
  */
 	RealPt old_dta=dos.dta();dos.dta(dos.tables.tempdta_fcbdelete);
 	RealPt new_dta=dos.dta();
-	bool nextfile = false;
+	bool nextfile;
 	bool return_value = false;
 	nextfile = DOS_FCBFindFirst(seg,offset);
 	DOS_FCB fcb(RealSeg(new_dta),RealOff(new_dta));
@@ -1322,6 +1326,9 @@ bool DOS_GetFileDate(Bit16u entry, Bit16u* otime, Bit16u* odate) {
 
 void DOS_SetupFiles (void) {
 	/* Setup the File Handles */
+	/******************************************** #278 "FILES= adjustable by Kippesoep" patch*/
+	Files = new DOS_File * [DOS_FILES];
+	/******************************************** #278 "FILES= adjustable by Kippesoep" patch*/
 	Bit32u i;
 	for (i=0;i<DOS_FILES;i++) {
 		Files[i]=0;

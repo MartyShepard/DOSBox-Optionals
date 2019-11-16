@@ -49,6 +49,8 @@
 #include "programs.h"
 #include "midi.h"
 
+extern void GFX_SetTitle(Bit32s cycles ,int frameskip,bool paused);
+
 #define MIXER_SSIZE 4
 
 //#define MIXER_SHIFT 14
@@ -64,6 +66,10 @@
 #define TICK_NEXT ( 1 << TICK_SHIFT)
 #define TICK_MASK (TICK_NEXT -1)
 
+Bit32s MixerVolDownUpKeysL = 0;
+Bit32s MixerVolDownUpKeysR = 0;
+Bit32s MixerVolMuteSaveL   = 0;
+Bit32s MixerVolMuteSaveR   = 0;
 
 static INLINE Bit16s MIXER_CLIP(Bits SAMP) {
 	if (SAMP < MAX_AUDIO) {
@@ -74,20 +80,23 @@ static INLINE Bit16s MIXER_CLIP(Bits SAMP) {
 }
 
 static struct {
-	Bit32s work[MIXER_BUFSIZE][2];
-	//Write/Read pointers for the buffer
-	Bitu pos,done;
-	Bitu needed, min_needed, max_needed;
+	Bit32s	work[MIXER_BUFSIZE][2];
+			//Write/Read pointers for the buffer
+	Bitu    work_in,work_out,work_wrap;
+	Bitu 	pos,done;
+	Bitu 	needed, min_needed, max_needed;
 	//For every millisecond tick how many samples need to be generated
-	Bit32u tick_add;
-	Bit32u tick_counter;
-	float mastervol[2];
+	Bit32u 	tick_add;
+	Bit32u 	tick_counter;
+	float 	mastervol[2];
 	MixerChannel * channels;
-	bool nosound;
-	Bit32u freq;
-	Bit32u blocksize;
+	bool 	nosound;
+	Bit32u 	freq;
+	Bit32u 	blocksize;
 } mixer;
 
+
+	
 Bit8u MixTemp[MIXER_BUFSIZE];
 
 MixerChannel * MIXER_AddChannel(MIXER_Handler handler,Bitu freq,const char * name) {
@@ -130,6 +139,11 @@ void MIXER_DelChannel(MixerChannel* delchan) {
 void MixerChannel::UpdateVolume(void) {
 	volmul[0]=(Bits)((1 << MIXER_VOLSHIFT)*scale*volmain[0]*mixer.mastervol[0]);
 	volmul[1]=(Bits)((1 << MIXER_VOLSHIFT)*scale*volmain[1]*mixer.mastervol[1]);
+	MixerVolDownUpKeysL = mixer.mastervol[0]*100;
+	MixerVolDownUpKeysR = mixer.mastervol[1]*100;	
+	//LOG_MSG("SND: Volume Mixer: %2d:%2d",MixerVolDownUpKeysL,MixerVolDownUpKeysR);	
+	// Zeige Lautstärke im Fenster	
+	GFX_SetTitle(-1,-1,false);	
 }
 
 void MixerChannel::SetVolume(float _left,float _right) {
@@ -170,7 +184,7 @@ void MixerChannel::Mix(Bitu _needed) {
 	while (enabled && needed>done) {
 		Bitu left = (needed - done);
 		left *= freq_add;
-		left  = (left >> FREQ_SHIFT) + ((left & FREQ_MASK)!=0);
+		left  = (left >> FREQ_SHIFT) + ((left & FREQ_MASK)!=0);		
 		handler(left);
 	}
 }
@@ -400,15 +414,16 @@ static inline bool Mixer_irq_important(void) {
 }
 
 static Bit32u calc_tickadd(Bit32u freq) {
-#if TICK_SHIFT >16
-	Bit64u freq64 = static_cast<Bit64u>(freq);
-	freq64 = (freq64<<TICK_SHIFT)/1000;
-	Bit32u r = static_cast<Bit32u>(freq64);
-	return r;
-#else
-	return (freq<<TICK_SHIFT)/1000;
-#endif
+	#if TICK_SHIFT >16
+		Bit64u freq64 = static_cast<Bit64u>(freq);
+		freq64 = (freq64<<TICK_SHIFT)/1000;
+		Bit32u r = static_cast<Bit32u>(freq64);
+		return r;
+	#else
+		return (freq<<TICK_SHIFT)/1000;
+	#endif
 }
+
 
 /* Mix a certain amount of new samples */
 static void MIXER_MixData(Bitu needed) {
@@ -468,6 +483,7 @@ static void MIXER_Mix_NoSound(void) {
 }
 
 static void SDLCALL MIXER_CallBack(void * userdata, Uint8 *stream, int len) {
+	memset(stream, 0, int(len));
 	Bitu need=(Bitu)len/MIXER_SSIZE;
 	Bit16s * output=(Bit16s *)stream;
 	Bitu reduce;
@@ -662,6 +678,29 @@ MixerObject::~MixerObject(){
 	MIXER_DelChannel(MIXER_FindChannel(m_name));
 }
 
+static void MIXER_UpdateVol(float delta) {
+	for (int i=0;i<2;i++) {
+		mixer.mastervol[i] += delta;
+		if (mixer.mastervol[i] < 0.0f) mixer.mastervol[i] = 0.0f;
+		else if (mixer.mastervol[i] > 1.0f) mixer.mastervol[i] = 1.0f;
+	}
+	for (MixerChannel * chan=mixer.channels;chan;chan=chan->next)
+		chan->UpdateVolume();
+}
+ 
+static void MIXER_VolDown(bool pressed) {
+	MIXER_UpdateVol(-0.01f);
+}
+
+static void MIXER_VolUp(bool pressed) {
+	MIXER_UpdateVol(+0.01f);
+}
+
+static void MIXER_VolMute(bool pressed) {
+	/* Todo Volume Mute */
+}
+
+
 
 void MIXER_Init(Section* sec) {
 	sec->AddDestroyFunction(&MIXER_Stop);
@@ -679,13 +718,19 @@ void MIXER_Init(Section* sec) {
 	memset(mixer.work,0,sizeof(mixer.work));
 	mixer.mastervol[0]=1.0f;
 	mixer.mastervol[1]=1.0f;
-
+	
+	// Zeige Lautstärke im Fenster	
+	MixerVolDownUpKeysL = mixer.mastervol[0]*100;
+	MixerVolDownUpKeysR = mixer.mastervol[1]*100;
+	MixerVolMuteSaveL   = MixerVolDownUpKeysL;
+	MixerVolMuteSaveR   = MixerVolDownUpKeysR;
+	
 	/* Start the Mixer using SDL Sound at 22 khz */
 	SDL_AudioSpec spec;
 	SDL_AudioSpec obtained;
 
 	spec.freq=mixer.freq;
-	spec.format=AUDIO_S16SYS;
+	spec.format=AUDIO_S16LSB;
 	spec.channels=2;
 	spec.callback=MIXER_CallBack;
 	spec.userdata=NULL;
@@ -704,16 +749,60 @@ void MIXER_Init(Section* sec) {
 	} else {
 		if((mixer.freq != obtained.freq) || (mixer.blocksize != obtained.samples))
 			LOG_MSG("MIXER: Got different values from SDL: freq %d, blocksize %d",obtained.freq,obtained.samples);
-		mixer.freq=obtained.freq;
-		mixer.blocksize=obtained.samples;
-		mixer.tick_add=calc_tickadd(mixer.freq);
-		TIMER_AddTickHandler(MIXER_Mix);
-		SDL_PauseAudio(0);
+		
+			mixer.freq=(unsigned int)obtained.freq;
+			mixer.blocksize=obtained.samples;
+			mixer.tick_add=calc_tickadd(mixer.freq);
+			TIMER_AddTickHandler(MIXER_Mix);
+			SDL_PauseAudio(0);
 	}
-	mixer.min_needed=section->Get_int("prebuffer");
-	if (mixer.min_needed>100) mixer.min_needed=100;
-	mixer.min_needed=(mixer.freq*mixer.min_needed)/1000;
-	mixer.max_needed=mixer.blocksize * 2 + 2*mixer.min_needed;
-	mixer.needed=mixer.min_needed+1;
+	
+	mixer.work_wrap = MIXER_BUFSIZE;
+	if (mixer.work_wrap <= mixer.blocksize) E_Exit("blocksize too large");
+
+    {
+        int ms = section->Get_int("prebuffer");
+	
+		if (ms < 0){
+			ms = 25;	
+		} 
+			  
+		if ( (ms <= 1000) && ( mixer.blocksize == 512) ){
+			LOG_MSG("MIXER B: %d",ms);
+	
+			// More for Windows 95/98 Settings. Its need a small Prebuffer and Small Blocksize
+			mixer.min_needed = (unsigned int)ms;
+			mixer.max_needed = (unsigned int)(mixer.freq * mixer.blocksize);	
+			mixer.needed	 = mixer.min_needed * (mixer.freq % 1000)/2;				
+			
+		} else {
+					
+			//mixer.min_needed=section->Get_int("prebuffer");
+			mixer.min_needed=ms;
+			if (mixer.min_needed>10000u) {
+				mixer.min_needed=10000u;	
+			}
+			mixer.min_needed=((unsigned int)mixer.min_needed * (unsigned int)mixer.freq)/1000u;
+	
+			mixer.max_needed=mixer.blocksize * 2 + 2 * mixer.min_needed;
+			mixer.needed=mixer.min_needed+1;			
+		}	
+    }
+	
+			LOG_MSG("MIXER: Frequenzy    : %d",mixer.freq);	
+			LOG_MSG("MIXER: Needed       : %d",mixer.needed);	
+			LOG_MSG("MIXER: Needed (Min) : %d",mixer.min_needed);
+			LOG_MSG("MIXER: Needed (Max) : %d\n\n",mixer.max_needed);
+			
+	if ( (section->Get_bool("UseMediaKeys") == false ) ){
+		MAPPER_AddHandler(MIXER_VolDown,MK_f9,MMOD2,"volumedown","Vol Down");
+		MAPPER_AddHandler(MIXER_VolUp,MK_f10,MMOD2,"volumeup","Vol Up");	
+	}else{
+		/* Volume Media Keys */
+		MAPPER_AddHandler(MIXER_VolDown,MK_ACVD,0,"volumedown","Vol Down");
+		MAPPER_AddHandler(MIXER_VolUp,MK_ACVU,0,"volumeup","Vol Up");
+		MAPPER_AddHandler(MIXER_VolMute,MK_ACVM,0,"volumemute","Vol Mute");	
+	}	
+	
 	PROGRAMS_MakeFile("MIXER.COM",MIXER_ProgramStart);
 }

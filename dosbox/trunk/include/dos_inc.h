@@ -73,7 +73,10 @@ union bootSector {
 enum { MCB_FREE=0x0000,MCB_DOS=0x0008 };
 enum { RETURN_EXIT=0,RETURN_CTRLC=1,RETURN_ABORT=2,RETURN_TSR=3};
 
-#define DOS_FILES 127
+/******************************************** #278 "FILES= adjustable by Kippesoep" patch*/
+extern Bitu DOS_FILES;
+/******************************************** #278 "FILES= adjustable by Kippesoep" patch*/
+
 #define DOS_DRIVES 26
 #define DOS_DEVICES 10
 
@@ -94,7 +97,10 @@ enum { RETURN_EXIT=0,RETURN_CTRLC=1,RETURN_ABORT=2,RETURN_TSR=3};
 
 /* internal Dos Tables */
 
-extern DOS_File * Files[DOS_FILES];
+/******************************************** #278 "FILES= adjustable by Kippesoep" patch*/
+extern DOS_File ** Files;
+/******************************************** #278 "FILES= adjustable by Kippesoep" patch*/
+
 extern DOS_Drive * Drives[DOS_DRIVES];
 extern DOS_Device * Devices[DOS_DEVICES];
 
@@ -223,6 +229,25 @@ static INLINE Bit16u DOS_PackTime(Bit16u hour,Bit16u min,Bit16u sec) {
 static INLINE Bit16u DOS_PackDate(Bit16u year,Bit16u mon,Bit16u day) {
 	return ((year-1980)&0x7f)<<9 | (mon&0x3f) << 5 | (day&0x1f);
 }
+
+/* DOSBox-MB IMGMAKE patch. ========================================================================= */
+/* fopen64, ftello64, fseeko64 */
+#if defined(__APPLE__)
+	#define fopen64 fopen
+	#define ftello64 ftell
+	#define fseeko64 fseek
+#elif defined (_MSC_VER)
+	#define fopen64 fopen
+	
+	#if (_MSC_VER >= 1400)
+		#define ftello64 _ftelli64
+		#define fseeko64 _fseeki64
+	#else
+		#define ftello64 ftell
+		#define fseeko64 fseek
+	#endif
+#endif
+/* DOSBox-MB IMGMAKE patch. ========================================================================= */
 
 /* Dos Error Codes */
 #define DOSERR_NONE 0

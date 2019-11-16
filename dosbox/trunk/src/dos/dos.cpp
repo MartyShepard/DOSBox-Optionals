@@ -842,7 +842,7 @@ static Bitu DOS_21Handler(void) {
 	case 0x52: {				/* Get list of lists */
 		Bit8u count=2; // floppy drives always counted
 		while (count<DOS_DRIVES && Drives[count] && !Drives[count]->isRemovable()) count++;
-		dos_infoblock.SetBlockDevices(count);
+		dos_infoblock.SetBlockDevices(count);	
 		RealPt addr=dos_infoblock.GetPointer();
 		SegSet16(es,RealSeg(addr));
 		reg_bx=RealOff(addr);
@@ -1106,7 +1106,7 @@ static Bitu DOS_21Handler(void) {
 		break;
 	case 0x69:					/* Get/Set disk serial number */
 		{
-			Bit16u old_cx=reg_cx;
+			Bit16u old_cx=reg_cx;					
 			switch(reg_al)		{
 			case 0x00:				/* Get */
 				LOG(LOG_DOSMISC,LOG_WARN)("DOS:Get Disk serial number");
@@ -1122,7 +1122,7 @@ static Bitu DOS_21Handler(void) {
 			reg_ch=0x08;	// IOCTL category: disk drive
 			reg_ax=0x440d;	// Generic block device request
 			DOS_21Handler();
-			reg_cx=old_cx;
+			reg_cx=old_cx;			
 			break;
 		} 
 	case 0x6c:					/* Extended Open/Create */
@@ -1186,9 +1186,9 @@ static Bitu DOS_25Handler(void) {
 			}
 		} else {
 			LOG(LOG_DOSMISC,LOG_NORMAL)("int 25 called but not as disk detection drive %u",reg_al);
-		}
+		}		
 		SETFLAGBIT(CF,false);
-		reg_ax = 0;
+			reg_ax = 0;
 	}
     return CBRET_NONE;
 }
@@ -1242,6 +1242,11 @@ public:
 		//	pop ax
 		//	iret
 
+		/******************************************** #278 "FILES= adjustable by Kippesoep" patch*/		
+		Section_prop * section=static_cast<Section_prop *>(configuration);
+		DOS_FILES = section->Get_int("files");
+		/******************************************** #278 "FILES= adjustable by Kippesoep" patch*/
+		
 		DOS_SetupFiles();								/* Setup system File tables */
 		DOS_SetupDevices();							/* Setup dos devices */
 		DOS_SetupTables();
@@ -1258,6 +1263,9 @@ public:
 	}
 	~DOS(){
 		for (Bit16u i=0;i<DOS_DRIVES;i++) delete Drives[i];
+		/******************************************** #278 "FILES= adjustable by Kippesoep" patch*/	
+		delete [] Files;
+		/******************************************** #278 "FILES= adjustable by Kippesoep" patch*/	
 	}
 };
 

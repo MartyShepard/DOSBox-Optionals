@@ -28,7 +28,6 @@
 #include "mapper.h"
 
 
-
 diskGeo DiskGeometryList[] = {
 	{ 160,  8, 1, 40, 0},
 	{ 180,  9, 1, 40, 0},
@@ -159,20 +158,27 @@ Bit8u imageDisk::Read_Sector(Bit32u head,Bit32u cylinder,Bit32u sector,void * da
 }
 
 Bit8u imageDisk::Read_AbsoluteSector(Bit32u sectnum, void * data) {
-	Bit32u bytenum;
+	
+	/* DOSBox-MB IMGMAKE patch. ========================================================================= */		
+	/* Bit32u bytenum; */
+	Bit64u bytenum;	
 
-	bytenum = sectnum * sector_size;
+	/* bytenum = sectnum * sector_size; */
+	bytenum = (Bit64u)sectnum * sector_size;
 
-	if (last_action==WRITE || bytenum!=current_fpos) fseek(diskimg,bytenum,SEEK_SET);
-	size_t ret=fread(data, 1, sector_size, diskimg);
-	current_fpos=bytenum+ret;
-	last_action=READ;
+	/* if (last_action==WRITE || bytenum!=current_fpos) fseek(diskimg,bytenum,SEEK_SET); */
+	//LOG_MSG("Reading sectors %ld at bytenum %I64d", sectnum, bytenum);
+	if (last_action==WRITE || bytenum!=current_fpos) fseeko64(diskimg,bytenum,SEEK_SET);	
+		size_t ret=fread(data, 1, sector_size, diskimg);
+		current_fpos=bytenum+ret;
+		last_action=READ;
 
 	return 0x00;
 }
 
 Bit8u imageDisk::Write_Sector(Bit32u head,Bit32u cylinder,Bit32u sector,void * data) {
 	Bit32u sectnum;
+	
 
 	sectnum = ( (cylinder * heads + head) * sectors ) + sector - 1L;
 
@@ -180,14 +186,16 @@ Bit8u imageDisk::Write_Sector(Bit32u head,Bit32u cylinder,Bit32u sector,void * d
 }
 
 
-Bit8u imageDisk::Write_AbsoluteSector(Bit32u sectnum, void *data) {
-	Bit32u bytenum;
-
-	bytenum = sectnum * sector_size;
+Bit8u imageDisk::Write_AbsoluteSector(Bit32u sectnum, void *data) {	
+	/* DOSBox-MB IMGMAKE patch. ========================================================================= */
+	Bit64u bytenum; /* Bit32u bytenum; */
+	
+	bytenum = (Bit64u)sectnum * sector_size;  /* bytenum = sectnum * sector_size; */
 
 	//LOG_MSG("Writing sectors to %ld at bytenum %d", sectnum, bytenum);
 
-	if (last_action==READ || bytenum!=current_fpos) fseek(diskimg,bytenum,SEEK_SET);
+	/* if (last_action==READ || bytenum!=current_fpos) fseek(diskimg,bytenum,SEEK_SET); */
+	if (last_action==READ || bytenum!=current_fpos) fseeko64(diskimg,bytenum,SEEK_SET);	
 	size_t ret=fwrite(data, 1, sector_size, diskimg);
 	current_fpos=bytenum+ret;
 	last_action=WRITE;
@@ -196,7 +204,7 @@ Bit8u imageDisk::Write_AbsoluteSector(Bit32u sectnum, void *data) {
 
 }
 
-imageDisk::imageDisk(FILE *imgFile, const char *imgName, Bit32u imgSizeK, bool isHardDisk) {
+imageDisk::imageDisk(FILE *imgFile, Bit8u *imgName, Bit32u imgSizeK, bool isHardDisk) {
 	heads = 0;
 	cylinders = 0;
 	sectors = 0;
@@ -204,9 +212,11 @@ imageDisk::imageDisk(FILE *imgFile, const char *imgName, Bit32u imgSizeK, bool i
 	current_fpos = 0;
 	last_action = NONE;
 	diskimg = imgFile;
-	fseek(diskimg,0,SEEK_SET);
-	memset(diskname,0,512);
-	safe_strncpy(diskname, imgName, sizeof(diskname));
+	/* DOSBox-MB IMGMAKE patch. ========================================================================= */	
+	fseeko64(diskimg,0,SEEK_SET); // fseek(diskimg,0,SEEK_SET);
+	
+	safe_strncpy((char *)diskname, (const char *)imgName, sizeof(diskname));
+
 	active = false;
 	hardDrive = isHardDisk;
 	if(!isHardDisk) {
@@ -300,9 +310,36 @@ static bool driveInactive(Bit8u driveNum) {
 	}
 	return false;
 }
+/* DOSBox-MB IMGMAKE patch. ========================================================================= */
+static struct {
+	Bit8u sz;
+	Bit8u res;
+	Bit16u num;
+	Bit16u off;
+	Bit16u seg;
+	Bit32u sector;
+} dap;
 
+static void readDAP(Bit16u seg, Bit16u off) {
+	dap.sz = real_readb(seg,off++);
+	dap.res = real_readb(seg,off++);
+	dap.num = real_readw(seg,off); off += 2;
+	dap.off = real_readw(seg,off); off += 2;
+	dap.seg = real_readw(seg,off); off += 2;
+
+	/* Although sector size is 64-bit, 32-bit 2TB limit should be more than enough */
+	dap.sector = real_readd(seg,off); off +=4;
+
+	if (real_readd(seg,off)) {
+		E_Exit("INT13: 64-bit sector addressing not supported");
+	}
+}
+/* DOSBox-MB IMGMAKE patch. ========================================================================= */
 
 static Bitu INT13_DiskHandler(void) {
+	
+
+
 	Bit16u segat, bufptr;
 	Bit8u sectbuf[512];
 	Bit8u  drivenum;
@@ -320,7 +357,7 @@ static Bitu INT13_DiskHandler(void) {
 	//drivenum = 0;
 	//LOG_MSG("INT13: Function %x called on drive %x (dos drive %d)", reg_ah,  reg_dl, drivenum);
 
-	// NOTE: the 0xff error code returned in some cases is questionable; 0x01 seems more correct
+	// NOTE: the 0xff error code returned in some cases is questionable; 0x01 seems more correct	
 	switch(reg_ah) {
 	case 0x0: /* Reset disk */
 		{
@@ -507,54 +544,137 @@ static Bitu INT13_DiskHandler(void) {
 		reg_ah = 0x00;
 		CALLBACK_SCF(false);
 		break;
-	case 0x15: /* Get disk type */
-		/* Korean Powerdolls uses this to detect harddrives */
-		LOG(LOG_BIOS,LOG_WARN)("INT13: Get disktype used!");
-		if (any_images) {
-			if(driveInactive(drivenum)) {
-				last_status = 0x07;
-				reg_ah = last_status;
-				CALLBACK_SCF(true);
-				return CBRET_NONE;
-			}
-			Bit32u tmpheads, tmpcyl, tmpsect, tmpsize;
-			imageDiskList[drivenum]->Get_Geometry(&tmpheads, &tmpcyl, &tmpsect, &tmpsize);
-			Bit64u largesize = tmpheads*tmpcyl*tmpsect*tmpsize;
-			largesize/=512;
-			Bit32u ts = static_cast<Bit32u>(largesize);
-			reg_ah = (drivenum <2)?1:3; //With 2 for floppy MSDOS starts calling int 13 ah 16
-			if(reg_ah == 3) {
-				reg_cx = static_cast<Bit16u>(ts >>16);
-				reg_dx = static_cast<Bit16u>(ts & 0xffff);
-			}
-			CALLBACK_SCF(false);
-		} else {
-			if (drivenum <DOS_DRIVES && (Drives[drivenum] != 0 || drivenum <2)) {
-				if (drivenum <2) {
-					//TODO use actual size (using 1.44 for now).
-					reg_ah = 0x1; // type
-//					reg_cx = 0;
-//					reg_dx = 2880; //Only set size for harddrives.
-				} else {
-					//TODO use actual size (using 105 mb for now).
-					reg_ah = 0x3; // type
-					reg_cx = 3;
-					reg_dx = 0x4800;
+	case 0x15: /* Get disk type */		
+			/* Korean Powerdolls uses this to detect harddrives */
+			LOG(LOG_BIOS,LOG_WARN)("INT13: Get disktype used!");
+			if (any_images) {
+				if(driveInactive(drivenum)) {
+					last_status = 0x07;
+					reg_ah = last_status;
+					CALLBACK_SCF(true);
+					return CBRET_NONE;
+				}
+				Bit32u tmpheads, tmpcyl, tmpsect, tmpsize;
+				imageDiskList[drivenum]->Get_Geometry(&tmpheads, &tmpcyl, &tmpsect, &tmpsize);
+				Bit64u largesize = tmpheads*tmpcyl*tmpsect*tmpsize;
+				largesize/=512;
+				Bit32u ts = static_cast<Bit32u>(largesize);
+				reg_ah = (drivenum <2)?1:3; //With 2 for floppy MSDOS starts calling int 13 ah 16
+				if(reg_ah == 3) {
+					reg_cx = static_cast<Bit16u>(ts >>16);
+					reg_dx = static_cast<Bit16u>(ts & 0xffff);
 				}
 				CALLBACK_SCF(false);
-			} else { 
-				LOG(LOG_BIOS,LOG_WARN)("INT13: no images, but invalid drive for call 15");
-				reg_ah=0xff;
-				CALLBACK_SCF(true);
+			} else {
+				if (drivenum <DOS_DRIVES && (Drives[drivenum] != 0 || drivenum <2)) {
+					if (drivenum <2) {
+						//TODO use actual size (using 1.44 for now).
+						reg_ah = 0x1; // type
+//						reg_cx = 0;
+//						reg_dx = 2880; //Only set size for harddrives.
+					} else {
+						//TODO use actual size (using 105 mb for now).
+						reg_ah = 0x3; // type
+						reg_cx = 3;
+						reg_dx = 0x4800;
+					}
+					CALLBACK_SCF(false);
+				} else { 
+					LOG(LOG_BIOS,LOG_WARN)("INT13: no images, but invalid drive for call 15");
+					LOG_MSG("INT13: no images, but invalid drive for call 15");
+					reg_ah=0xff;
+					CALLBACK_SCF(true);
+				}
 			}
-		}
-		break;
+			break;	
 	case 0x17: /* Set disk type for format */
 		/* Pirates! needs this to load */
 		killRead = true;
 		reg_ah = 0x00;
 		CALLBACK_SCF(false);
 		break;
+		
+/* DOSBox-MB IMGMAKE patch. ========================================================================= */			
+	case 0x41: /* Check Extensions Present */
+		if ((reg_bx == 0x55aa) && !(driveInactive(drivenum))) {
+			LOG_MSG("INT13: Check Extensions Present for drive: 0x%x", reg_dl);
+			reg_ah=0x1;	/* 1.x extension supported */
+			reg_bx=0xaa55;	/* Extensions installed */
+			reg_cx=0x1;	/* Extended disk access functions (AH=42h-44h,47h,48h) supported */
+			CALLBACK_SCF(false);
+			break;
+		}
+		LOG_MSG("INT13: AH=41h, Function not supported 0x%x for drive: 0x%x", reg_bx, reg_dl);
+		CALLBACK_SCF(true);
+		break;
+	case 0x42: /* Extended Read Sectors From Drive */
+		/* Read Disk Address Packet */
+		readDAP(SegValue(ds),reg_si);
+
+		if (dap.num==0) {
+			reg_ah = 0x01;
+			CALLBACK_SCF(true);
+			return CBRET_NONE;
+		}
+		if (!any_images) {
+			// Inherit the Earth cdrom (uses it as disk test)
+			if (((reg_dl&0x80)==0x80) && (reg_dh==0) && ((reg_cl&0x3f)==1)) {
+				reg_ah = 0;
+				CALLBACK_SCF(false);
+				return CBRET_NONE;
+			}
+		}
+		if (driveInactive(drivenum)) {
+			reg_ah = 0xff;
+			CALLBACK_SCF(true);
+			return CBRET_NONE;
+		}
+
+		segat = dap.seg;
+		bufptr = dap.off;
+		for(i=0;i<dap.num;i++) {
+			last_status = imageDiskList[drivenum]->Read_AbsoluteSector(dap.sector+i, sectbuf);
+			if((last_status != 0x00) || (killRead)) {
+				LOG_MSG("Error in disk read");
+				killRead = false;
+				reg_ah = 0x04;
+				CALLBACK_SCF(true);
+				return CBRET_NONE;
+			}
+			for(t=0;t<512;t++) {
+				real_writeb(segat,bufptr,sectbuf[t]);
+				bufptr++;
+			}
+		}
+		reg_ah = 0x00;
+		CALLBACK_SCF(false);
+		break;
+	case 0x43: /* Extended Write Sectors to Drive */
+		if(driveInactive(drivenum)) {
+			reg_ah = 0xff;
+			CALLBACK_SCF(true);
+			return CBRET_NONE;
+		}
+
+		/* Read Disk Address Packet */
+		readDAP(SegValue(ds),reg_si);
+		bufptr = dap.off;
+		for(i=0;i<dap.num;i++) {
+			for(t=0;t<imageDiskList[drivenum]->getSectSize();t++) {
+				sectbuf[t] = real_readb(dap.seg,bufptr);
+				bufptr++;
+			}
+
+			last_status = imageDiskList[drivenum]->Write_AbsoluteSector(dap.sector+i, &sectbuf[0]);
+			if(last_status != 0x00) {
+				CALLBACK_SCF(true);
+				return CBRET_NONE;
+			}
+		}
+		reg_ah = 0x00;
+		CALLBACK_SCF(false);
+		break;
+/* DOSBox-MB IMGMAKE patch. ========================================================================= */			
 	default:
 		LOG(LOG_BIOS,LOG_ERROR)("INT13: Function %x called on drive %x (dos drive %d)", reg_ah,  reg_dl, drivenum);
 		reg_ah=0xff;
@@ -600,4 +720,5 @@ void BIOS_SetupDisks(void) {
 	MAPPER_AddHandler(swapInNextDisk,MK_f4,MMOD1,"swapimg","Swap Image");
 	killRead = false;
 	swapping_requested = false;
+
 }

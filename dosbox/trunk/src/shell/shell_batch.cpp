@@ -45,6 +45,10 @@ BatchFile::~BatchFile() {
 	delete cmd;
 	shell->bf=prev;
 	shell->echo=echo;
+	// #194 bug fix for batch file 
+	Bit16u n=1; Bit8u c='\n';
+	DOS_WriteFile(STDOUT,&c,&n);	
+	// ===========================
 }
 
 bool BatchFile::ReadLine(char * line) {

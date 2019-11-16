@@ -16,12 +16,20 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-
+#include "SDL.h"
 #include "dosbox.h"
 #include "dos_system.h"
 #include "drives.h"
 #include "mapper.h"
 #include "support.h"
+
+#include "programs.h" //WriteOut
+#include "..\gui\version.h"
+
+char sDriveNotify[4096];
+char sDriveLabel[256];
+
+extern void GFX_SetTitle(Bit32s cycles,int frameskip,bool paused);
 
 bool WildFileCmp(const char * file, const char * wild) 
 {
@@ -183,14 +191,29 @@ void DriveManager::CycleDisks(int drive, bool notify) {
 		strcpy(newDisk->curdir, oldDisk->curdir);
 		newDisk->Activate();
 		Drives[drive] = newDisk;
-		if (notify) LOG_MSG("Drive %c: disk %d of %d now active", 'A'+drive, currentDisk+1, numDisks);
+		if (notify){			
+			sprintf(sDriveNotify,"Mount Drive %c: [%s] (%d of %d is now Active)", 'A'+drive,sDriveLabel,currentDisk+1, numDisks);
+
+			/* Schreibe in die Log   */
+			LOG_MSG(sDriveNotify);			
+						
+			/* Schreibe in die Shell
+			   Program* toShell;
+			   toShell->WriteOut("\n%s\r\nReturn ...",sDriveNotify,'A'+drive);	
+			   Lassen wa mal. bis ich ein sicheren Code gefunden habe.
+			*/
+			
+			/* Aktualisiere das Window Title */
+			strcpy(sDriveLabel,Drives[drive]->GetLabel());  GFX_SetTitle(-1,-1,false);
+			
+		}
 	}
 }
 
 void DriveManager::CycleAllDisks(void) {
 	for (int idrive=0; idrive<DOS_DRIVES; idrive++) CycleDisks(idrive, true);
 }
-
+ 
 int DriveManager::UnmountDrive(int drive) {
 	int result = 0;
 	// unmanaged drive
