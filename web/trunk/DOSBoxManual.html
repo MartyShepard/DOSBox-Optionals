@@ -1,0 +1,1689 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+
+  <title>DOSBox v0.74-3 Manual</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  
+  <style type="text/css">
+    body { background-color:#FFFFFF; font-family: Arial, Helvetica, sans-serif; 
+	  font-size: 10pt; margin-right: 50px; margin-left: 50px; 
+	  margin-bottom: 75px; margin-top: 50px}
+    p { margin: .4em 0 .5em 0; margin-top: 0em;
+	  margin-bottom: 0em}
+    h4 { margin: .4em 0 .5em 0; margin-top: 0em; margin-bottom: 0em}
+	blockquote { margin-top: 0em; margin-bottom: 0em}
+	pre {font-family: Arial, Helvetica, sans-serif; 
+	  font-size: 10pt}
+	td { font-family: Arial, Helvetica, sans-serif; 
+	  font-size: 10pt; margin: .4em 0 .5em 0;
+	  margin-top: 0em; margin-bottom: 0em}
+    .Alert {  font-style: italic; font-weight: bold; 
+	  color: #FF0000}
+    .BlockLeft { float: left; margin-top: 1px; 
+ 	  margin-right: 1px; margin-bottom: 1px; 
+ 	  margin-left: 1px; border-top-width: 1px; 
+ 	  border-right-width: 1px; border-bottom-width: 1px; 
+ 	  border-left-width: 1px}
+    .BlockRight { float: right; margin-top: 1px; 
+	  margin-right: 1px; margin-bottom: 1px; 
+ 	  margin-left: 1px; border-top-width: 1px; 
+ 	  border-right-width: 1px; border-bottom-width: 1px; 
+	  border-left-width: 1px}
+  </style>
+  
+</head>
+<body bgcolor="#FFFFFF" text="#000000">
+(always use the latest version from <a href="https://www.dosbox.com">www.dosbox.com</a>) 
+<h2>DOSBox v0.74-3 Manual</h2>
+<h4>======<br />
+  NOTE: <br />
+  ======</h4>
+<p>&nbsp;</p>
+<p>While we are hoping that one day DOSBox will run all programs ever made for the PC, we are not there yet. </p>
+<p>&nbsp;</p>
+<p>At present, DOSBox running on a high-end machine will roughly be
+the equivalent of a Pentium I PC. DOSBox can be configured to run a wide range of DOS games, from CGA/Tandy/PCjr 
+  classics up to games from the Quake era.</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<h4>=======<br />
+  INDEX:<br />
+  =======</h4>
+<ol>
+  <li><a href="#Quickstart">Quickstart</a></li>
+  <li><a href="#FAQ">Start (FAQ)</a></li>
+  <li><a href="#Parameters">Command Line Parameters</a></li>
+  <li><a href="#InternalPrograms">Internal Programs</a></li>
+  <li><a href="#SpecialKeys">Special Keys</a></li>
+  <li><a href="#Joystick">Joystick/Gamepad</a></li>
+  <li><a href="#KeyMapper">KeyMapper</a></li>
+  <li><a href="#KeyboardLayout">Keyboard Layout</a></li>
+  <li><a href="#Multiplayer">Serial Multiplayer feature</a></li>
+  <li><a href="#SpeedHelp">How to speed up/slow down DOSBox</a></li>
+  <li><a href="#Troubleshooting">Troubleshooting</a></li>
+  <li><a href="#StatusWindow">DOSBox Status Window</a></li>
+  <li><a href="#ConfigFile">The configuration (options) file</a></li>
+  <li><a href="#LanguageFile">The language file</a></li>
+  <li><a href="#Building">Building your own version of DOSBox</a></li>
+  <li><a href="#Thanks">Special thanks</a></li>
+  <li><a href="#Contact">Contact</a></li>
+</ol>
+<p>&nbsp;</p>
+<p><a name="Quickstart"></a></p>
+<h4>==============<br />
+  1. Quickstart:<br />
+  ==============</h4>
+<p>&nbsp;</p>
+<p><strong>Type INTRO in DOSBox for a quick tour. </strong><br />
+  It is essential that you get familiar with the idea of mounting, DOSBox does not automatically make any drive (or a part of it) accessible to the emulation. See the FAQ entry 
+  &quot;How to start?&quot; as well as the description of the MOUNT command (section 4: &quot;Internal Programs&quot;). If you have your game on a cdrom you may try this guide: 
+  <a href="https://www.vogons.org/viewtopic.php?t=8933">https://www.vogons.org/viewtopic.php?t=8933</a></p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><a name="FAQ"></a></p>
+<h4>===============<br />
+  2. Start (FAQ):<br />
+  ===============</h4>
+<p>&nbsp;</p>
+<table width="675">
+  <tr> 
+    <td width="100" valign="top"><strong><a href="#START">START</a>:</strong></td>
+    <td>How to start?</td>
+  </tr>
+  <tr> 
+    <td width="100" valign="top"><strong><a href="#AUTOMATION">AUTOMATION</a>:</strong></td>
+    <td>Do I always have to type these &quot;mount&quot; commands?</td>
+  </tr>
+  <tr> 
+    <td width="100" valign="top"><strong><a href="#FULLSCREEN">FULLSCREEN</a>: </strong></td>
+    <td>How do I change to fullscreen?</td>
+  </tr>
+  <tr>
+    <td width="100" valign="top"><strong><a href="#WINSCALE">FULLSCREEN</a>: </strong></td>
+    <td>My fullscreen is too large.</td>
+  </tr>
+  <tr> 
+    <td width="100" valign="top"><strong><a href="#CD_ROM">CD-ROM</a>: </strong></td>
+    <td>My CD-ROM doesn't work.</td>
+  </tr>
+  <tr> 
+    <td width="100" valign="top"><strong><a href="#CantFindCD">CD-ROM</a>: </strong></td>
+    <td>The game/application can't find its CD-ROM.</td>
+  </tr>
+  <tr> 
+    <td width="100" valign="top"><strong><a href="#MOUSE">MOUSE</a>:</strong></td>
+    <td>The mouse doesn't work.</td>
+  </tr>
+  <tr> 
+    <td width="100" valign="top"><strong><a href="#NoSound">SOUND</a>:</strong></td>
+    <td>There is no sound.</td>
+  </tr>
+  <tr> 
+    <td width="100" valign="top"><strong><a href="#SoundHardware">SOUND</a>:</strong></td>
+    <td>What sound hardware does DOSBox presently emulate?</td>
+  </tr>
+  <tr> 
+    <td width="100" valign="top"><strong><a href="#Stutter">SOUND</a>:</strong></td>
+    <td>The sound stutters or sounds stretched/weird.</td>
+  </tr>
+  <tr> 
+    <td width="100" valign="top"><strong><a href="#Backslash">KEYBOARD</a>:</strong></td>
+    <td>I can't type \ or : in DOSBox.</td>
+  </tr>
+  <tr> 
+    <td width="100" valign="top"><strong><a href="#BackslashWin">KEYBOARD</a>:</strong></td>
+    <td>Right Shift and &quot;\&quot; doesn't work in DOSBox. (Windows only)</td>
+  </tr>
+  <tr> 
+    <td width="100" valign="top"><strong><a href="#KeyboardLag">KEYBOARD</a>:</strong></td>
+    <td>The keyboard lags.</td>
+  </tr>
+  <tr> 
+    <td width="100" valign="top"><strong><a href="#CONTROL">CONTROL</a>:</strong></td>
+    <td>The character/cursor/mouse pointer always moves into one direction!</td>
+  </tr>
+  <tr> 
+    <td width="100" valign="top"><strong><a href="#SPEED">SPEED</a>:</strong></td>
+    <td>The game/application runs much too slow/too fast!</td>
+  </tr>
+  <tr> 
+    <td width="100" valign="top"><strong><a href="#AppCrash">CRASH</a>:</strong></td>
+    <td>The game/application does not run at all/crashes!</td>
+  </tr>
+  <tr> 
+    <td width="100" valign="top"><strong><a href="#StartupCrash">CRASH</a>:</strong></td>
+    <td>DOSBox crashes on startup!</td>
+  </tr>
+  <tr> 
+    <td width="100" valign="top"><strong><a href="#Build">GAME</a>:</strong></td>
+    <td>My Build game(Duke3D/Blood/Shadow Warrior) has problems.</td>
+  </tr>
+  <tr> 
+    <td width="100" valign="top"><strong><a href="#SAFETY">SAFETY</a>:</strong></td>
+    <td>Can DOSBox harm my computer?</td>
+  </tr>
+  <tr> 
+    <td width="100" valign="top"><strong><a href="#OPTIONS">OPTIONS</a>:</strong></td>
+    <td>I would like to change DOSBox's options.</td>
+  </tr>
+  <tr> 
+    <td width="100" valign="top"><strong><a href="#MoreHelp">HELP</a>:</strong></td>
+    <td> 
+      <p>Great Manual, but I still don't get it.</p>
+    </td>
+  </tr>
+</table>
+<p>&nbsp;</p>
+<p><a name="START"></a></p>
+<h4>START: How to start?</h4>
+<blockquote>
+  <p>At the beginning you've got a Z:\&gt; instead of a C:\&gt; at the prompt. You have to make your directories available as drives in DOSBox by using the &quot;mount&quot; 
+    command. For example, in Windows &quot;mount C D:\GAMES&quot; will give you a C drive in DOSBox which points to your Windows D:\GAMES directory (that was created before). 
+    In Linux, &quot;mount c /home/username&quot; will give you a C drive in DOSBox which points to /home/username in Linux. To change to the drive mounted like above, type &quot;C:&quot;. 
+    If everything went fine, DOSBox will display the prompt &quot;C:\&gt;&quot;.</p>
+</blockquote>
+<p><a name="AUTOMATION"></a></p>
+<h4> AUTOMATION: Do I always have to type these commands?</h4>
+<blockquote>
+  <p>In the DOSBox configuration file is an [autoexec] section. The commands present there are run when DOSBox starts, so you can use this section for the mounting. Look at 
+    Section 13: The configuration (options) file</p>
+</blockquote>
+<p><a name="FULLSCREEN"></a></p>
+<h4> FULLSCREEN: How do I change to fullscreen? </h4>
+<blockquote>
+  <p>Press alt-enter. Alternatively: Edit the configuration file of DOSBox and change the option fullscreen=false to fullscreen=true. If fullscreen looks wrong in your opinion: 
+    Play with the options: fullresolution, output and aspect in the configuration file of DOSBox. To get back from fullscreen mode: Press alt-enter again.</p>
+</blockquote>
+<p><a name="WINSCALE"></a></p>
+<h4> FULLSCREEN: My fullscreen is too large. </h4>
+<blockquote>
+  <p>This is can be a problem on Windows 10, if you have display scaling
+    set to a value above 100%. Windows in that case will resize the screen
+    on top of dosbox resizing the screen, which can happen for the output:
+    ddraw, opengl, openglnb, overlay. You can disable this Windows behaviour
+    by enabling a specific compatibility setting:</p>
+<p>&nbsp;</p>
+</blockquote>
+
+<blockquote>
+<p>- Right-click the DOSBox icon and select "Properties".<br />
+- Go to the "Compatibility" tab.<br />
+- Click on "Change high DPI settings".<br />
+- Tick "Override high DPI scaling behaviour" and set it to "Application".<br />
+- Apply the changes by clicking on "OK".</p>
+<p>&nbsp;</p>
+</blockquote>
+<blockquote>
+<p>
+    Unfortunately, this compatibility option causes some side effects in
+    windowed mode, and in this case you will need to change the resolution
+    in the config/Options file for windowresolution (e.g. 1024x768).
+</p>
+</blockquote>
+<blockquote>
+<p>
+    Alternatively, you can disable the display scaling and or use a lower
+    fullresolution value.
+</p>
+</blockquote>
+
+<p><a name="CD_ROM"></a></p>
+<h4>CD-ROM: My CD-ROM doesn't work.</h4>
+<blockquote> 
+  <p>To mount your CD-ROM in DOSBox you have to specify some additional options when mounting the CD-ROM.<br />
+    To enable CD-ROM support (includes MSCDEX) in Windows: </p>
+  <blockquote> 
+    <p>- mount d f:\ -t cdrom </p>
+  </blockquote>
+  <p>in Linux: </p>
+  <blockquote> 
+    <p>- mount d /media/cdrom -t cdrom</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+  </blockquote>
+  <p> In some cases you might want to use a different CD-ROM interface, for example if CD audio does not work: </p>
+  <blockquote> 
+    <p>To enable SDL-support (does not include low-level CD access!):</p>
+    <blockquote> 
+      <p>- mount d f:\ -t cdrom -usecd 0 -noioctl </p>
+    </blockquote>
+    <p>To enable ioctl access using digital audio extraction for CD audio (windows-only, useful for Vista): </p>
+    <blockquote> 
+      <p>- mount d f:\ -t cdrom -ioctl_dx </p>
+    </blockquote>
+    <p>To enable ioctl access using MCI for CD audio (windows-only): </p>
+    <blockquote> 
+      <p>- mount d f:\ -t cdrom -ioctl_mci </p>
+    </blockquote>
+    <p>To force ioctl-only access (windows-only): </p>
+    <blockquote> 
+      <p>- mount d f:\ -t cdrom -ioctl_dio </p>
+    </blockquote>
+    <p>To enable low-level aspi-support (win98 with aspi-layer installed): </p>
+    <blockquote> 
+      <p>- mount d f:\ -t cdrom -aspi</p>
+    </blockquote>
+  </blockquote>
+  <p>&nbsp; </p>
+<p>&nbsp;</p>
+<p>explanation:</p>
+  <blockquote> 
+    <p>- d &nbsp;&nbsp;&nbsp;driveletter you will get in DOSBox (d is the best, don't change it!) </p>
+<p>&nbsp;</p>
+<p>- f:\ &nbsp;&nbsp;location of CD-ROM on your PC. In most cases it will be d:\ or e:\<br />
+      - 0 &nbsp;&nbsp;&nbsp;The number of the CD-ROM drive, reported by &quot;mount -cd&quot;</p>
+    <blockquote>
+      <p>(note that this value is only needed when using SDL for CD audio, </p>
+<p>&nbsp;</p>
+<p>otherwise it is ignored) </p>
+      </blockquote>
+  </blockquote>
+  <p>See also the next question: The game/application can't find its CD-ROM.</p>
+</blockquote>
+<p><a name="CantFindCD"></a></p>
+<h4> CD-ROM: The game/application can't find its CD-ROM</h4>
+<blockquote>
+  <p>Be sure to mount the CD-ROM with -t cdrom switch, this will enable the MSCDEX interface required by DOS games to interface with CD-ROMs. Also try adding the correct label 
+    (-label LABEL) to the mount command, where LABEL is the CD-label (volume ID) of the CD-ROM. Under Windows you can specify -ioctl, -aspi or -noioctl. Look at the description 
+    of the mount command in Section 4: &quot;Internal programs&quot; for their meaning and the additional audio-CD related options -ioctl_dx, -ioctl_mci, -ioctl_dio. Try creating 
+    a CD-ROM image (preferably CUE/BIN pair) and use the DOSBox's internal <a href="#IMGMOUNT">IMGMOUNT</a> tool to mount the image (the CUE sheet). This enables very good low-level 
+    CD-ROM support on any operating system.</p>
+</blockquote>
+<p><a name="MOUSE"></a></p>
+<h4> MOUSE: The mouse doesn't work. </h4>
+<blockquote>
+  <p>Usually, DOSBox detects when a game uses mouse control. When you click on the screen it should get locked (confined to the DOSBox window) and work. With certain games, 
+    the DOSBox mouse detection doesn't work. In that case you will have to lock the mouse manually by pressing CTRL-F10.</p>
+</blockquote>
+<p><a name="NoSound"></a></p>
+<h4> SOUND: There is no sound</h4>
+<blockquote>
+  <p>Be sure that the sound is correctly configured in the game. This might be done during the installation or with a setup/setsound utility that accompanies the game. First 
+    see if an autodetection option is provided. If there is none try selecting Soundblaster or Soundblaster 16 with the default settings being &quot;address=220 irq=7 dma=1&quot; 
+    (sometimes highdma=5). You might also want to select Sound Canvas/SCC/MPU-401/General MIDI/Wave Blaster at &quot;address=330 IRQ=2&quot; as music device. The parameters 
+    of the emulated sound cards can be changed in the DOSBox configuration file.</p>
+  <p><br />
+    If you still don't get any sound set the core to normal in DOSBox configuration and use some lower fixed cycles value (like cycles=2000). Also<br />
+    assure that your host operating sound does provide sound. In certain cases it might be useful to use a different emulated sound device<br />
+    like a soundblaster pro (sbtype=sbpro1 in the DOSBox configuration file) or the gravis ultrasound (gus=true).</p>
+</blockquote>
+<p><a name="SoundHardware"></a></p>
+<h4> SOUND: What sound hardware does DOSBox presently emulate?</h4>
+<blockquote> 
+  <p>DOSBox emulates several legacy sound devices: </p>
+</blockquote>
+<ul>
+  <li><strong>Internal PC speaker/Buzzer</strong><br />
+    This emulation includes both the tone generator and several forms of<br />
+    digital sound output through the internal speaker. </li>
+  <li><strong>Creative CMS/Gameblaster</strong><br />
+    The is the first card released by Creative Labs(R). The default configuration places it on address 220. It is disabled as default.</li>
+  <li><strong>Tandy 3 voice</strong><br />
+    The emulation of this sound hardware is complete with the exception of the noise channel. The noise channel is not very well documented and as such is only a best guess 
+    as to the sound's accuracy. It is disabled as default. </li>
+  <li><strong>Tandy DAC</strong><br />
+    Some games may require turning off sound blaster emulation (sbtype=none) for better tandy DAC sound support. Don't forget to set the sbtype back to sb16 if you don't use 
+    tandy sound. </li>
+  <li><strong>Adlib</strong><br />
+    This emulation is almost perfect and includes the Adlib's ability to almost play digitized sound. Placed at address 220 (also on 388).</li>
+  <li><strong>SoundBlaster 16 / SoundBlaster Pro I &amp; II / SoundBlaster I &amp; II</strong><br />
+    By default DOSBox provides Soundblaster 16 level 16-bit stereo sound. You can select a different SoundBlaster version in the configuration of DOSBox. AWE32 music is not 
+    emulated as you can use MPU-401 instead (see below). </li>
+  <li><strong>Disney Sound Source and Covox Speech Thing</strong><br />
+    Using the printer port, this sound device outputs digital sound only. Placed at LPT1 </li>
+  <li><strong>Gravis Ultrasound</strong><br />
+    The emulation of this hardware is nearly complete, though the MIDI capabilities have been left out, since an MPU-401 has been emulated in other code. For Gravis music you 
+    also have to install Gravis drivers inside DOSBox. It is disabled as default. </li>
+  <li><strong>MPU-401</strong><br />
+    A MIDI passthrough interface is also emulated. This method of sound output will only work when used with external device/emulator. Every Windows XP/Vista/7 and MAC OS has 
+    got a default emulator compatible with: Sound Canvas/SCC/General Standard/General MIDI/Wave Blaster. A different device/emulator is needed for Roland LAPC/CM-32L/MT-32 compatibility.</li>
+</ul>
+<p><a name="Stutter"></a></p>
+<h4> SOUND: The sound stutters or sounds stretched/weird.</h4>
+<p>You may be using too much CPU power to keep DOSBox running at the current speed. You can lower the cycles, skip frames, reduce the sampling rate of the respective sound device, 
+  increase the prebuffer. See section 13: &quot;The configuration (options) file&quot;<br />
+  If you are using cycles=max or =auto, then make sure that there is no background processes interfering! (especially if they access the harddisk) Also look at Section 10. &quot;How 
+  to speed up/slow down DOSBox&quot;</p>
+<p>&nbsp;</p>
+<p><a name="Backslash"></a></p>
+<h4> KEYBOARD: I can't type \ or : in DOSBox.</h4>
+<blockquote> 
+  <p>This can happen in various cases, like your host keyboard layout does not have a matching DOS layout representation (or it was not correctly detected), or the key mapping 
+    is wrong.<br />
+    Some possible fixes: </p>
+  <ol>
+    <li>Use / instead, or ALT-58 for : and ALT-92 for \. </li>
+    <li>Change the DOS keyboard layout (see Section 8: Keyboard Layout). </li>
+    <li>Add the commands you want to execute to the [autoexec] section of the DOSBox configuration file. </li>
+    <li>Open the DOSBox configuration file and change the usescancodes entry. </li>
+    <li>Switch the keyboard layout of your operating system.</li>
+  </ol>
+  <p> Note that if the host layout can not be identified, or keyboardlayout is set to none in the DOSBox configuration file, the standard US layout is used. In this configuration 
+    try the keys around &quot;enter&quot; for the key \ (backslash), and for the key : (colon) use shift and the keys between &quot;enter&quot; and &quot;L&quot;.</p>
+</blockquote>
+<p><a name="BackslashWin"></a></p>
+<h4> KEYBOARD: Right Shift and &quot;\&quot; doesn't work in DOSBox. (Windows only) </h4>
+<blockquote> 
+  <p>This may happen if Windows thinks that you have more than one keyboard connected to your PC when you use some remote control devices. To verity this problem run cmd.exe, 
+    navigate to DOSBox program folder and type: </p>
+  <blockquote>
+    <p>set sdl_videodriver=windib<br />
+      dosbox.exe</p>
+  </blockquote>
+  <p>check whether keyboard started to work properly. As windib is slower it is best to use one of the two solutions provided here: <a href="https://www.vogons.org/viewtopic.php?t=24072">https://www.vogons.org/viewtopic.php?t=24072</a></p>
+</blockquote>
+<p><a name="KeyboardLag"></a></p>
+<h4> KEYBOARD: The keyboard lags</h4>
+<blockquote>
+  <p>Lower the priority setting in the DOSBox configuration file, for example set &quot;priority=normal,normal&quot;. You might also want to try lowering the cycles (use a fixed 
+    cycle amount to start with, like cycles=10000).</p>
+</blockquote>
+<p><a name="CONTROL"></a></p>
+<h4> CONTROL: The character/cursor/mouse pointer always moves into one direction!</h4>
+<blockquote>
+  <p>See if it still happens if you disable the joystick emulation, set joysticktype=none in the [joystick] section of your DOSBox configuration file. Maybe also try unplugging 
+    any joystick/gamepad. If you want to use the joystick in the game, try setting timed=false and be sure to calibrate the joystick (both in your OS as well as in the game 
+    or the game's setup program).</p>
+</blockquote>
+<p><a name="SPEED"></a></p>
+<h4> SPEED: The game/application runs much too slow/too fast!</h4>
+<blockquote>
+  <p>Look at <a href="#SpeedHelp">Section 10: &quot;How to speed up/slow down DOSBox&quot;</a> for more information.</p>
+</blockquote>
+<p><a name="AppCrash"></a></p>
+<h4> CRASH: The game/application does not run at all/crashes!</h4>
+<blockquote>
+  <p>Look at <a href="#Troubleshooting">Section 11: Troubleshooting</a></p>
+</blockquote>
+<p><a name="StartupCrash"></a></p>
+<h4> CRASH: DOSBox crashes on startup!</h4>
+<blockquote> 
+  <p>Look at <a href="#Troubleshooting">Section 11: Troubleshooting</a></p>
+</blockquote>
+<p><a name="Build"></a></p>
+<h4> GAME: My Build game(Duke3D/Blood/Shadow Warrior) has problems</h4>
+<blockquote> 
+  <p>First of all, try to find a port of the game. Those will offer a better experience. To fix the graphics problem that occurs in DOSBox on higher resolutions: Open the configuration 
+    file of DOSBox and search for:</p>
+  <blockquote>
+    <p> machine=svga_s3. Change svga_s3 to vesa_nolfb<br />
+      Change memsize=16 to memsize=63</p>
+  </blockquote>
+</blockquote>
+<p><a name="SAFETY"></a></p>
+<h4> SAFETY: Can DOSBox harm my computer?</h4>
+<blockquote>
+  <p>DOSBox can not harm your computer more than any other resource demanding program. Increasing the cycles does not overclock your real CPU. Setting the cycles too high has 
+    a negative performance effect on the software running inside DOSBox.</p>
+</blockquote>
+<p><a name="OPTIONS"></a></p>
+<h4> OPTIONS: I would like to change DOSBox's options.</h4>
+<blockquote>
+  <p>Look at <a href="#ConfigFile">Section 13. &quot;The configuration (options) file&quot;</a></p>
+</blockquote>
+<p><a name="MoreHelp"></a></p>
+<h4> HELP: Great Manual, but I still don't get it</h4>
+<blockquote> 
+  <p>For more questions read the rest of this Manual. You may also look at: </p>
+</blockquote>
+<ul>
+  <li>The DOSBox Guides: <a href="https://www.vogons.org/viewforum.php?f=39" target="_blank">https://www.vogons.org/viewforum.php?f=39</a></li>
+  <li>The DOSBox Wiki: <a href="https://www.dosbox.com/wiki/" target="_blank">https://www.dosbox.com/wiki/</a></li>
+  <li>The DOSBox Site: <a href="https://www.dosbox.com" target="_blank">https://www.dosbox.com</a></li>
+  <li>The DOSBox Forum: <a href="https://www.vogons.org/viewforum.php?f=53">https://www.vogons.org/viewforum.php?f=53</a></li>
+</ul>
+<p>&nbsp;</p>
+<p><a name="Parameters"></a></p>
+<h4>===========================<br />
+  3. Command Line Parameters:<br />
+  ===========================</h4>
+<p>&nbsp;</p>
+<p>An overview of the command line options you can give to DOSBox. Although in most cases it is easier to use DOSBox's configuration file instead. See: Section 13. &quot;The 
+  configuration (options) file&quot;</p>
+<p>&nbsp;</p>
+<p>To be able to use Command Line Parameters:<br />
+  (Windows) open cmd.exe or command.com or edit the shortcut to dosbox.exe<br />
+  (Linux) use console<br />
+  (MAC OS X) start terminal.app and navigate to: </p>
+<blockquote> 
+  <blockquote> 
+    <p>&nbsp;&nbsp;&nbsp;&nbsp;/applications/dosbox.app/contents/macos/dosbox</p>
+    <p>&nbsp;</p>
+  </blockquote>
+</blockquote>
+<p>The options are valid for all operating systems unless noted in the option description:</p>
+<p>&nbsp;</p>
+<p><b>dosbox</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [name] [-exit] [-c command] [-fullscreen] [-userconf] </p>
+<blockquote> 
+  <blockquote>
+    <p>[-conf congfigfilelocation] [-lang languagefilelocation]<br />
+      [-machine machine type] [-noconsole] [-startmapper] [-noautoexec]<br />
+      [-securemode] [-scaler scaler | -forcescaler scaler] [-version]<br />
+      [-socket socket] </p>
+  </blockquote>
+</blockquote>
+<p>&nbsp;</p>
+<p><b>dosbox -version<br />
+  dosbox -editconf program<br />
+  dosbox -opencaptures program<br />
+  dosbox -printconf<br />
+  dosbox -eraseconf<br />
+  dosbox -erasemapper</b></p>
+<p>&nbsp;</p>
+<p><strong>name</strong></p>
+<blockquote> 
+  <blockquote>
+    <p>If &quot;name&quot; is a directory it will mount that as the C: drive.<br />
+      If &quot;name&quot; is an executable it will mount the directory of &quot;name&quot;<br />
+      as the C: drive and execute &quot;name&quot;.</p>
+    <p>&nbsp;</p>
+  </blockquote>
+</blockquote>
+<p><strong>-exit</strong></p>
+<blockquote> 
+  <blockquote>
+    <p>DOSBox will close itself when the DOS application &quot;name&quot; ends.</p>
+    <p>&nbsp;</p>
+  </blockquote>
+</blockquote>
+<p><strong>-c command</strong></p>
+<blockquote> 
+  <blockquote>
+    <p>Runs the specified command before running &quot;name&quot;. Multiple commands can be specified. Each command should start with &quot;-c&quot; though. A command can be: 
+      an Internal Program, a DOS command or an executable on a mounted drive.</p>
+  </blockquote>
+</blockquote>
+<p>&nbsp; </p>
+<p><strong>-fullscreen</strong></p>
+<blockquote> 
+  <blockquote>
+    <p>Starts DOSBox in fullscreen mode.</p>
+  </blockquote>
+</blockquote>
+<p>&nbsp;</p>
+<p><strong>-userconf</strong></p>
+<blockquote>
+  <p>Start DOSBox with the users specific configuration file. Can be used together with multiple -conf parameters, but -userconf will always be loaded before them.</p>
+</blockquote>
+<p>&nbsp; </p>
+<p><strong>-conf configfilelocation</strong></p>
+<blockquote>
+  <p>Start DOSBox with the options specified in &quot;configfilelocation&quot;. Multiple -conf options may be present. See <a href="#ConfigFile">Section 13</a> for more details.</p>
+</blockquote>
+<p>&nbsp; </p>
+<p><strong>-lang languagefilelocation</strong></p>
+<blockquote>
+  <p>Start DOSBox using the language specified in &quot;languagefilelocation&quot;. See <a href="#LanguageFile">Section 14</a> for more details.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p><strong>-machine machinetype</strong></p>
+<blockquote>
+  <p>Setup DOSBox to emulate a specific type of machine. Valid choices are:<br />
+    hercules, cga, ega, pcjr, tandy, svga_s3 (default) as well as the additional svga chipsets listed in the DOSBox configuration file.<br />
+    svga_s3 enables vesa emulation as well.<br />
+    For some special vga effects the machinetype vgaonly can be used, note that this disables svga capabilities and might be slower due to the higher emulation precision.<br />
+    The machinetype affects the video card and the available sound cards.</p>
+</blockquote>
+<p>&nbsp; </p>
+<p><strong>-noconsole (Windows Only)</strong></p>
+<blockquote>
+  <p>Start DOSBox without showing DOSBox Status Window (console). Output will be redirected to stdout.txt and stderr.txt</p>
+</blockquote>
+<p>&nbsp;</p>
+<p><strong>-startmapper</strong></p>
+<blockquote>
+  <p>Enter the keymapper directly on startup. Useful for people with keyboard problems.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p><strong>-noautoexec</strong></p>
+<blockquote>
+  <p>Skips the [autoexec] section of the loaded configuration file.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p><strong>-securemode</strong></p>
+<blockquote>
+  <p>Same as -noautoexec, but adds config.com -securemode at the bottom of AUTOEXEC.BAT (which in turn disables any changes to how the drives are mounted inside DOSBox).</p>
+</blockquote>
+<p>&nbsp;</p>
+<p><strong>-scaler scaler</strong></p>
+<blockquote>
+  <p>Uses the scaler specified by &quot;scaler&quot;. See the DOSBox configuration file for the available scalers.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p><strong>-forcescaler scaler</strong></p>
+<blockquote>
+  <p>Similar to the -scaler parameter, but tries to force usage of the specified scaler even if it might not fit.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p><strong>-version</strong></p>
+<blockquote>
+<p>output version information and exit. Useful for frontends.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p><strong>-editconf program</strong></p>
+<blockquote>
+  <p>calls program with as first parameter the configuration file. You can specify this command more than once. In this case it will move to second program if the first one 
+    fails to start.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p><strong>-opencaptures program</strong></p>
+<blockquote>
+  <p>calls program with as first parameter the location of the captures folder.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p><strong>-printconf</strong></p>
+<blockquote>
+  <p>prints the location of the default configuration file.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p><strong>-resetconf</strong></p>
+<blockquote>
+  <p>removes the default configuration file.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p><strong>-resetmapper</strong></p>
+<blockquote>
+  <p>removes the mapperfile used by the default clean configuration file.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p><strong>-socket</strong></p>
+<blockquote>
+  <p>passes the socket number to the nullmodem emulation. See <a href="#Multiplayer">Section 9: &quot;Serial Multiplayer feature.&quot;</a></p>
+</blockquote>
+<p>&nbsp;</p>
+<p><b>Note:</b></p>
+<blockquote>
+  <p>If a name/command/configfilelocation/languagefilelocation contains a space, put the whole name/command/configfilelocation/languagefilelocation between quotes (&quot;command 
+    or file name&quot;). If you need to use quotes within quotes (most likely with -c and mount):<br />
+    Windows and OS/2 users can use single quotes inside the double quotes.<br />
+    Other people should be able to use escaped double quotes inside the double quotes.<br />
+    Windows: -c &quot;mount c 'c:\My folder with DOS games\'&quot;<br />
+    Linux: -c &quot;mount c \&quot;/tmp/name with space\&quot;&quot;</p>
+</blockquote>
+<p>&nbsp;</p>
+<p>A rather unusual example, just to demonstrate what you can do (Windows): dosbox D:\folder\file.exe -c &quot;MOUNT Y H:\MyFolder&quot; This mounts D:\folder as C:\ and runs 
+  file.exe. Before it does that, it will first mount H:\MyFolder as the Y drive. In Windows, you can also drag directories/files onto the DOSBox executable.</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><a name="InternalPrograms"></a></p>
+<h4>=====================<br />
+  4. Internal Programs:<br />
+  =====================</h4>
+<p>&nbsp;</p>
+<p>DOSBox supports most of the DOS commands found in command.com. To get a list of the internal commands type &quot;HELP&quot; at the prompt.</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>In addition, the following commands are available:</p>
+<p><a name="MOUNT"></a></p>
+<p><strong>MOUNT &quot;Emulated Drive letter&quot; &quot;Real Drive or Directory&quot;</strong></p>
+<blockquote> 
+  <p>[-t type] [-aspi] [-ioctl] [-noioctl] [-usecd number] [-size drivesize]<br />
+    [-label drivelabel] [-freesize size_in_mb]<br />
+    [-freesize size_in_kb (floppies)] </p>
+</blockquote>
+<p><strong>MOUNT -cd</strong><br />
+  <strong>MOUNT -u &quot;Emulated Drive letter&quot;</strong></p>
+<p>&nbsp;</p>
+<blockquote> 
+  <p> Program to mount local directories as drives inside DOSBox.</p>
+  <p>&nbsp;</p>
+<p><strong>&quot;Emulated Drive letter&quot;</strong></p>
+  <blockquote> 
+    <p>The driveletter inside DOSBox (for example C).</p>
+    <p>&nbsp;</p>
+  </blockquote>
+  <p><strong>&quot;Real Drive letter</strong> (usually for CD-ROMs in Windows) or Directory&quot;<br />
+    The local directory you want accessible inside DOSBox.</p>
+  <p>&nbsp;</p>
+<p><strong>-t type</strong></p>
+  <blockquote> 
+    <p>Type of the mounted directory. Supported are: dir (default), floppy, cdrom.</p>
+  </blockquote>
+  <p>&nbsp;</p>
+<p><strong>-size drivesize</strong></p>
+  <blockquote> 
+    <p>(experts only)<br />
+      Sets the size of the drive, where drivesize is of the form &quot;bps,spc,tcl,fcl&quot;:</p>
+    <blockquote> 
+      <p>bps: bytes per sector, by default 512 for regular drives and 2048 for CD-ROM drives<br />
+        spc: sectors per cluster, usually between 1 and 127<br />
+        tcl: total clusters, between 1 and 65534<br />
+        fcl: total free clusters, between 1 and tcl</p>
+    </blockquote>
+  </blockquote>
+  <p>&nbsp;</p>
+<p><strong>-freesize size_in_mb | size_in_kb</strong></p>
+  <blockquote> 
+    <p>Sets the amount of free space available on a drive in megabytes (regular drives) or kilobytes (floppy drives). This is a simpler version of -size.</p>
+  </blockquote>
+  <p>&nbsp;</p>
+<p><strong>-label drivelabel</strong></p>
+  <blockquote> 
+    <p>Sets the name of the drive to &quot;drivelabel&quot;. Needed on some systems if the CD-ROM label isn't read correctly (useful when a program can't find its CD-ROM). If 
+      you don't specify a label and no lowlevel support is selected (that is omitting the -usecd # and/or -aspi parameters, or specifying -noioctl): </p>
+    <blockquote> 
+      <p>For Windows: label is extracted from &quot;Real Drive&quot;.<br />
+        For Linux: label is set to NO_LABEL.</p>
+    </blockquote>
+    <p>&nbsp;</p>
+<p> If you do specify a label, this label will be kept as long as the drive is mounted. It will not be updated !!</p>
+  </blockquote>
+  <p>&nbsp;</p>
+<p><strong>-aspi</strong></p>
+  <blockquote> 
+    <p>Forces use of the aspi layer. Only valid if mounting a CD-ROM under Windows systems with an ASPI-Layer.</p>
+  </blockquote>
+  <p>&nbsp;</p>
+<p><strong>-ioctl</strong> (automatic selection of the CD audio interface)<br />
+    <strong>-ioctl_dx</strong> (digital audio extraction used for CD audio)<br />
+    <strong>-ioctl_dio</strong> (ioctl calls used for CD audio)<br />
+    <strong>-ioctl_mci</strong> (MCI used for CD audio)</p>
+  <blockquote> 
+    <p>Forces use of ioctl commands. Only valid if mounting a CD-ROM under a Windows OS which support them (Win2000/XP/NT). The various choices only differ in the way CD audio 
+      is handled, preferably -ioctl_dio is used (lowest workload), but this might not work on all systems, so -ioctl_dx (or -ioctl_mci) can be used.</p>
+    <p>&nbsp;</p>
+  </blockquote>
+  <p><strong>-noioctl</strong></p>
+  <blockquote> 
+    <p>Forces use of the SDL CD-ROM layer. Valid on all systems.</p>
+  </blockquote>
+  <p>&nbsp; </p>
+<p><strong>-usecd number</strong></p>
+  <blockquote> 
+    <p>Valid on all systems, under windows the -noioctl switch has to be present to make use of the -usecd switch. Enables to select the drive that should be used by SDL. Use 
+      this if the wrong or no CD-ROM drive is mounted while using the SDL CD-ROM interface. &quot;number&quot; can be found by &quot;MOUNT -cd&quot;.</p>
+  </blockquote>
+  <p>&nbsp; </p>
+<p><strong>-cd</strong></p>
+  <blockquote> 
+    <p>Displays all CD-ROM drives detected by SDL, and their numbers.<br />
+      See the information at the -usecd entry above.</p>
+  </blockquote>
+  <p>&nbsp; </p>
+<p><strong>-u</strong></p>
+  <blockquote> 
+    <p>Removes the mount. Doesn't work for Z:\.</p>
+  </blockquote>
+  <p>&nbsp; </p>
+<p>Note: It's possible to mount a local directory as CD-ROM drive, but hardware support is then missing.</p>
+  <p>&nbsp;</p>
+<p> Basically MOUNT allows you to connect real hardware to DOSBox's emulated PC. So MOUNT C C:\GAMES tells DOSBox to use your C:\GAMES directory as drive C: in DOSBox. MOUNT 
+    C E:\SomeFolder tells DOSBox to use your E:\SomeFolder directory as drive C: in DOSBox.</p>
+  <p>&nbsp;</p>
+  <p> <span class="Alert">Mounting your entire C drive with MOUNT C C:\ is NOT recommended!</span> The same is true for mounting the root of any other drive, except for CD-ROMs 
+    (due to their read-only nature). Otherwise if you or DOSBox make a mistake you may lose all your files. Also never mount a &quot;Windows&quot; or &quot;Program Files&quot; 
+    folders or their subfolders in Windows Vista/7 as DOSBox may not work correctly, or will stop working correctly later. It is recommended to keep all your dos applications/games 
+    in a simple folder (for example c:\dosgames) and mount that.</p>
+  <p>&nbsp;</p>
+<p> You should always install your game inside DOSBox. So if you have the game on CD you always (even after installation!) have to mount both: folder as a harddisk drive and 
+    a CD-ROM.<br />
+    HardDisk should always be mounted as c<br />
+    CD-ROM should always be mounted as d<br />
+    &nbsp;&nbsp;&nbsp;Floppy should always be mounted as a (or b)</p>
+  <p>&nbsp;</p>
+  <p><b>Basic MOUNT Examples for normal usage (Windows):</b></p>
+  <ol>
+    <li>To mount a folder as a harddisk drive:<br />
+      mount c d:\dosgames<br /><br />
+    </li>
+    <li>To mount your CD-ROM drive E as CD-ROM drive D in DOSBox:<br />
+      mount d e:\ -t cdrom<br /><br />
+    </li>
+    <li>To mount your drive a: as a floppy:<br />
+      mount a a:\ -t floppy</li>
+  </ol>
+  <p> <b>Advanced MOUNT examples (Windows):</b></p>
+  <ol start="4">
+    <li> To mount a hard disk drive with ~870 mb free diskspace (simple version):<br />
+      mount c d:\dosgames -freesize 870<br /><br />
+    </li>
+    <li>To mount a drive with ~870 mb free diskspace (experts only, full control):<br />
+      mount c d:\dosgames -size 512,127,16513,13500<br /><br />
+    </li>
+    <li>To mount c:\dosgames\floppy as a floppy:<br />
+      mount a c:\dosgames\floppy -t floppy</li>
+  </ol>
+  <p><b>Other MOUNT examples:</b></p>
+  <ol start="7">
+    <li>To mount system CD-ROM drive at mountpoint /media/cdrom as CD-ROM drive D in DOSBox:<br />
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mount d /media/cdrom -t cdrom -usecd 0<br /><br />
+    </li>
+    <li>To mount /home/user/dosgames as drive C in DOSBox:<br />
+      &nbsp;&nbsp;&nbsp;&nbsp;mount c /home/user/dosgames<br /><br />
+    </li>
+    <li>To mount the directory where DOSBox was started as C in DOSBox:<br />
+      &nbsp;&nbsp;&nbsp;&nbsp;mount c .<br />
+      (note the . which represents the directory where DOSBox was started, on Windows Vista/7 don't use this if you installed DOSBox to your &quot;Program Files&quot; folder)</li>
+  </ol>
+  <p> If you want to mount a CD image or floppy image, check <a href="#IMGMOUNT">IMGMOUNT</a>.<br />
+    MOUNT also works with images but only if you use external program, for example (both are free): </p>
+  <ul>
+    <li><a href="http://www.daemon-tools.cc/eng/home" target="_blank">Daemon Tools Lite</a> (for CD images)</li>
+    <li><a href="http://chitchat.at.infoseek.co.jp/vmware/vfd.html" target="_blank">Virtual Floppy Drive</a> (for floppy images)</li>
+  </ul>
+  <p>Although <a href="#IMGMOUNT">IMGMOUNT</a> can give better compatibility.</p>
+</blockquote>
+<p><a name="MEM"></a></p>
+<p><strong>MEM</strong></p>
+<blockquote>
+  <p>Program to display the amount and type of free memory.</p>
+</blockquote>
+<p><a name="VER"></a></p>
+<p><strong>VER<br />
+  VER set major_version [minor_version]</strong></p>
+<blockquote>
+  <p>Display the current DOSBox version and reported DOS version (parameterless usage). Change the reported DOS version with the &quot;set&quot; parameter, for example: &quot;VER 
+    set 6 22&quot; to have DOSBox report DOS 6.22 as version number.</p>
+</blockquote>
+<p><a name="CONFIG"></a></p>
+<p><strong>CONFIG -writeconf filelocation<br />
+  CONFIG -writelang filelocation<br />
+  CONFIG -securemode<br />
+  CONFIG -set &quot;section property=value&quot;<br />
+  CONFIG -get &quot;section property&quot;</strong></p>
+<p>&nbsp;</p>
+<blockquote>
+  <p> CONFIG can be used to change or query various settings of DOSBox during runtime. It can save the current settings and language strings to disk. Information about all possible 
+    sections and properties can be found in Section 13: &quot;The configuration (options) file&quot;.</p>
+</blockquote>
+<p>&nbsp;</p>
+<blockquote> 
+  <p><strong>-writeconf filelocation</strong></p>
+  <blockquote> 
+    <p>Write the current configuration settings to a file in a specified location. &quot;filelocation&quot; is located on the local drive, not a mounted drive in DOSBox. The 
+      configuration file controls various settings of DOSBox: the amount of emulated memory, the emulated sound cards and many more things. It allows access to AUTOEXEC.BAT 
+      as well. <a href="#ConfigFile">See Section 13: &quot;The configuration (options) file&quot;</a> for more information.</p>
+  </blockquote>
+  <p>&nbsp; </p>
+<p><strong>-writelang filelocation</strong></p>
+  <blockquote> 
+    <p>Write the current language settings to a file in a specified location. &quot;filelocation&quot; is located on the local drive, not a mounted drive in DOSBox. The language 
+      file controls all visible output of the internal commands and the internal DOS. <a href="#LanguageFile">See Section 14: &quot;The Language File&quot;</a> for more information.</p>
+  </blockquote>
+  <p>&nbsp; </p>
+<p><strong>-securemode</strong></p>
+  <blockquote> 
+    <p>Switches DOSBox to a more secure mode. In this mode the internal commands MOUNT, IMGMOUNT and BOOT won't work. It's not possible either to create a new configfile or 
+      languagefile in this mode. (Warning: you can only undo this mode by restarting DOSBox.)</p>
+  </blockquote>
+  <p>&nbsp; </p>
+<p><strong>-set &quot;section property=value&quot;</strong></p>
+  <blockquote> 
+    <p>CONFIG will attempt to set the property to new value. Currently CONFIG can not report whether the command succeeded or not.</p>
+  </blockquote>
+  <p>&nbsp; </p>
+<p><strong>-get &quot;section property&quot;</strong></p>
+  <blockquote> 
+    <p>The current value of the property is reported and stored in the environment variable %CONFIG%. This can be used to store the value when using batch files.</p>
+  </blockquote>
+  <p>&nbsp; </p>
+<p>Both &quot;-set&quot; and &quot;-get&quot; work from batch files and can be used to set up your own preferences for each game. Although it may be easier to use separate DOSBox's 
+    configuration files for each game instead.</p>
+<p>&nbsp;</p>
+<p><strong>Examples:</strong></p>
+  <ol>
+    <li>To create a configuration file in your c:\dosgames directory:<br />
+      config -writeconf c:\dosgames\dosbox.conf </li>
+    <li>To set the cpu cycles to 10000:<br />
+      config -set &quot;cpu cycles=10000&quot; </li>
+    <li>To turn ems memory emulation off:<br />
+      config -set &quot;dos ems=off&quot; </li>
+    <li>To check which cpu core is being used.<br />
+      config -get &quot;cpu core&quot;</li>
+  </ol>
+</blockquote>
+<a name="LOADFIX"></a>
+<p><strong>LOADFIX [-size] [program] [program-parameters]<br />
+  LOADFIX -f</strong></p>
+<blockquote>
+  <p>Program to reduce the amount of available conventional memory. Useful for old programs which don't expect much memory to be free.</p>
+  <p>&nbsp;</p>
+</blockquote>
+<blockquote> 
+  <p><strong>-size</strong></p>
+  <blockquote> 
+    <p>number of kilobytes to &quot;eat up&quot;, default = 64kb</p>
+  </blockquote>
+  <p>&nbsp;</p>
+<p><strong>-f</strong></p>
+  <blockquote> 
+    <p>frees all previously allocated memory</p>
+  </blockquote>
+  <p>&nbsp; </p>
+<p><strong>Examples:</strong></p>
+  <ol>
+    <li>To start mm2.exe and allocate 64kb memory<br />
+      (mm2 will have 64 kb less available):<br />
+      loadfix mm2 </li>
+    <li>To start mm2.exe and allocate 32kb memory:<br />
+      loadfix -32 mm2 </li>
+    <li>To free previous allocated memory:<br />
+      loadfix -f</li>
+  </ol>
+</blockquote>
+<a name="RESCAN"></a>
+<p><strong>RESCAN</strong></p>
+<blockquote>
+  <p>Make DOSBox reread the directory structure. Useful if you changed something on a mounted drive outside of DOSBox. (CTRL - F4 does this as well!)</p>
+</blockquote>
+<p><a name="MIXER"></a></p>
+<p><strong>MIXER</strong></p>
+<blockquote>
+  <p>Makes DOSBox display its current volume settings. Here's how you can change them:</p>
+<p>&nbsp;</p></blockquote>
+<blockquote>
+  <p><b>mixer channel left:right</b> [/NOSHOW] [/LISTMIDI]</p>
+<p>&nbsp;</p></blockquote>
+<blockquote> 
+  <p><strong>channel</strong></p>
+  <blockquote> 
+    <p>Can be one of the following: MASTER, DISNEY, SPKR, GUS, SB, FM [, CDAUDIO].<br />
+      CDAUDIO is only available if a CD-ROM interface with volume control is enabled (CD image, ioctl_dx).</p>
+  </blockquote>
+  <p>&nbsp;</p>
+<p><strong>left:right</strong></p>
+  <blockquote> 
+    <p>The volume levels in percentages. If you put a D in front it will be in decibel (Example: mixer gus d-10).</p>
+  </blockquote>
+  <p>&nbsp;</p>
+<p><strong>/NOSHOW</strong></p>
+  <blockquote> 
+    <p>Prevents DOSBox from showing the result if you set one of the volume levels.</p>
+  </blockquote>
+  <p>&nbsp;</p>
+<p><strong>/LISTMIDI</strong></p>
+  <blockquote> 
+    <p>In Windows lists the available midi devices on your PC. To select a device other than the Windows default midi-mapper, change the line 'midiconfig=' in the [midi] section 
+      of the configuration file to 'midiconfig=id', where 'id' is the number for the device as listed by LISTMIDI. eg. midiconfig=2</p>
+  </blockquote>
+  <p>&nbsp;</p>
+  <blockquote>
+    <p> In Linux this option doesn't work, but you get similar results by using 'pmidi -l' in console. Then change the line 'midiconfig=' to 'midiconfig=port', where 'port' 
+      is the port for the device as listed by 'pmidi -l'. eg. midiconfig=128:0</p>
+  </blockquote>
+</blockquote>
+<p><a name="IMGMOUNT"></a></p>
+<p><strong>IMGMOUNT</strong></p>
+<blockquote> 
+  <p>A utility to mount disk images and CD-ROM images in DOSBox.</p>
+  <p>&nbsp;</p>
+  <p><strong>IMGMOUNT DRIVE</strong> [imagefile] -t [image_type] -fs [image_format]</p>
+  <blockquote> 
+    <p>-size [sectorsbytesize, sectorsperhead, heads, cylinders]</p>
+  </blockquote>
+  <p><strong>IMGMOUNT DRIVE</strong> [imagefile1 imagefile2 .. imagefileN] -t cdrom -fs iso </p>
+  <p>&nbsp;</p>
+  <p><strong>imagefile</strong></p>
+  <blockquote> 
+    <p>Location of the image file to mount in DOSBox. The location can be on a mounted drive inside DOSBox, or on your real disk. It is possible to mount CD-ROM images (ISOs 
+      or CUE/BIN or CUE/IMG) too. If you need CD swapping capabilities, specify all images in succession (see the next entry).<br />
+      CUE/BIN pairs and cue/img are the preferred CD-ROM image types as they can store audio tracks compared to ISOs (which are data-only). For the CUE/BIN mounting always specify 
+      the CUE sheet.</p>
+  </blockquote>
+  <p>&nbsp;</p>
+  <p><strong>imagefile1 imagefile2 .. imagefileN</strong></p>
+  <blockquote> 
+    <p>Location of the image files to mount in DOSBox. Specifying a number<br />
+      of image files is only allowed for CD-ROM images.<br />
+      The CD's can be swapped with CTRL-F4 at any time.<br />
+      This is required for games which use multiple CD-ROMs and require the CD<br />
+      to be switched during the gameplay at some point.</p>
+  </blockquote>
+  <p>&nbsp;</p>
+  <p><strong>-t</strong></p>
+  <p>The following are valid image types:</p>
+  <blockquote> 
+    <p><strong>floppy:</strong></p>
+    <blockquote> 
+      <p>Specifies a floppy image. DOSBox will automatically identify the disk geometry (360K, 1.2MB, 720K, 1.44MB, etc). </p>
+    </blockquote>
+    <p><strong>cdrom:</strong></p>
+    <blockquote> 
+      <p>Specifies a CD-ROM image. The geometry is automatic and set for this size. This can be an iso or a cue/bin pair or a cue/img pair.</p>
+    </blockquote>
+    <p><strong>hdd:</strong></p>
+    <blockquote> 
+      <p>Specifies a harddrive image. The proper CHS geometry must be set for this to work.</p>
+    </blockquote>
+  </blockquote>
+  <p>&nbsp;</p>
+  <p><strong>-fs</strong></p>
+  <blockquote> 
+    <p>The following are valid file system formats:</p>
+    <blockquote> 
+      <p><b>iso:</b> Specifies the ISO 9660 CD-ROM format.<br />
+        <b>fat:</b> Specifies that the image uses the FAT file system. DOSBox will attempt to mount this image as a drive in DOSBox and make the files available from inside 
+        DOSBox.<br />
+        <b>none:</b> DOSBox will make no attempt to read the file system on the disk. This is useful if you need to format it or if you want to boot the disk using the BOOT 
+        command. When using the &quot;none&quot; filesystem, you must specify the drive number (2 or 3, where 2 = master, 3 = slave) rather than a drive letter. <br />
+        For example, to mount a 70MB image as the slave drive device, you would type (without the quotes):</p>
+      <blockquote>
+        <p>&quot;imgmount 3 d:\test.img -size 512,63,16,142 -fs none&quot;<br />
+          Compare this with a mount to be able to access the drive<br />
+          within DOSBox, which would read as:<br />
+          &quot;imgmount e: d:\test.img -size 512,63,16,142&quot;</p>
+      </blockquote>
+    </blockquote>
+  </blockquote>
+  <p>&nbsp;</p>
+  <p><b>-size</b><br />
+    The Cylinders, Heads and Sectors of the drive. Required to mount hard drive images.</p>
+  <p>&nbsp;</p>
+  <p> An example how to mount CD-ROM images (in Linux): </p>
+  <ol>
+    <li>imgmount d /tmp/cdimage1.cue /tmp/cdimage2.cue -t cdrom </li>
+  </ol>
+  <p>or (which also works): </p>
+  <ol start="2">
+    <li>mount c /tmp </li>
+    <li>imgmount d c:\cdimage1.cue c:\cdimage2.cue -t cdrom </li>
+  </ol>
+  <p>(in Windows):</p>
+  <blockquote> 
+    <p>imgmount d f:\img\CD1.cue f:\img\CD2.cue f:\img\CD3.cue -t cdrom<br />
+      imgmount d &quot;g:\img\7th Guest CD1.cue&quot; &quot;g:\img\7th Guest CD2.cue&quot; -t cdrom</p>
+  </blockquote>
+  <p>Don't forget that you can also use MOUNT with images, but only if you use external program, for example (both are free):</p>
+</blockquote>
+<ul>
+  <li><a href="http://www.daemon-tools.cc/eng/home" target="_blank">Daemon Tools Lite</a> (for CD images)</li>
+  <li><a href="http://chitchat.at.infoseek.co.jp/vmware/vfd.html" target="_blank">Virtual Floppy Drive</a> (for floppy images) </li>
+</ul>
+<blockquote> 
+  <p>Although IMGMOUNT can give better compatibility.</p>
+</blockquote>
+<p><a name="BOOT"></a></p>
+<p><strong>BOOT</strong></p>
+<blockquote>
+  <p>Boot will start floppy images or hard disk images independent of the operating system emulation offered by DOSBox. This will allow you to play booter floppies or boot other 
+    operating systems inside DOSBox. If the target emulated system is PCjr (machine=pcjr) the boot command can be used to load PCjr cartridges (.jrc). </p>
+<p>&nbsp;</p></blockquote>
+<blockquote> 
+  <p><strong>BOOT</strong> [diskimg1.img diskimg2.img .. diskimgN.img] [-l driveletter]<br />
+    <strong>BOOT</strong> [cart.jrc] (PCjr only)</p>
+  <p>&nbsp;</p>
+<p><strong>diskimg1.img diskimg2.img .. diskimgN.img</strong></p>
+  <blockquote> 
+    <p>This can be any number of floppy disk images one wants mounted after<br />
+      DOSBox boots the specified drive letter.<br />
+      To swap between images, hit CTRL-F4 to change from the current disk<br />
+      to the next disk in the list. The list will loop back from the last<br />
+      disk image to the beginning.</p>
+  </blockquote>
+  <p>&nbsp;</p>
+<p><strong>[-l driveletter]</strong></p>
+  <blockquote> 
+    <p>This parameter allows you to specify the drive to boot from. The default is the A drive, the floppy drive. You can also boot a hard drive image mounted as master by specifying 
+      &quot;-l C&quot; without the quotes, or the drive as slave by specifying &quot;-l D&quot;</p>
+  </blockquote>
+  <p>&nbsp;</p>
+<p><strong>cart.jrc (PCjr only)</strong></p>
+  <blockquote>
+    <p>When emulation of a PCjr is enabled, cartridges can be loaded with the BOOT command. Support is still limited.</p>
+  </blockquote>
+</blockquote>
+<p><a name="IPX"></a></p>
+<p><strong>IPX</strong></p>
+<p>&nbsp;</p>
+<blockquote> 
+  <p>You need to enable IPX networking in the configuration file of DOSBox.</p>
+  <p>&nbsp;</p>
+<p> All of the IPX networking is managed through the internal DOSBox program IPXNET. For help on the IPX networking from inside DOSBox, type &quot;IPXNET HELP&quot; (without 
+    quotes) and the program will list the commands and relevant documentation.</p>
+  <p>&nbsp;</p>
+<p> With regard to actually setting up a network, one system needs to be the server. To set this up, type &quot;IPXNET STARTSERVER&quot; (without the quotes) in a DOSBox session. 
+    The server DOSBox session will automatically add itself to the virtual IPX network. For every additional computer that should be part of the virtual IPX network, you'll 
+    need to type &quot;IPXNET CONNECT &lt;computer host name or IP&gt;&quot;.<br />
+    For example, if your server is at bob.dosbox.com, you would type &quot;IPXNET CONNECT bob.dosbox.com&quot; on every non-server system.</p>
+  <p>&nbsp;</p>
+<p>To play games that need Netbios a file named NETBIOS.EXE from Novell is needed. Establish the IPX connection as explained above, then run &quot;netbios.exe&quot;.</p>
+  <p>&nbsp;</p>
+<p> The following is an IPXNET command reference:</p>
+  <p>&nbsp;</p>
+<p><strong>IPXNET CONNECT</strong></p>
+  <p>&nbsp;</p>
+<blockquote> 
+    <p> IPXNET CONNECT opens a connection to an IPX tunneling server running on another DOSBox session. The &quot;address&quot; parameter specifies the IP address or host name 
+      of the server computer. You can also specify the UDP port to use. By default IPXNET uses port 213 - the assigned IANA port for IPX tunneling - for its connection.</p>
+  </blockquote>
+  <p>&nbsp; </p>
+  <blockquote> 
+    <p>The syntax for IPXNET CONNECT is:<br />
+      IPXNET CONNECT address &lt;port&gt;</p>
+  </blockquote>
+  <p>&nbsp;</p>
+<p><strong>IPXNET DISCONNECT</strong></p>
+  <p>&nbsp;</p>
+<blockquote> 
+    <p> IPXNET DISCONNECT closes the connection to the IPX tunneling server.</p>
+  </blockquote>
+  <p>&nbsp;</p>
+  <blockquote> 
+    <p> The syntax for IPXNET DISCONNECT is:<br />
+      IPXNET DISCONNECT</p>
+  </blockquote>
+  <p>&nbsp;</p>
+<p><strong>IPXNET STARTSERVER</strong></p>
+<p>&nbsp;</p>
+  <blockquote> 
+    <p> IPXNET STARTSERVER starts an IPX tunneling server on this DOSBox session. By default, the server will accept connections on UDP port 213, though this can be changed. 
+      Once the server is started, DOSBox will automatically start a client connection to the IPX tunneling server.</p>
+    <p>&nbsp;</p>
+<p>The syntax for IPXNET STARTSERVER is:<br />
+      IPXNET STARTSERVER &lt;port&gt;</p>
+    <p>&nbsp;</p>
+<p>If the server is behind a router, UDP port &lt;port&gt; needs to be forwarded to that computer.On Linux/Unix-based systems port numbers smaller than 1023 can only be 
+      used with root privileges. Use ports greater than 1023 on those systems.</p>
+  </blockquote>
+  <p>&nbsp;</p>
+<p><strong>IPXNET STOPSERVER</strong></p>
+  <p>&nbsp;</p>
+<blockquote> 
+    <p> IPXNET STOPSERVER stops the IPX tunneling server running on this DOSBox session. Care should be taken to ensure that all other connections have terminated as well, since 
+      stopping the server may cause lockups on other machines that are still using the IPX tunneling server.</p>
+    <p>&nbsp;</p>
+<p> The syntax for IPXNET STOPSERVER is:<br />
+      IPXNET STOPSERVER</p>
+  </blockquote>
+  <p>&nbsp;</p>
+  <p><strong>IPXNET PING</strong></p>
+  <p>&nbsp;</p>
+<blockquote> 
+    <p> IPXNET PING broadcasts a ping request through the IPX tunneled network.<br />
+      In response, all other connected computers will respond to the ping<br />
+      and report the time it took to receive and send the ping message.</p>
+    <p>&nbsp;</p>
+<p> The syntax for IPXNET PING is:<br />
+      IPXNET PING</p>
+  </blockquote>
+  <p>&nbsp;</p>
+<p><strong>IPXNET STATUS</strong></p>
+  <p>&nbsp;</p>
+<blockquote>
+    <p> IPXNET STATUS reports the current state of this DOSBox session's IPX tunneling network. For a list of all computers connected to the network use the IPXNET PING command.</p>
+    <p>&nbsp;</p>
+<p> The syntax for IPXNET STATUS is:<br />
+      IPXNET STATUS</p>
+  </blockquote>
+</blockquote>
+<p><a name="KEYB"></a></p>
+<p><strong>KEYB [keyboardlayoutcode [codepage [codepagefile]]]</strong></p>
+<p>&nbsp;</p>
+<blockquote> 
+  <p> Change the keyboard layout. For detailed information about keyboard layouts please see <a href="#KeyboardLayout">Section 8: &quot;Keyboard Layout&quot;</a> </p>
+  <p>&nbsp;</p>
+<p> [keyboardlayoutcode] is a string consisting of five or less characters, examples are PL214 (Polish typists) or PL457 (Polish programmers). It specifies the keyboard layout 
+    to be used.<br />
+    The list of all layouts built into DOSBox is here:<br />
+    <a href="https://www.vogons.org/viewtopic.php?t=21824" target="_blank">https://www.vogons.org/viewtopic.php?t=21824</a></p>
+  <p>&nbsp;</p>
+<p> [codepage] is the number of the codepage to be used. The keyboard layout has to provide support for the specified codepage, otherwise the layout loading will fail. If 
+    no codepage is specified, an appropriate codepage for the requested layout is chosen automatically.</p>
+  <p>&nbsp;</p>
+<p> [codepagefile] can be used to load codepages that are yet not compiled into DOSBox. This is only needed when DOSBox does not find the codepage. If no codepagefile is specified, 
+    but you place all ten ega.cpx files (from FreeDOS) in the DOSBox program folder, an appropriate codepagefile for the requested layout/codepage is chosen automatically.</p>
+  <p>&nbsp;</p>
+<p> Examples:</p>
+  <ol>
+    <li>To load the polish typist keys layout (automatically uses codepage 852):<br />
+      &nbsp;&nbsp;&nbsp;keyb pl214 </li>
+    <li>To load one of russian keyboard layouts with codepage 866:<br />
+      &nbsp;&nbsp;&nbsp;keyb ru441 866<br />
+      In order to type russian characters press ALT+RIGHT-SHIFT. </li>
+    <li>To load one of french keyboard layouts with codepage 850 (where the<br />
+      codepage is defined in EGACPI.DAT):<br />
+      &nbsp;&nbsp;&nbsp;keyb fr189 850 EGACPI.DAT </li>
+    <li>To load codepage 858 (without a keyboard layout):<br />
+      &nbsp;&nbsp;&nbsp;keyb none 858<br />
+      This can be used to change the codepage for the FreeDOS keyb2 utility. </li>
+    <li>To display the current codepage and, if loaded, the keyboard layout:<br />
+      &nbsp;&nbsp;&nbsp;keyb</li>
+  </ol>
+</blockquote>
+<p>For more information use the /? command line switch with the programs.</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><a name="SpecialKeys"></a></p>
+<h4>================<br />
+  5. Special Keys:<br />
+  ================</h4>
+<p>&nbsp;</p>
+<table width="675">
+  <tr> 
+    <td width="110" valign="top"><strong>ALT-ENTER</strong></td>
+    <td width="673">Switch to full screen and back.</td>
+  </tr>
+  <tr> 
+    <td width="110" valign="top"><strong>ALT-PAUSE</strong></td>
+    <td width="673">Pause emulation (hit ALT-PAUSE again to continue). </td>
+  </tr>
+  <tr> 
+    <td width="110" valign="top"><strong>CTRL-F1</strong></td>
+    <td width="673">Start the keymapper.</td>
+  </tr>
+  <tr> 
+    <td width="110" valign="top"><strong>CTRL-F4</strong></td>
+    <td width="673">Change between mounted floppy/CD images. Update directory cache for all drives.</td>
+  </tr>
+  <tr> 
+    <td width="110" valign="top"><strong>CTRL-ALT-F5</strong></td>
+    <td width="673">Start/Stop creating a movie of the screen. (avi video capturing) </td>
+  </tr>
+  <tr> 
+    <td width="110" valign="top"><strong>CTRL-F5</strong></td>
+    <td width="673">Save a screenshot. (PNG format)</td>
+  </tr>
+  <tr> 
+    <td width="110" valign="top"><strong>CTRL-F6</strong></td>
+    <td width="673">Start/Stop recording sound output to a wave file.</td>
+  </tr>
+  <tr> 
+    <td width="110" valign="top"><strong>CTRL-ALT-F7</strong></td>
+    <td width="673">Start/Stop recording of OPL commands. (DRO format)</td>
+  </tr>
+  <tr> 
+    <td width="110" valign="top"><strong>CTRL-ALT-F8</strong></td>
+    <td width="673">Start/Stop the recording of raw MIDI commands.</td>
+  </tr>
+  <tr> 
+    <td width="110" valign="top"><strong>CTRL-F7</strong></td>
+    <td width="673">Decrease frameskip.</td>
+  </tr>
+  <tr> 
+    <td width="110" valign="top"><strong>CTRL-F8</strong></td>
+    <td width="673">Increase frameskip.</td>
+  </tr>
+  <tr> 
+    <td width="110" valign="top"><strong>CTRL-F9</strong></td>
+    <td width="673">Kill DOSBox.</td>
+  </tr>
+  <tr> 
+    <td width="110" valign="top"><strong>CTRL-F10</strong></td>
+    <td width="673">Capture/Release the mouse.</td>
+  </tr>
+  <tr> 
+    <td width="110" valign="top"><strong>CTRL-F11</strong></td>
+    <td width="673">Slow down emulation (Decrease DOSBox Cycles).</td>
+  </tr>
+  <tr> 
+    <td width="110" valign="top"><strong>CTRL-F12</strong></td>
+    <td width="673">Speed up emulation (Increase DOSBox Cycles)*.</td>
+  </tr>
+  <tr> 
+    <td width="110" valign="top"><strong>ALT-F12</strong></td>
+    <td width="673">Unlock speed (turbo button/fast forward)**.</td>
+  </tr>
+  <tr> 
+    <td width="110" valign="top"><strong>F11, ALT-F11</strong></td>
+    <td width="673">(machine=cga) change tint in NTSC output modes***</td>
+  </tr>
+  <tr> 
+    <td width="110" valign="top"><strong>F11</strong></td>
+    <td width="673">(machine=hercules) cycle through amber, green, white colouring***</td>
+  </tr>
+</table>
+<p>&nbsp;</p>
+<p><strong>*NOTE:</strong> Once you increase your DOSBox cycles beyond your computer CPU resources, it will produce the same effect as slowing down the emulation. This maximum will vary 
+  from computer to computer.</p>
+<p>&nbsp;</p>
+<p><strong>**NOTE:</strong> You need free CPU resources for this (the more you have, the faster it goes), so it won't work at all with cycles=max or a too high amount of fixed 
+  cycles. You have to keep the keys pressed for it to work!</p>
+<p>&nbsp;</p>
+<p><strong>***NOTE:</strong> These keys won't work if you saved a mapper file earlier with a different machine type. So either reassign them or reset the mapper.</p>
+<p>&nbsp;</p>
+<p>These are the default keybindings. They can be changed in the keymapper (see <a href="#KeyMapper">Section 7: KeyMapper</a>). </p>
+<p>&nbsp;</p>
+<p>In MAC OS you can try using cmd(applekey) together with Ctrl if the key doesn't work eg. cmd-ctrl-F1, but some keys may still need remapping (in Linux too).</p>
+<p>&nbsp;</p>
+<p>Saved/recorded files can be found in:</p>
+<blockquote>
+  <p>(Windows) &quot;Start/WinLogo Menu&quot;-&gt;&quot;All Programs&quot;-&gt;DOSBox-0.74-3-&gt;Extras<br />
+    (Linux) ~/.dosbox/capture<br />
+    (MAC OS X) &quot;~/Library/Preferences/capture&quot;</p>
+</blockquote>
+<p>This can be changed in the DOSBox configuration file.</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><a name="Joystick"></a></p>
+<h4>====================<br />
+  6. Joystick/Gamepad:<br />
+  ====================</h4>
+<p>&nbsp;</p>
+<p>The standard joystick port in DOS supports a maximum of 4 axes and 4 buttons. For more, different modifications of that configuration were used.</p>
+<p>&nbsp;</p>
+<p>To force DOSBox to use a different type of emulated joystick/gamepad, the entry &quot;joysticktype&quot; in the [joystick] section of the DOSBox configuration file can be 
+  used.</p>
+<p>&nbsp;</p>
+<table width="675">
+  <tr> 
+    <td valign="top" width="60"><strong>none -</strong></td>
+    <td width="575">disables controller support.</td>
+  </tr>
+  <tr> 
+    <td valign="top" width="60"><strong>auto -</strong></td>
+    <td width="575"> 
+      <p>(default) autodetects whether you have one or two controllers connected:</p>
+      <blockquote> 
+        <p>if you have one - '4axis' setting is used,<br />
+          if you have two - '2axis' setting is used.</p>
+      </blockquote>
+    </td>
+  </tr>
+  <tr> 
+    <td valign="top" width="60"><strong>2axis - </strong></td>
+    <td width="575">If you have two controllers connected, each will emulate a joystick with 2 axes and 2 buttons. If you have only one controller connected, it will emulate 
+      a joystick with only 2 axis and 2 buttons. </td>
+  </tr>
+  <tr> 
+    <td valign="top" width="60"><strong>4axis -</strong></td>
+    <td width="575">supports only first controller, emulates a joystick with 4 axis and 4 buttons or a gamepad with 2axis and 6 buttons. </td>
+  </tr>
+  <tr> 
+    <td valign="top" width="60"><strong>4axis_2 -</strong></td>
+    <td width="575">supports only second controller.</td>
+  </tr>
+  <tr> 
+    <td valign="top" width="60"><strong>fcs -</strong></td>
+    <td width="575">supports only first controller, emulates ThrustMaster Flight Control System, with 3-axes, 4 buttons and 1 hat.</td>
+  </tr>
+  <tr> 
+    <td valign="top" width="60"><strong>ch -</strong></td>
+    <td width="575">supports only first controller, emulates CH Flightstick, with 4-axes, 6 buttons and 1 hat, but you cannot press more than one button at the same time.</td>
+  </tr>
+</table>
+<p><br />
+</p>
+<p>You also have to configure controller properly inside the game.</p>
+<p>&nbsp;</p>
+<p>It is important to remember that if you saved the mapperfile without joystick connected, or with a different joystick setting, your new setting will not work properly, or 
+  not work at all, until you reset DOSBox's mapperfile.</p>
+<p>&nbsp;</p>
+<p> If controller is working properly outside DOSBox, but doesn't calibrate properly inside DOSBox, try different 'timed' setting in DOSBox's configuration file.</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><a name="KeyMapper"></a></p>
+<h4>=============<br />
+  7. KeyMapper:<br />
+  =============</h4>
+<p>&nbsp;</p>
+<p>You start the DOSBox mapper either with CTRL-F1 (see section 5. Special Keys) or -startmapper (see Section 3. Command Line Parameters). You are presented with a virtual keyboard 
+  and a virtual joystick.</p>
+<p>&nbsp;</p>
+<p>These virtual devices correspond to the keys and events DOSBox will report to the DOS applications. If you click on a button with your mouse, you can see in the lower left 
+  corner with which event it is associated (EVENT) and to what events it is currently bound.</p>
+<p>&nbsp;</p>
+<pre>Event: EVENT
+BIND: BIND (the real key/button/axis you push with your finger/hand)
+
+                                                     Add    Del
+mod1  hold                                               Next
+mod2
+mod3</pre>
+<p><strong>EVENT</strong></p>
+<blockquote>
+  <p>The key or joystick axis/button/hat DOSBox will report to DOS applications. (the event that will happen during the game, (eg. shooting/jumping/walking)</p>
+</blockquote>
+<p>&nbsp;</p>
+<p><br />
+  <strong>BIND</strong></p>
+<blockquote>
+  <p>The key on your real keyboard or the axis/button/hat on your real joystick(s) (as reported by SDL), which is connected to the EVENT.</p>
+</blockquote>
+<p><br />
+  <strong>mod1,2,3</strong></p>
+<blockquote>
+  <p>Modifiers. These are keys you need to have to be pressed while pressing BIND. mod1 = CTRL and mod2 = ALT. These are generally only used when you want to change the special 
+    keys of DOSBox.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p><strong>Add</strong></p>
+<blockquote>
+  <p>Add a new BIND to this EVENT. Basically add a key from your keyboard or an event from the joystick (button press, axis/hat movement) which will produce the EVENT in DOSBox.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p><br />
+  <strong>Del</strong></p>
+<blockquote>
+  <p>Delete the BIND to this EVENT. If an EVENT has no BINDS, then it is not possible to trigger this event in DOSBox (that is there's no way to type the key or use the respective 
+    action of the joystick).</p>
+</blockquote>
+<p><br />
+  <strong>Next</strong></p>
+<blockquote>
+  <p>Go through the list of bindings which map to this EVENT.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p><strong>Example:</strong></p>
+<p><strong>Q1.</strong> You want to have the X on your keyboard to type a Z in DOSBox.</p>
+<blockquote>
+  <p><strong>A.</strong> Click on the Z on the keyboard mapper. Click &quot;Add&quot;. Now press the X key on your keyboard.</p>
+</blockquote>
+<p><strong>Q2.</strong> If you click &quot;Next&quot; a couple of times, you will notice that the Z on your keyboard also produces an Z in DOSBox. </p>
+<blockquote>
+  <p><strong>A.</strong> Therefore select the Z again, and click &quot;Next&quot; until you have the Z on<br />
+    your keyboard. Now click &quot;Del&quot;.</p>
+</blockquote>
+<p><strong>Q3.</strong> If you try it out in DOSBox, you will notice that pressing X makes ZX appear. </p>
+<blockquote>
+  <p><strong>A.</strong> The X on your keyboard is still mapped to the X as well! Click on the X in the keyboard mapper and search with &quot;Next&quot; until you find the mapped key 
+    X. Click &quot;Del&quot;.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p> <b>Examples about remapping the joystick:</b></p>
+<p>You have a joystick attached, it is working fine under DOSBox and you want to play some keyboard-only game with the joystick (it is assumed that the game is controlled by 
+  the arrows on the keyboard):</p>
+<ol>
+  <li>Start the mapper, then click on one of the left keyboard arrow. EVENT should be key_left. Now click on Add and move your joystick in the respective direction, this should 
+    add an event to the BIND. </li>
+  <li>Repeat the above for the missing three directions, additionally the buttons of the joystick can be remapped as well (fire/jump).</li>
+  <li>Click on Save, then on Exit and test it with some game.</li>
+</ol>
+<p> You want to swap the y-axis of the joystick because some flightsim uses the up/down joystick movement in a way you don't like, and it is not configurable in the game itself: 
+</p>
+<ol>
+  <li>Start the mapper and click on Y- in the first joystick field. EVENT should be jaxis_0_1-. </li>
+  <li>Click on Del to remove the current binding, then click Add and move your joystick downwards. A new bind should be created. </li>
+  <li>Repeat this for Y+, save the layout and finally test it with some game.</li>
+</ol>
+<p>If you want to remap anything to your d-pad/hat you will have to change 'joysticktype=auto' to 'joysticktype=fcs' in configuration file. Maybe this will be improved in the 
+  next dosbox version.</p>
+<p>&nbsp;</p>
+<p> If you change the default mapping, you can save your changes by clicking on &quot;Save&quot;. DOSBox will save the mapping to a location specified in the configuration file 
+  (the mapperfile= entry). At startup, DOSBox will load your mapperfile, if it is present in the DOSBox configuration file.</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><a name="KeyboardLayout"></a></p>
+<h4>===================<br />
+  8. Keyboard Layout:<br />
+  ===================</h4>
+<p>&nbsp;</p>
+<p>To switch to a different keyboard layout, either the entry &quot;keyboardlayout&quot; in the [dos] section of the DOSBox configuration file can be used, or the internal DOSBox 
+  program keyb.com (Section 4: Internal Programs) Both accept DOS conforming language codes (see below), but only by using keyb.com a custom codepage can be specified.</p>
+<p>&nbsp;</p>
+<p>The default keyboardlayout=auto currently works under windows only. The language is chosen according to the OS language, but the keyboard layout is not detected.</p>
+<p>&nbsp;</p>
+<p><strong>Layout switching</strong></p>
+<blockquote>
+  <p>DOSBox supports a number of keyboard layouts and codepages by default, in this case just the layout identifier needs to be specified (like keyboardlayout=PL214 in the DOSBox 
+    configuration file, or using &quot;keyb PL214&quot; at the DOSBox command prompt). The list of all layouts built into DOSBox is here: <a href="https://www.vogons.org/viewtopic.php?t=21824" target="_blank">https://www.vogons.org/viewtopic.php?t=21824</a></p>
+  <p>&nbsp;</p>
+  <p> Some keyboard layouts (for example layout GK319 codepage 869 and layout RU441 codepage 808) have support for dual layouts that can be accessed by pressing LeftALT+RrightSHIFT 
+    for one layout and LeftALT+LeftSHIFT for the other. Some keyboard layouts (for example layout LT456 codepage 771) have support for three layouts, third can be accessed by 
+    pressing LeftALT+LeftCTRL</p>
+</blockquote>
+<p>&nbsp;</p>
+<p><strong>Supported external files</strong></p>
+<p>The FreeDOS .kl files are supported (FreeDOS keyb2 keyboard layoutfiles) as well as the FreeDOS keyboard.sys/keybrd2.sys/keybrd3.sys libraries which consist of all available 
+  .kl files. See <a href="http://www.freedos.org/" target="_blank">http://www.freedos.org/</a> for precompiled keyboard layouts if the DOSBox-integrated layouts don't work for 
+  some reason, or if updated or new layouts become available.</p>
+<p>&nbsp;</p>
+<p> Both .CPI (MS-DOS and compatible codepage files) and .CPX (FreeDOS UPX-compressed codepage files) can be used. Some codepages are compiled into DOSBox, so it is mostly not 
+  needed to care about external codepage files. If you need a different (or custom) codepage file, copy it into the directory of the DOSBox so it is accessible for DOSBox. If 
+  you place all ten ega.cpx files (from FreeDOS) in DOSBox folder, an appropriate codepagefile for the requested layout/codepage is chosen automatically.</p>
+<p>&nbsp;</p>
+<p> Additional layouts can be added by copying the corresponding .kl file into the directory of the DOSBox configuration file and using the first part of the filename as language 
+  code. </p>
+<p><br />
+  Example: For the file UZ.KL (keyboard layout for Uzbekistan) specify &quot;keyboardlayout=uz&quot; in the DOSBox configuration file.<br />
+  The integration of keyboard layout packages (like keybrd2.sys) works similar.</p>
+<p>&nbsp;</p>
+<p>Note that the keyboard layout allows foreign characters to be entered, but there is NO support for them in filenames. Try to avoid them both inside DOSBox as well as in files 
+  on your host operating system that are accessible by DOSBox.</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><a name="Multiplayer"></a></p>
+<h4>==============================<br />
+  9. Serial Multiplayer feature:<br />
+  ==============================</h4>
+<p>&nbsp;</p>
+<p>DOSBox can emulate a serial nullmodem cable over network and internet. It can be configured through the [serialports] section in the DOSBox configuration file.</p>
+<p>&nbsp;</p>
+<p>To create a nullmodem connection, one side needs to act as the server and one as the client.</p>
+<p>&nbsp;</p>
+<p>The server needs to be set up in the DOSBox configuration file like this: </p>
+<blockquote>
+  <p>serial1=nullmodem</p>
+</blockquote>
+<p>&nbsp;</p>
+<p>The client:</p>
+<blockquote>
+  <p>serial1=nullmodem server:&lt;IP or name of the server&gt;</p>
+</blockquote>
+<p>&nbsp;</p>
+<p>Now start your game and choose nullmodem / serial cable / already connected as multiplayer method on COM1. Set the same baudrate on both computers.</p>
+<p>&nbsp;</p>
+<p>Furthermore, additional parameters can be specified to control the behavior of the nullmodem connection. These are all parameters:</p>
+<p>&nbsp;</p>
+<table width="675">
+  <tr valign="top"> 
+    <td width="102"><strong>* port:</strong></td>
+    <td align="center" width="24">-</td>
+    <td width="665">TCP port number. Default: 23</td>
+  </tr>
+  <tr valign="top"> 
+    <td width="102"><strong>* rxdelay:</strong></td>
+    <td align="center" width="24">-</td>
+    <td width="665">how long (milliseconds) to delay received data if the interface is not ready. Increase this value if you encounter overrun errors in the DOSBox Status Window. 
+      Default: 100</td>
+  </tr>
+  <tr valign="top"> 
+    <td width="102"><strong>* txdelay:</strong></td>
+    <td align="center" width="24">-</td>
+    <td width="665">how long to gather data before sending a packet. Default: 12 (reduces Network overhead)</td>
+  </tr>
+  <tr valign="top"> 
+    <td width="102"><strong>* server:</strong></td>
+    <td align="center" width="24">-</td>
+    <td width="665">This nullmodem will be a client connecting to the specified server. (No server argument: be a server.)</td>
+  </tr>
+  <tr valign="top"> 
+    <td width="102"><strong>* transparent:1</strong></td>
+    <td align="center" width="24">-</td>
+    <td width="665">Only send the serial data, no RTS/DTR handshake. Use this when connecting to anything other than a nullmodem.</td>
+  </tr>
+  <tr valign="top"> 
+    <td width="102"><strong>* telnet:1</strong></td>
+    <td align="center" width="24">-</td>
+    <td width="665">Interpret Telnet data from the remote site. Automatically sets transparent.</td>
+  </tr>
+  <tr valign="top"> 
+    <td width="102"><strong>* usedtr:1</strong></td>
+    <td align="center" width="24">-</td>
+    <td width="665">The connection will not be established until DTR is switched on by the DOS program. Useful for modem terminals. Automatically sets transparent.</td>
+  </tr>
+  <tr valign="top"> 
+    <td width="102"><strong>* inhsocket:1</strong></td>
+    <td align="center" width="24">-</td>
+    <td width="665">Use a socket passed to DOSBox by command line. Automatically sets transparent. (Socket Inheritance: It is used for playing old DOS door games on new BBS 
+      software.)</td>
+  </tr>
+</table>
+<p>&nbsp;</p>
+<p>Example: Be a server listening on TCP port 5000.<br />
+  serial1=nullmodem server:&lt;IP or name of the server&gt; port:5000 rxdelay:1000</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><a name="SpeedHelp"></a></p>
+<h4>=====================================<br />
+  10. How to speed up/slow down DOSBox:<br />
+  =====================================</h4>
+<p>&nbsp;</p>
+<p>DOSBox emulates the CPU, the sound and graphic cards, and other peripherals of a PC, all at the same time. The speed of an emulated DOS application depends on how many instructions 
+  can be emulated, which is adjustable (number of cycles).</p>
+<p>&nbsp;</p>
+<p><strong>CPU Cycles (speed up/slow down)</strong></p>
+<blockquote>
+  <p>By default (cycles=auto) DOSBox tries to detect whether a game needs to be run with as many instructions emulated per time interval as possible (cycles=max, sometimes this 
+    results in game working too fast or unstable), or whether to use fixed amount of cycles (cycles=3000, sometimes this results in game working too slow or too fast). But you 
+    can always manually force a different setting in the DOSBox's configuration file.</p>
+  <p>&nbsp;</p>
+  <p> You can force the slow or fast behavior by setting a fixed amount of cycles in the DOSBox's configuration file. If you for example set cycles=10000, then DOSBox window 
+    will display a line &quot;Cpu Speed: fixed 10000 cycles&quot; at the top. In this mode you can reduce the amount of cycles even more by hitting CTRL-F11 (you can go as low 
+    as you want) or raise it by hitting CTRL-F12 as much as you want, but you will be limited by the power of one core of your computer's CPU. You can see how much free time 
+    your real CPU's cores have by looking at the Task Manager in Windows 2000/XP/Vista/7 and the System Monitor in Windows 95/98/ME. Once 100% of the power of your computer's 
+    real CPU's one core is used, there is no further way to speed up DOSBox (it will actually start to slow down), unless you reduce the load generated by the non-CPU parts 
+    of DOSBox. DOSBox can use only one core of your CPU, so If you have for example a CPU with 4 cores, DOSBox will not be able to use the power of three other cores.</p>
+  <p>&nbsp;</p>
+  <p> You can also force the fast behavior by setting cycles=max in the DOSBox configuration file. The DOSBox window will display a line &quot;Cpu Speed: max 100% cycles&quot; 
+    at the top then. This time you won't have to care how much free time your real CPU's cores have, because DOSBox will always use 100% of your real CPU's one core. In this 
+    mode you can reduce the amount of your real CPU's core usage by CTRL-F11 or raise it with CTRL-F12.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p><strong>CPU Core (speed up)</strong></p>
+<blockquote>
+  <p>On x86 architectures you can try to force the usage of a dynamically recompiling core (set core=dynamic in the DOSBox configuration file). This usually gives better results 
+    if the auto detection (core=auto) fails. It is best accompanied by cycles=max. But you may also try using it with high amounts of cycles (for example 20000 or more). Note 
+    that there might be games that work worse/crash with the dynamic core (so save your game often), or do not work at all!</p>
+</blockquote>
+<p>&nbsp;</p>
+<p><strong>Graphics emulation (speed up)</strong></p>
+<blockquote>
+  <p>VGA emulation is a demanding part of DOSBox in terms of actual CPU usage. Increase the number of frames skipped (in increments of one) by pressing CTRL-F8. Your CPU usage 
+    should decrease when using a fixed cycle setting, and you will be able to increase cycles with CTRL-F12. You can repeat this until the game runs fast enough for you. Please 
+    note that this is a trade-off: you lose in fluidity of video what you gain in speed.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p><strong>Sound emulation (speed up)</strong></p>
+<blockquote>
+  <p>You can also try to disable the sound through the setup utility of the game to reduce load on your CPU further. Setting nosound=true in DOSBox's configuration does NOT 
+    disable the emulation of sound devices, just the output of sound will be disabled.</p>
+</blockquote>
+<p>&nbsp;</p>
+<p>Also try to close every program but DOSBox to reserve as much resources as possible for DOSBox.</p>
+<p>&nbsp;</p>
+<p> Advanced cycles configuration:</p>
+<p>The cycles=auto and cycles=max settings can be parameterized to have different startup defaults. The syntax is</p>
+<blockquote> 
+  <p>cycles=auto [&quot;realmode default&quot;] [&quot;protected mode default&quot;%] [limit &quot;cycle limit&quot;]<br />
+    cycles=max [&quot;protected mode default&quot;%] [limit &quot;cycle limit&quot;] </p>
+</blockquote>
+<p>Example:</p>
+<blockquote>
+  <p>cycles=auto 5000 80% limit 20000<br />
+    will use cycles=5000 for real mode games, 80% CPU throttling for protected mode games along with a hard cycle limit of 20000</p>
+</blockquote>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><a name="Troubleshooting"></a></p>
+<h4>====================<br />
+  11. Troubleshooting:<br />
+  ====================</h4>
+<p>&nbsp;</p>
+<p>General tip:</p>
+<blockquote>
+  <p>Check messages in DOSBox Status Window. <a href="#StatusWindow">See section 12. &quot;DOSBox Status Window&quot;</a></p>
+</blockquote>
+<p>&nbsp;</p>
+<p><strong>DOSBox crashes right after starting it:</strong></p>
+<ul>
+  <li>use different values for the output= entry in your DOSBox configuration file </li>
+  <li>try to update your graphics card driver and DirectX </li>
+  <li>(Linux) set the environment variable SDL_AUDIODRIVER to alsa or oss.</li>
+</ul>
+<p><strong>Running a certain game closes DOSBox, crashes with some message or hangs:</strong></p>
+<ul>
+  <li>see if it works with a default DOSBox installation (unmodified configuration file) try it with sound disabled (use the sound configuration program that comes with the 
+    game, additionally you can set sbtype=none and gus=false in the DOSBox configuration file) </li>
+  <li>change some entries of the DOSBox configuration file, especially try:<br />
+    &nbsp;&nbsp;&nbsp;core=normal<br />
+    &nbsp;&nbsp;&nbsp;fixed cycles (for example cycles=10000)<br />
+    &nbsp;&nbsp;&nbsp;ems=false<br />
+    &nbsp;&nbsp;&nbsp;xms=false<br />
+    or combinations of the above settings, similar the machine settings that control the emulated chipset and functionality:<br />
+    &nbsp;&nbsp;&nbsp;machine=vesa_nolfb<br />
+    or<br />
+    &nbsp;&nbsp;&nbsp;machine=vgaonly </li>
+  <li>use loadfix before starting the game</li>
+</ul>
+<p><strong>The game exits to the DOSBox prompt with some error message:</strong></p>
+<ul>
+  <li>read the error message closely and try to locate the error </li>
+  <li>try the hints at the above sections </li>
+  <li>mount differently as some games are picky about the locations, for example if you used &quot;mount d d:\oldgames\game&quot; try &quot;mount c d:\oldgames\game&quot; and 
+    &quot;mount c d:\oldgames&quot; </li>
+  <li>if the game requires a CD-ROM be sure you used &quot;-t cdrom&quot; when mounting and try different additional parameters (the ioctl, usecd and label switches, see the 
+    appropriate section) </li>
+  <li>check the file permissions of the game files (remove read-only attributes, add write permissions etc.) </li>
+  <li>try reinstalling the game within DOSBox</li>
+</ul>
+<p>&nbsp;</p>
+<p><a name="StatusWindow"></a></p>
+<h4>=========================<br />
+  12. DOSBox Status Window:<br />
+  =========================</h4>
+<p>&nbsp;</p>
+<p>DOSBox's Staus window contains many useful information about your currant configuration, your actions in DOSBox, errors that happened and more. Whenever you have any problem 
+  with DOSBox check these messages.</p>
+<p>&nbsp;</p>
+<p>To start DOSBox Status Window:</p>
+<blockquote>
+  <p>(Windows) Status Window is being started together with main DOSBox window.<br />
+    (Linux) You may have to start DOSBox from a console to see Status Window.<br />
+    (MAC OS X) Right click on DOSBox.app, choose &quot;Show Package Contents&quot;-&gt;enter &quot;Contents&quot;-&gt;enter &quot;MacOS&quot;-&gt;run &quot;DOSBox&quot;</p>
+</blockquote>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><a name="ConfigFile"></a></p>
+<h4>=====================================<br />
+  13. The configuration (options) file:<br />
+  =====================================</h4>
+<p>The configuration file is automatically created the first time you run DOSBox. The file can be found in:</p>
+<blockquote>
+  <p>(Windows) &quot;Start/WinLogo Menu&quot;-&gt;&quot;All Programs&quot;-&gt;DOSBox-0.74-3-&gt;Options</p>
+  <p>(Linux) ~/.dosbox/dosbox-0.74-3.conf</p>
+  <p>(MAC OS X) &quot;~/Library/Preferences/DOSBox 0.74-3 Preferences&quot;</p>
+</blockquote>
+<p>The file is divided into several sections. Each section starts with a [section name] line. The settings are the property=value lines where value can be altered to customize 
+  DOSBox.<br />
+  # and % indicate comment-lines.</p>
+<p>&nbsp;</p>
+<p>An extra configuration file can be generated by CONFIG.COM, which can be found on the internal DOSBox Z: drive when you start up DOSBox. Look in the <a href="#InternalPrograms">Section 
+  4: &quot;Internal programs&quot;</a> for usage of CONFIG.COM. You can start DOSBox with the -conf switch to load the generated file and use its settings.</p>
+<p>&nbsp;</p>
+<p>DOSBox will load configuration files that are specified with -conf. If none were specified, it will try to load &quot;dosbox.conf&quot; from the local directory. If there 
+  is none, DOSBox will load the user configuration file. This file will be created if it doesn't exist.</p>
+<p>&nbsp;</p>
+<p><strong>Important!:</strong> In Windows Vista/7 the configuration file won't work correctly if it is located in &quot;Windows&quot; or &quot;Program Files&quot; folder or their subfolders, 
+  or directly on c:\, so the best place for storing extra configuration files is for example: C:\oldgames</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><a name="LanguageFile"></a></p>
+<h4>======================<br />
+  14. The Language File:<br />
+  ======================</h4>
+<p>A language file can be generated by CONFIG.COM, which can be found on the internal DOSBox Z: drive when you start up DOSBox. Look in the Section 4: &quot;Internal programs&quot; 
+  for usage of CONFIG.COM.<br />
+  Read the language file, and you will hopefully understand how to change it. Start DOSBox with the -lang switch to use your new language file. Alternatively, you can setup 
+  the filename in the configuration file in the [dosbox] section. There's a language= entry that can be changed with the filelocation.</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><a name="Building"></a></p>
+<h4>========================================<br />
+  15. Building your own version of DOSBox:<br />
+  ========================================</h4>
+<p>Download the source.<br />
+  Check the INSTALL in the source distribution.</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><a name="Thanks"></a></p>
+<h4>===================<br />
+  16. Special thanks:<br />
+  ===================</h4>
+<p>&nbsp;</p>
+<p>See the <a href="Documentation/THANKS.txt" target="_blank">THANKS file</a>.</p>
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p><a name="Contact"></a></p>
+<h4>============<br />
+  17. Contact:<br />
+  ============</h4>
+<p>&nbsp;</p>
+<p><span class="BlockLeft">See the site:<br />
+  <a href="https://www.dosbox.com" target="_blank">https://www.dosbox.com</a><br />
+  for an email address (<a href="https://www.dosbox.com/crew.php">The Crew-page</a>).</span> <span class="BlockRight"><a href="https://validator.w3.org/check?uri=referer"><img src="https://www.w3.org/Icons/valid-xhtml10" alt="Valid XHTML 1.0 Transitional" height="31" width="88" border="0" /></a> 
+  <a href="https://jigsaw.w3.org/css-validator/check/referer"><img src="https://jigsaw.w3.org/css-validator/images/vcss" style="border:0;width:88px;height:31px" alt="Valid CSS!" border="0" /></a></span></p>
+<p>&nbsp;</p>
+</body>
+</html>

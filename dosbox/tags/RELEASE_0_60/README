@@ -1,0 +1,299 @@
+DOSBox v0.60
+
+=====
+NOTE: 
+=====
+
+While we hope that, one day, DosBox will run virtually all programs
+ever made for the PC...we are not there yet. At present, DosBox run on a 1.7
+Gigahertz PC is roughly the equivalent of a 25MHz 386 PC. While the 0.60
+release has added support for "protected mode" allowing for more complex and
+recent programs, but note that this support is early in development and
+nowhere near as complete as the support for 386 real-mode games (or
+earlier). Also note that "protected mode" games need substantially more
+resources and may require a much faster processor for you to run it properly
+in DosBox.
+
+======
+Usage:
+======
+
+dosbox [name] [-exit] [-c command] [-fullscreen] [-conf congfigfile] 
+       [-lang languagefile]
+
+  name   
+        If "name" is a directory it'll mount that as the C: drive.
+        If "name" is an executable it'll mount the directory of "name" 
+        as the C: drive and execute "name".
+    
+  -exit  
+        dosbox will exit after the "name" has been executed.
+
+  -c command
+        Runs the specified command before running "name". Multiple commands
+        can be specified. Each command should start with -c though.
+
+  -fullscreen
+        Starts dosbox in fullscreen mode.
+
+  -conf configfile
+        Start dosbox with the options specified in "configfile".
+
+  -lang languagefile
+        Start dosbox using the language string specified in "languagefile".
+
+  -noconsole (Windows Only)
+        Start dosbox without showing the console window, output will
+	be redirected to stdout.txt and stderr.txt
+
+Note: If a name/command/configfile/languagefile contains a space in it, put
+      the whole name/command/configfile/languagefile between quotes("example").
+
+For example:
+
+dosbox c:\atlantis\atlantis.exe -c "MOUNT D C:\SAVES"
+  This would mount c:\atlantis as c:\ and run atlantis.exe.
+  Before it does that it would first mount C:\SAVES as the D drive.
+
+In Windows you can also drag directories/files onto the dosbox executable.
+ 
+
+
+==================
+Internal Programs:
+==================
+
+dosbox supports most of the DOS commands found in command.com. 
+In addition, the following commands are available: 
+
+MOUNT "Emulated Drive letter" "Real Drive or Directory" 
+      [-t type] [-aspi] [-ioctl] [-usecd number] [-size drivesize] 
+      [-label drivelabel]
+MOUNT -cd
+    
+  Program to mount local directories as drives inside DOSBox.
+
+  "Emulated Drive letter"
+        The driveletter inside dosbox (eg. C).
+
+  "Real Drive letter or Directory"
+        The local directory you want to have inside dosbox.
+        (Under Win32 usually the same as "Emulated Drive letter".
+	For Example: mount c c:\ )
+
+  -t type
+        Type of the mounted directory. Supported are: dir (standard),
+        floppy, cdrom.
+
+  -size drivesize
+        Sets the size of the drive. 
+
+  -label drivelabel
+        Sets the name of the drive to "drivelabel". Needed on some 
+        systems if the cd label isn't read correctly. Useful when a 
+        program can't find its cdrom.
+
+  -aspi
+        Forces to use the aspi layer. Only valid if mounting a cdrom under 
+        Windows systems with an ASPI-Layer.
+
+  -ioctl   
+        Forces to use ioctl commands. Only valid if mounting a cdrom under 
+        windows which support them (Win2000/XP/NT).
+
+  -usecd number
+        Forces to use SDL cdrom support for drive number.
+        Number can be found by -cd. Valid on all systems.
+
+  -cd
+        Displays all detected cdrom drives and their numbers. Use with -usecd.
+
+  Note: It's possible to mount a local directory as cdrom drive. 
+        Hardware support is then missing.
+
+  Basically, MOUNT allows you to connect real hardware to DosBox's "emulated"
+  PC. So MOUNT C C:\ tells DosBox to use your real C: drive as drive C: in
+  DosBox. It also allows you to change the drive's letter identification for
+  programs that demand specific drive letters.
+  
+  For example: Touche: Adventures of The Fifth Musketeer must be run on your C:
+  drive. Using DosBox and it's mount command, you can trick into thinking it
+  is on C drive while placing it where you want it. For example, if the game
+  were in D:\TOUCHE, you can use the command MOUNT C D:\ would allow you to
+  run Touche from the D drive.
+    
+
+  General MOUNT Examples:
+  1. To mount c:\floppy as a floppy : 
+       mount a c:\floppy -t floppy
+  2. To mount system cdrom drive E as cdrom drive D in dosbox:
+       mount d e:\ -t cdrom
+  3. To mount system cdrom drive at mountpoint /media/cdrom as cdrom drive D 
+     in dosbox:
+       mount d /media/cdrom -t cdrom -usecd 0
+  4. To mount a drive with 870 mb free diskspace (rarely needed! experts only):
+       mount c d:\ -size 4025,127,16513,1700
+  5. to mount /home/dos/dosgames as drive C in dosbox:
+       mount c /home/dos/dosgames
+
+MEM
+  Program to display the amount of free memory.
+
+CONFIG [-writeconf] [-writelang] localfile
+  Write the current configuration or language settings to file.
+  "localfile" is located on the local drive !!! 
+
+LOADFIX [-size] [program] [program-parameters]
+LOADFIX -f
+  Program to "eat up" memory. Useful for old programs which don't expect much
+  memory to be free.
+
+  -size	        
+        number of kb to "eat up", default = 64kb
+  
+  -f
+        frees all previously allocated memory
+  
+
+Examples:
+  1. To start mm2.exe and allocate 64kb memory :
+     loadfix mm2
+  2. To start mm2.exe and allocate 32kb memory :
+     loadfix -32 mm2
+  3. To free previous allocated memory :
+     loadfix -f
+
+For more information use the /? command line switch with the programs.
+
+
+
+=============
+Special Keys:
+=============
+
+ALT-ENTER       Go full screen and back.
+CTRL-F5	        Save a screenshot.
+CTRL-F6	        Start/Stop recording sound output to a wave file.
+CTRL-F7	        Decrease frameskip.
+CTRL-F8	        Increase frameskip.
+CTRL-F9         Kill dosbox.
+CTRL-F10        Capture/Release the mouse.
+CTRL-F11        Slow down emulation (Decrease DOSBox Cycles).
+CTRL-F12        Speed up emulation (Increase DOSox Cycles).
+
+NOTE: Once you increase your DOSBox cycles beyond your computer's maximum
+capacity, it will produce the same effect as slowing down the emulation.
+This maximum will vary from computer to computer, there is no standard.
+
+====================
+System requirements:
+====================
+
+Fast machine. My guess would be pentium-2 400+ to get decent emulation
+of games written for an 286 machine.
+For protected mode games a 1 Ghz machine is recommended and don't expect
+them to run fast though!! Be sure to read the next section on how to speed
+it up somewhat.
+
+
+================================
+To run resource-demanding games: 
+================================
+
+DOSBox emulates the CPU, the sound and graphic cards, and some other
+stuff, all at the same time. You can overclock DOSBox by using CTRL+F12, but
+you'll be limited by the power of your actual CPU. You can see how much free
+time your true CPU has by looking at the Task Manager in Windows 2000/XP and
+the System Monitor in Windows 95/98/ME. Once 100% of your real CPU time is
+used there is no further way to speed up DOSBox unless you reduce the load
+generated by the non-CPU parts of DOSBox. 
+
+So: 
+
+Close every program but DOSBox 
+
+Overclock DOSBox until 100% of your CPU is used (use the utilities above to
+check) 
+
+Since VGA emulation is the most demanding part of DOSBox in terms of actual
+CPU usage, we'll start here. Increase the number of frames skipped (in
+increments of one) by pressing CRTL+F8. Your CPU usage should decrease.
+Go back one step and repeat this until the game runs fast enough for you.
+Please note that this is a trade off: you lose in fluidity of video what you
+gain in speed 
+
+You can also try to disable the sound through the setup utility of the game
+to further reduce load on your CPU. 
+
+
+====
+FAQ:
+====
+
+Q: I've got a Z instead of a C at the prompt.
+A: In DOSBox you can mount directories as drives.
+   In win32: mount c D:\ would give you a C in DOSBox which points
+   at D:\ in win32.
+   In linux: mount c /home/username would give you a C in DOSBox
+   which points at /home/username in Linux.
+
+Q: The mouse doesn't work.
+A: Normally dosbox detects the mouse being used by a game. If you click on 
+   the screen then it should get locked and work.
+   Sometimes the dosbox mouse detection doesn't work with certain games. You
+   might have to force to lock the mouse then with ctrl-F10.
+
+Q: The sound stutters.
+A: You're using too much cpu power to keep dosbox running at the current speed.
+   You can either lower the cycles or skip frames or get a faster machine.
+
+
+For more questions check the site/forum:
+http://dosbox.sourceforge.net
+
+
+================
+The Config File:
+================
+
+A config file can be generated by CONFIG.COM. Edit it to customize DOSBox.
+The file is divided into several sections (the names have [] around it). 
+Some sections have options which you can set.
+# and % indicate commentlines. 
+The generated configfile contains the current settings. You can alter them and
+start dosbox with the -conf switch to load the file and use these settings. 
+
+==================
+The Language File:
+==================
+
+A language file can be generated by CONFIG.COM. 
+Read it and you will hopefully understand how to change it. 
+Start Dosbox with the -lang switch to use your new language file
+or you can setup the filename in the config file in the [dosbox] section.
+There's a language= entry that can be changed with the filename.
+
+
+====================================
+Building your own version of DOSBox:
+====================================
+
+Download the source.
+Check the INSTALL in the source distribution.
+
+===============
+Special Thanks:
+===============
+
+Vlad R. of the vdmsound project for excellent sound blaster info.
+Tatsuyuki Satoh of the Mame Team for making an excellent FM emulator.
+The Bochs and DOSemu projects which I used for information.
+Freedos for ideas in making my shell.
+The Beta Testers.
+
+========
+Contact:
+========
+
+Harekiet harekiet@zophar.net
+http://dosbox.sourceforge.net

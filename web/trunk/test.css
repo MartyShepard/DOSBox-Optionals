@@ -1,0 +1,76 @@
+td,th,option,select {font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 12px;}
+
+option,select {
+color: #000000;
+}
+li.c2 {list-style: none;}
+span.undl {
+font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 12px;
+text-decoration: underline;
+}
+span.support {
+font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 14px;
+}
+div.temp {
+background-color: #355787;
+width: 120px;
+border: 1px solid;
+border-color: #000000;
+padding: 20px 0px 20px 0px;
+}
+div.gog {
+background-color: #303840;
+width: 120px;
+border: 1px solid;
+border-color: #000000;
+padding: 15px 0px 15px 0px;
+text-align: center;
+}
+
+div.gogimage { 
+background-color: #303840;
+width: 120px;
+border: 1px solid;
+border-color: #000000;
+padding: 0x 0px 0px 0px;
+text-align: center;
+}
+
+.gog1 {
+color: #93be03;
+font-weight: bold; 
+}
+
+
+.gog2 {
+color: #fcb70a;
+font-weight: bold; 
+}
+a.goglink {
+color: #a1a1ff;
+text-align: center;
+}
+a.goglink_side {
+color: #a1a1ff;
+text-align: center;
+font-size: 105%;
+}
+
+.code {
+font-family: monospace; 
+background-color: #355787;
+}
+table.table630{
+width: 638px;
+}
+table.tablecomp{
+width: 630px;
+}
+table.comp_min10{
+width: 620px;
+
+}
+table.main{
+width: 822px;
+margin-top: 1em;
+}

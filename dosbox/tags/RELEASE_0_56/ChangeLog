@@ -1,0 +1,48 @@
+0.56
+  - added support for a configclass/configfile
+  - added support for writing out the configclass into a configfile
+  - removed the language file and made it internal
+  - added support for writing the language file (will override the internal one)
+  - improved mousesupport
+  - updated readme
+  - support for screenshots
+  - some cpu-bug fixes
+  - dma changes
+  - Real Sound support
+  - EMM fixes and new functions.
+  - VGA fixes
+  - new wildcompare
+  - support for size and disktype at mount.
+  - added new debugger functionalities: start/trace into INTs, write processor status log, 
+    step over rep and loop instructions, breakpoint support without using INT 03 (heavy debugging switch)
+  - Added more cpu instructions and changed the string operations.
+  - Added classes for most of the internal dos structures.
+  - Rewrote most of the fcb calls to use normal dos calls.
+  
+0.55
+  - fixed the errors/warnings in prefix_66.h and prefix_66_of.h (decimal too large becomming unsigned).
+  - fixed compilation error on FreeBSD when #disable_joystick was defined
+  - int10_writechar has been updated to move the cursor position.
+  - changed the basedir routines to use the current working dir instead of argv[0]. This will fix and brake things :)
+  - illegal command, now displays the command
+  - wildcmp updated to be case insensitive
+  - added fcb:open,close,findfirst, findnext.
+  - fixed rename in drive_local
+  - added new features to the debugger: breakpoint support / data view / command line
+  - partial support of list of lists (dos info block)
+  - full emm 3.2 support  
+  - partial emm 4.0 support
+  - fixes to graphics core fonts (text in sierra games is now correct)
+  - improved support for user mousehandlers
+  - fixed EGA graphics
+  - fixed VGA graphics
+  - fixed write with size 0
+  - changed memory management.
+  - fixed and cleaned up the cpu flags.
+  - changed interrupt handler.
+  - speeded up the graphics.
+  - speeded up the cpu-core
+  - changed dma 
+  - improved dma streams from emm memory
+  - added some cga videomodes
+  - added more funtions to the keyboard handler

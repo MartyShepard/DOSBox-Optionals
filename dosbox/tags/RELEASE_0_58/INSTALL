@@ -1,0 +1,44 @@
+Things needed for compilation.
+
+SDL 
+	The Simple DirectMedia Library available at http://www.libsdl.org
+
+Curses 
+	If you want to enable the debugger you need a curses library.
+	ncurses should be installed on just about every unix distro.
+	For win32 get pdcurses at http://pdcurses.sourceforge.net
+
+Libpng
+    Needed for the screenshots. (--enable-shots when configuring dosbox)
+    For win32 get libpng from http://www.sourceforge.net/projects/gnuwin32
+
+Zlib
+    Needed by libpng. 
+    For win32 get libz (rename to zlib) from http://www.sourceforge.net/projects/gnuwin32
+
+
+If you want compile from the CVS under a unix system, you'll also need 
+automake (>=1.6), autoconf(>=2.50). Should be available at http://www.gnu.org
+
+For building on unix systems.
+If you are building from the cvs run ./autogen.sh first before doing the following.
+
+1. ./configure
+2. make
+
+In step 1 you could add the following switches --enable-shots this will
+enable the screenshot facility, also --enable-debug is a valid switch. This
+will enable the internal debugger. (It can be started by pressing - on the
+numeric keyboard)
+
+Check the src subdir for the binary.
+
+Compiling on FreeBSD might be a problem since SDL has no joystick support there.
+To get around this edit sdlmain.cpp to enable some #define.
+Let's hope someday the sdl people will just report 0 joysticks in freebsd or get it working some other way :)
+
+
+Build instructions for VC++6 
+
+Open the workspace in the visualc subdir and build from there. 
+
