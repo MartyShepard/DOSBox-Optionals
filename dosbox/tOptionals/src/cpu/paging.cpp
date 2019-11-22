@@ -30,7 +30,7 @@
 #include "debug.h"
 #include "setup.h"
 
-#define LINK_TOTAL		(64*1024)//(64*1024)
+#define LINK_TOTAL		(64*1024)
 
 #define USERWRITE_PROHIBITED			((cpu.cpl&cpu.mpl)==3)
 
@@ -106,7 +106,8 @@ struct PF_Entry {
 	Bitu mpl;
 };
 
-#define PF_QUEUESIZE 16
+#define PF_QUEUESIZE 120 /* Original: #define PF_QUEUESIZE 16 */
+
 static struct {
 	Bitu used;
 	PF_Entry entries[PF_QUEUESIZE];

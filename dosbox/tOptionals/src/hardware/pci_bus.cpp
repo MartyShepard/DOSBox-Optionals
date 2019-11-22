@@ -47,6 +47,7 @@ static PCI_Device* pci_devices[PCI_MAX_PCIDEVICES];		// registered PCI devices
 // 10- 8 - subfunction number	(0x00000700)
 //  7- 2 - config register #	(0x000000fc)
 
+
 static void write_pci_addr(Bitu port,Bitu val,Bitu iolen) {
 	LOG(LOG_PCI,LOG_NORMAL)("Write PCI address :=%x",val);
 	pci_caddress=val;

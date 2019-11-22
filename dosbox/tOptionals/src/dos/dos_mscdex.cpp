@@ -35,7 +35,7 @@
 
 #define MSCDEX_VERSION_HIGH	2
 #define MSCDEX_VERSION_LOW	23
-#define MSCDEX_MAX_DRIVES	8
+#define MSCDEX_MAX_DRIVES	16
 
 // Error Codes
 #define MSCDEX_ERROR_INVALID_FUNCTION	1
@@ -131,7 +131,7 @@ public:
 	bool		ResumeAudio			(Bit8u subUnit);
 	bool		GetMediaStatus		(Bit8u subUnit, bool& media, bool& changed, bool& trayOpen);
 
-private:
+//private: Remove, MSCDex Must be  Public
 
 	PhysPt		GetDefaultBuffer	(void);
 	PhysPt		GetTempBuffer		(void);
@@ -855,6 +855,25 @@ bool CMscdex::GetChannelControl(Bit8u subUnit, TCtrl& ctrl) {
 
 static CMscdex* mscdex = 0;
 static PhysPt curReqheaderPtr = 0;
+
+bool GetMSCDEXDrive(unsigned char drive_letter,CDROM_Interface **_cdrom) {
+	Bitu i;
+
+	if (mscdex == NULL) {
+		if (_cdrom) *_cdrom = NULL;
+		return false;
+	}
+
+	for (i=0;i < MSCDEX_MAX_DRIVES;i++) {
+		if (mscdex->cdrom[i] == NULL) continue;
+		if (mscdex->dinfo[i].drive == drive_letter) {
+			if (_cdrom) *_cdrom = mscdex->cdrom[i];
+			return true;
+		}
+	}
+
+	return false;
+}
 
 static Bit16u MSCDEX_IOCTL_Input(PhysPt buffer,Bit8u drive_unit) {
 	Bit8u ioctl_fct = mem_readb(buffer);

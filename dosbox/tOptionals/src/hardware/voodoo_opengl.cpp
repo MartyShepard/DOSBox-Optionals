@@ -2779,8 +2779,14 @@ void vPCI_Get_Configuration(void){
 				
 		}else if (strcmp(vresolution,"0x0") == 0) { //desktop = 0x0		
 				sdl.full_fixed = true;
-				sdl.pciFSW = (GLdouble)v->fbi.width;				
-				sdl.pciFSH = (GLdouble)v->fbi.height;	
+				//sdl.pciFSW = (GLdouble)v->fbi.width;				
+				//sdl.pciFSH = (GLdouble)v->fbi.height;	
+				
+				SDL_DisplayMode displayMode;
+				SDL_GetDesktopDisplayMode(sdl.displaynumber, &displayMode);										
+				sdl.pciFSW = displayMode.w;
+				sdl.pciFSH = displayMode.h;
+				
 		}else{
 				char* height = const_cast<char*>(strchr(vresolution,'x'));
 				if(height && *height) {
@@ -3321,11 +3327,11 @@ void vPCI_SDL_Init_OpenGLCX(void){
 			//vPCI_SDL_Free_VSurface();
 		#if !SDL_VERSION_ATLEAST(2, 0, 0)
 			if (sdl.ScrOpenGL_Flags & SDL_FULLSCREEN) {
-				SDL_Delay(500);
+				SDL_Delay(25);
 			}		
 		#else
 			if (sdl.ScrOpenGL_Flags & SDL_WINDOW_FULLSCREEN || sdl.ScrOpenGL_Flags & SDL_WINDOW_FULLSCREEN_DESKTOP) {
-				SDL_Delay(500);
+				SDL_Delay(25);
 			}
 		#endif
 
@@ -3466,7 +3472,9 @@ void vPCI_get_DosboxVideo(void){
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 void vPCI_check_OpenGLIII(void){
-	if (strcasecmp(sdl.dosbox.output,"opengl") == 0 || strcasecmp(sdl.dosbox.output,"openglnb") == 0){
+	if (strcasecmp(sdl.dosbox.output,"opengl")   == 0 ||
+	    strcasecmp(sdl.dosbox.output,"openglnb") == 0 ||
+		strcasecmp(sdl.dosbox.output,"vulkan") == 0)   {
 		//E_Exit("VOODOO: OpenGL3 Not Supportet as Output Render (Init error)\n"
 		//	   "        Choose surface, texture or texturenb, don't use opengl or openglnb");
 	}	
@@ -3531,6 +3539,11 @@ bool voodoo_ogl_init(voodoo_state *v) {
 		}		
 		vPCI_check_OpenGLIII();				
 		vPCI_get_DosboxVideo();
+				
+		if ( sdl.displaynumber != nCurrentDisplay ) {
+			 sdl.displaynumber = nCurrentDisplay;
+		}
+		
 		vPCI_force_to_OpenGL();
 	#endif	
 	

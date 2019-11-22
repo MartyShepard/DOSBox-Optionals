@@ -95,6 +95,8 @@ public:
 	
 	virtual bool	ReadSectors			(PhysPt buffer, bool raw, unsigned long sector, unsigned long num) = 0;
 
+	/* This is needed for IDE hack, who's buffer does not exist in DOS physical memory */
+	virtual bool	ReadSectorsHost			(void* buffer, bool raw, unsigned long sector, unsigned long num) = 0;	
 	virtual bool	LoadUnloadMedia		(bool unload) = 0;
 	
 	virtual void	InitNewMedia		(void) {};
@@ -115,6 +117,8 @@ public:
 	bool	StopAudio			(void) { return true; };
 	void	ChannelControl		(TCtrl ctrl) { return; };
 	bool	ReadSectors			(PhysPt /*buffer*/, bool /*raw*/, unsigned long /*sector*/, unsigned long /*num*/) { return true; };
+	/* This is needed for IDE hack, who's buffer does not exist in DOS physical memory */	
+	bool	ReadSectorsHost			(void* buffer, bool raw, unsigned long sector, unsigned long num);	
 	bool	LoadUnloadMedia		(bool /*unload*/) { return true; };
 };	
 
@@ -128,6 +132,7 @@ private:
 		virtual bool read(Bit8u *buffer, int seek, int count) = 0;
 		virtual bool   seek(Bit32u offset) = 0;
 		virtual Bit16u decode(Bit8u *buffer) = 0;
+		virtual Bit16u getEndian() = 0;
 		virtual Bit32u getRate() = 0;
 		virtual Bit8u  getChannels() = 0;
 		virtual int getLength() = 0;
@@ -142,6 +147,7 @@ private:
 		bool read(Bit8u *buffer, int seek, int count);
 		bool   seek(Bit32u offset);
 		Bit16u decode(Bit8u *buffer);
+		Bit16u getEndian();
 		Bit32u getRate() { return 44100; }
 		Bit8u  getChannels() { return 2; }
 		int getLength();
@@ -158,6 +164,7 @@ private:
 		bool   read(Bit8u *buffer, int seek, int count) { return false; }
 		bool   seek(Bit32u offset);
 		Bit16u decode(Bit8u *buffer);
+		Bit16u getEndian();
 		Bit32u getRate();
 		Bit8u  getChannels();
 		int getLength();
@@ -196,6 +203,8 @@ public:
 	bool	ReadSectors		(PhysPt buffer, bool raw, unsigned long sector, unsigned long num);
 	bool	LoadUnloadMedia		(bool unload);
 	bool	ReadSector		(Bit8u *buffer, bool raw, unsigned long sector);
+	/* This is needed for IDE hack, who's buffer does not exist in DOS physical memory */
+	bool	ReadSectorsHost			(void* buffer, bool raw, unsigned long sector, unsigned long num);	
 	bool	HasDataTrack		(void);
 	
 static	CDROM_Interface_Image* images[26];
@@ -234,7 +243,8 @@ static  struct imagePlayer {
 	bool	GetCueKeyword(std::string &keyword, std::istream &in);
 	bool	GetCueFrame(int &frames, std::istream &in);
 	bool	GetCueString(std::string &str, std::istream &in);
-        bool	AddTrack(Track &curr, int &shift, int prestart, int &totalPregap, int currPregap, int frameFromCue);
+	// bool	AddTrack(Track &curr, int &shift, int prestart, int &totalPregap, int currPregap, int frameFromCue);
+	bool	AddTrack(Track &curr, int &shift, int prestart, int &totalPregap, int currPregap);
 
 static	int	refCount;
 	std::vector<Track>	tracks;

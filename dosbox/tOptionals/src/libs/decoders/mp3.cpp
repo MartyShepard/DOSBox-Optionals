@@ -1,15 +1,16 @@
 /**
- * SDL1 Sound 1.0.x mp3 decooder backend maintained by Kevin R. Croft (krcroft@gmail.com)
- * The upstream SDL2 Sound 1.9.x mp3 decoder is written and copyright by Ryan C. Gordon. (icculus@icculus.org)
+ * This DOSBox mp3 decooder backend is maintained by Kevin R. Croft (krcroft@gmail.com)
  * This decoder makes use of the following single-header public libraries:
  *   - dr_mp3: http://mackron.github.io/dr_mp3.html, by David Reid
+ *
+ * The upstream SDL2 Sound 1.9.x mp3 decoder is written and copyright by Ryan C. Gordon. (icculus@icculus.org)
  *
  *  This SDL_sound MP3 decoder backend is free software: you can redistribute
  *  it and/or modify it under the terms of the GNU General Public License as
  *  published by the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  This  SDL_sound Ogg Opus decoder backend is distributed in the hope that it
+ *  This MP3 decoder backend is distributed in the hope that it
  *  will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
  *  of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
@@ -152,27 +153,29 @@ static Sint32 MP3_open(Sound_Sample* const sample, const char* const ext)
     if (p_mp3 != NULL) {
         p_mp3->p_dr = (drmp3*) SDL_calloc(1, sizeof (drmp3));
         if (p_mp3->p_dr != NULL) {
-            result = drmp3_init(p_mp3->p_dr, mp3_read, mp3_seek, sample, NULL);
+            result = drmp3_init(p_mp3->p_dr, mp3_read, mp3_seek, sample, NULL, NULL);
             if (result == DRMP3_TRUE) {
                 SNDDBG(("MP3: Accepting data stream.\n"));
                 sample->flags = SOUND_SAMPLEFLAG_CANSEEK;
                 sample->actual.channels = p_mp3->p_dr->channels;
                 sample->actual.rate = p_mp3->p_dr->sampleRate;
-                sample->actual.format = AUDIO_S16SYS;  /* dr_mp3 only does float. */
+                sample->actual.format = AUDIO_S16SYS;  // returns native byte-order based on architecture
                 const Uint64 num_frames = populate_seek_points(internal->rw, p_mp3, MP3_FAST_SEEK_FILENAME); // status will be 0 or pcm_frame_count
                 if (num_frames != 0) {
-                    internal->decoder_private = p_mp3;
                     const unsigned int rate = p_mp3->p_dr->sampleRate;
                     internal->total_time = (num_frames / rate) * 1000;
                     internal->total_time += (num_frames % rate) * 1000 / rate;
                     result = 1;
                 } else {
                     internal->total_time = -1;
-                    LOG_MSG("MP3: populate_seek_table failed to create seek points for the stream");
+                    LOG_MSG("MP3: populate_seek_table failed to create seek points for the stream; falling back to brute-force seeking.");
                 }
             } else { LOG_MSG("MP3: drmp3_init(...) failed to parse and initialize the mp3 stream"); }
         } else { LOG_MSG("MP3: failed to allocate memory for the drmp3 object"); }
     } else { LOG_MSG("MP3: failed to allocate memory for the mp3_t object"); }
+
+    // Assign our internal decoder to the mp3 object we've just populated
+    internal->decoder_private = p_mp3;
 
     // if anything went wrong then tear down our private structure
     if (result == 0)

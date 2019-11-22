@@ -86,6 +86,7 @@ public:
 	Value(float in)              :_hex(0), _bool(false),_int(0), _string(0),				  _float(in), type(V_FLOAT)  { };	
 	Value(std::string const& in) :_hex(0), _bool(false),_int(0), _string(new std::string(in)),_double(0), type(V_STRING) { };
 	Value(char const * const in) :_hex(0), _bool(false),_int(0), _string(new std::string(in)),_double(0), type(V_STRING) { };
+
 	Value(Value const& in):_string(0) {plaincopy(in);}
 	~Value() { destroy();};
 	Value(std::string const& in,Etype _t) :_hex(0),_bool(false),_int(0),_string(0),_double(0),_float(0),type(V_NONE) {SetValue(in,_t);}
@@ -127,7 +128,7 @@ public:
 	struct Changeable { enum Value {Always, WhenIdle,OnlyAtStart};};
 	const std::string propname;
 
-	Property(std::string const& _propname, Changeable::Value when):propname(_propname),change(when) { }
+	Property(std::string const& _propname, Changeable::Value when):propname(_propname),change(when) { use_global_config_str=false; }
 	void Set_values(const char * const * in);
 	void Set_help(std::string const& str);
 	char const* Get_help();
@@ -159,6 +160,9 @@ protected:
 	typedef std::vector<Value>::iterator iter;
 	Value default_value;
 	const Changeable::Value change;
+	/* Added From Dosbox-X */
+	bool use_global_config_str;
+	std::string help_string;	
 };
 
 class Prop_int:public Property {
@@ -294,6 +298,7 @@ private:
 	std::list<Function_wrapper> initfunctions;
 	std::list<Function_wrapper> destroyfunctions;
 	std::string sectionname;
+
 public:
 	Section(std::string const& _sectionname):sectionname(_sectionname) {  }
 

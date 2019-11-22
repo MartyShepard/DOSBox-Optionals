@@ -186,7 +186,10 @@ public:
 			case 0x12:
 				return (value&0x00);	// -> 16mb addressable (whyever)
 			case 0x13:
+				
 				VOODOO_PCI_SetLFB(value<<24);
+				
+				//VOODOO_PCI_SetLFB(host_readd(regnum+0x10)&0xfffffff0UL); /* need to act on the new (masked off) value */
 				return value;
 			case 0x40:
 				VOODOO_PCI_InitEnable(value&7);

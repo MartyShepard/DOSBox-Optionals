@@ -17,8 +17,8 @@
  */
 
 // #define DEBUG 1
-// #define BENCHMARK 1
-#ifdef BENCHMARK
+#ifdef DEBUG
+#include <time.h>
 #include <chrono>
 #endif
 
@@ -43,10 +43,29 @@
 #include <string.h>
 #endif
 
+#if defined(WORDS_BIGENDIAN)
+#define IS_BIGENDIAN true
+#else
+#define IS_BIGENDIAN false
+#endif
+
 using namespace std;
 
 #define MAX_LINE_LENGTH 512
 #define MAX_FILENAME_LENGTH 256
+
+#ifdef DEBUG
+char* get_time() {
+	static time_t rawtime;
+	struct tm* ptime;
+    static char time_str[] = "00:00:00";
+
+	time(&rawtime);
+    ptime = localtime(&rawtime);
+    sprintf(time_str, "%02d:%02d:%02d", ptime->tm_hour, ptime->tm_min, ptime->tm_sec);
+	return time_str;
+}
+#endif
 
 CDROM_Interface_Image::BinaryFile::BinaryFile(const char *filename, bool &error)
 	:TrackFile(RAW_SECTOR_SIZE)
@@ -75,6 +94,17 @@ int CDROM_Interface_Image::BinaryFile::getLength()
 	if (file->fail()) return -1;
 	return length;
 }
+
+Bit16u CDROM_Interface_Image::BinaryFile::getEndian()
+{
+	// Image files are read into native-endian byte-order
+	#if defined(WORDS_BIGENDIAN)
+	return AUDIO_S16MSB;
+	#else
+	return AUDIO_S16LSB;
+	#endif
+}
+
 
 bool CDROM_Interface_Image::BinaryFile::seek(Bit32u offset)
 {
@@ -110,16 +140,16 @@ CDROM_Interface_Image::AudioFile::~AudioFile()
 
 bool CDROM_Interface_Image::AudioFile::seek(Bit32u offset)
 {
-	#ifdef BENCHMARK
+	#ifdef DEBUG
 	const auto begin = std::chrono::steady_clock::now();
 	#endif
 
 	// Convert the byte-offset to a time offset (milliseconds)
 	const bool result = Sound_Seek(sample, lround(offset/176.4f));
 
-	#ifdef BENCHMARK
+	#ifdef DEBUG
 	const auto end = std::chrono::steady_clock::now();
-	LOG_MSG("CDROM: seek(%u) took %f ms", offset, chrono::duration <double, milli> (end - begin).count());
+	LOG_MSG("%s CDROM: seek(%u) took %f ms", get_time(), offset, chrono::duration <double, milli> (end - begin).count());
 	#endif
 
 	return result;
@@ -130,6 +160,11 @@ Bit16u CDROM_Interface_Image::AudioFile::decode(Bit8u *buffer)
 	const Bit16u bytes = Sound_Decode(sample);
 	memcpy(buffer, sample->buffer, bytes);
 	return bytes;
+}
+
+Bit16u CDROM_Interface_Image::AudioFile::getEndian()
+{
+	return sample->actual.format;
 }
 
 Bit32u CDROM_Interface_Image::AudioFile::getRate()
@@ -162,6 +197,10 @@ int CDROM_Interface_Image::AudioFile::getLength()
 		// / 1000 milliseconds/second
 		length = round(duration_ms * 176.4f);
 	}
+    #ifdef DEBUG
+    LOG_MSG("%s CDROM: AudioFile::getLength is %d bytes", get_time(), length);
+    #endif
+
 	return length;
 }
 
@@ -226,7 +265,7 @@ bool CDROM_Interface_Image::SetDevice(char* path, int forceCD)
 	
 	// print error message on dosbox console
 	char buf[MAX_LINE_LENGTH];
-	snprintf(buf, MAX_LINE_LENGTH, "Could not load image file: %s\r\n", path);
+	snprintf(buf, MAX_LINE_LENGTH, "Could not load image file: %s\n", path);
 	Bit16u size = (Bit16u)strlen(buf);
 	DOS_WriteFile(STDOUT, (Bit8u*)buf, &size);
 	return false;
@@ -236,7 +275,11 @@ bool CDROM_Interface_Image::GetUPC(unsigned char& attr, char* upc)
 {
 	attr = 0;
 	strcpy(upc, this->mcn.c_str());
-	LOG_MSG("CDROM: GetUPC=%s", upc);
+
+    #ifdef DEBUG
+	LOG_MSG("%s CDROM: GetUPC=%s", get_time(), upc);
+    #endif
+
 	return true;
 }
 
@@ -247,7 +290,8 @@ bool CDROM_Interface_Image::GetAudioTracks(int& stTrack, int& end, TMSF& leadOut
 	FRAMES_TO_MSF(tracks[tracks.size() - 1].start + 150, &leadOut.min, &leadOut.sec, &leadOut.fr);
 
 	#ifdef DEBUG
-	LOG_MSG("CDROM: GetAudioTracks, stTrack=%d, end=%d, leadOut.min=%d, leadOut.sec=%d, leadOut.fr=%d",
+	LOG_MSG("%s CDROM: GetAudioTracks, stTrack=%d, end=%d, leadOut.min=%d, leadOut.sec=%d, leadOut.fr=%d",
+      get_time(),
 	  stTrack,
 	  end,
 	  leadOut.min,
@@ -265,7 +309,8 @@ bool CDROM_Interface_Image::GetAudioTrackInfo(int track, TMSF& start, unsigned c
 	attr = tracks[track - 1].attr;
 
 	#ifdef DEBUG
-	LOG_MSG("CDROM: GetAudioTrackInfo track=%d MSF %02d:%02d:%02d, attr=%u",
+	LOG_MSG("%s CDROM: GetAudioTrackInfo track=%d MSF %02d:%02d:%02d, attr=%u",
+	  get_time(),
 	  track,
 	  start.min,
 	  start.sec,
@@ -285,17 +330,19 @@ bool CDROM_Interface_Image::GetAudioSub(unsigned char& attr, unsigned char& trac
 	attr = tracks[track - 1].attr;
 	index = 1;
 	FRAMES_TO_MSF(player.currFrame + 150, &absPos.min, &absPos.sec, &absPos.fr);
-	FRAMES_TO_MSF(player.currFrame - tracks[track - 1].start, &relPos.min, &relPos.sec, &relPos.fr);
+	FRAMES_TO_MSF(player.currFrame - tracks[track - 1].start + 150, &relPos.min, &relPos.sec, &relPos.fr);
 
 	#ifdef DEBUG
-	LOG_MSG("CDROM: GetAudioSub attr=%u, track=%u, index=%u", attr, track, index);
+	LOG_MSG("%s CDROM: GetAudioSub attr=%u, track=%u, index=%u", get_time(), attr, track, index);
 
-	LOG_MSG("CDROM: GetAudioSub absoute  offset (%d), MSF=%d:%d:%d",
+	LOG_MSG("%s CDROM: GetAudioSub absoute  offset (%d), MSF=%d:%d:%d",
+      get_time(),
 	  player.currFrame + 150,
 	  absPos.min,
 	  absPos.sec,
 	  absPos.fr);
-	LOG_MSG("CDROM: GetAudioSub relative offset (%d), MSF=%d:%d:%d",
+	LOG_MSG("%s CDROM: GetAudioSub relative offset (%d), MSF=%d:%d:%d",
+      get_time(),
 	  player.currFrame - tracks[track - 1].start + 150,
 	  relPos.min,
 	  relPos.sec,
@@ -311,7 +358,7 @@ bool CDROM_Interface_Image::GetAudioStatus(bool& playing, bool& pause)
 	pause = player.isPaused;
 
 	#ifdef DEBUG
-	LOG_MSG("CDROM: GetAudioStatus playing=%d, paused=%d", playing, pause);
+	LOG_MSG("%s CDROM: GetAudioStatus playing=%d, paused=%d", get_time(), playing, pause);
 	#endif
 
 	return true;
@@ -324,7 +371,7 @@ bool CDROM_Interface_Image::GetMediaTrayStatus(bool& mediaPresent, bool& mediaCh
 	trayOpen = false;
 
 	#ifdef DEBUG
-	LOG_MSG("CDROM: GetMediaTrayStatus present=%d, changed=%d, open=%d", mediaPresent, mediaChanged, trayOpen);
+	LOG_MSG("%s CDROM: GetMediaTrayStatus present=%d, changed=%d, open=%d", get_time(), mediaPresent, mediaChanged, trayOpen);
 	#endif
 
 	return true;
@@ -336,7 +383,7 @@ bool CDROM_Interface_Image::PlayAudioSector(unsigned long start, unsigned long l
 	const int track = GetTrack(start) - 1;
 
 	// The CDROM Red Book standard allows up to 99 tracks, which includes the data track
-	if ( track < 0 || track > 98 )
+	if ( track < 0 || track > 99 )
 		LOG(LOG_MISC, LOG_WARN)("Game tried to load track #%d, which is invalid", track);
 
 	// Attempting to play zero sectors is a no-op
@@ -375,20 +422,13 @@ bool CDROM_Interface_Image::PlayAudioSector(unsigned long start, unsigned long l
 			player.isPlaying = true;
 			player.isPaused = false;
 
-			// Assign either the stereo or mono version of the Mixer's AddChannel function
-			if (channels == 2) {
-				#if defined(WORDS_BIGENDIAN)
-				player.addSamples = &MixerChannel::AddSamples_s16_nonnative;
-				#else
-				player.addSamples = &MixerChannel::AddSamples_s16;
-				#endif
-			} else {
-				#if defined(WORDS_BIGENDIAN)
-				player.addSamples = &MixerChannel::AddSamples_m16_nonnative;
-				#else
-				player.addSamples = &MixerChannel::AddSamples_m16;
-				#endif
-			}
+			if ( (!IS_BIGENDIAN && trackFile->getEndian() == AUDIO_S16SYS) ||
+			     ( IS_BIGENDIAN && trackFile->getEndian() != AUDIO_S16SYS) )
+				player.addSamples = channels ==  2  ? &MixerChannel::AddSamples_s16 \
+				                                    : &MixerChannel::AddSamples_m16;
+			else
+				player.addSamples = channels ==  2  ? &MixerChannel::AddSamples_s16_nonnative \
+				                                    : &MixerChannel::AddSamples_m16_nonnative;
 
 			const float bytesPerMs = rate * channels * 2 / 1000.0;
 			player.playbackTotal = lround(len * tracks[track].sectorSize * bytesPerMs / 176.4);
@@ -396,7 +436,8 @@ bool CDROM_Interface_Image::PlayAudioSector(unsigned long start, unsigned long l
 
 			#ifdef DEBUG
 			LOG_MSG(
-			   "CDROM: Playing track %d at %.1f KHz %d-channel at start sector %lu (%.1f minute-mark), seek %u (skip=%d,dstart=%d,secsize=%d), for %lu sectors (%.1f seconds)",
+			   "%s CDROM: Playing track %d at %.1f KHz %d-channel at start sector %lu (%.1f minute-mark), seek %u (skip=%d,dstart=%d,secsize=%d), for %lu sectors (%.1f seconds)",
+			   get_time(),
 			   track,
 			   rate/1000.0,
 			   channels,
@@ -429,7 +470,7 @@ bool CDROM_Interface_Image::PauseAudio(bool resume)
 	}
 
 	#ifdef DEBUG
-	LOG_MSG("CDROM: PauseAudio, state=%s", resume ? "resumed" : "paused");
+	LOG_MSG("%s CDROM: PauseAudio, state=%s", get_time(), resume ? "resumed" : "paused");
 	#endif
 
 	return true;
@@ -445,7 +486,7 @@ bool CDROM_Interface_Image::StopAudio(void)
 	}
 
 	#ifdef DEBUG
-	LOG_MSG("CDROM: StopAudio");
+	LOG_MSG("%s CDROM: StopAudio", get_time());
 	#endif
 
 	return true;
@@ -471,6 +512,19 @@ bool CDROM_Interface_Image::ReadSectors(PhysPt buffer, bool raw, unsigned long s
 
 	MEM_BlockWrite(buffer, buf, buflen);
 	delete[] buf;
+}
+
+bool CDROM_Interface_Image::ReadSectorsHost(void *buffer, bool raw, unsigned long sector, unsigned long num)
+{
+	int sectorSize = raw ? RAW_SECTOR_SIZE : COOKED_SECTOR_SIZE;
+	Bitu buflen = num * sectorSize;     
+	
+	bool success = true; //Gobliiins reads 0 sectors
+	for(unsigned long i = 0; i < num; i++) {
+		success = ReadSector((Bit8u*)buffer + (i * sectorSize), raw, sector + i);
+		if (!success) break;
+	}
+	
 	return success;
 }
 
@@ -500,7 +554,25 @@ bool CDROM_Interface_Image::ReadSector(Bit8u *buffer, bool raw, unsigned long se
 	
 	int seek = tracks[track].skip + (sector - tracks[track].start) * tracks[track].sectorSize;
 	int length = (raw ? RAW_SECTOR_SIZE : COOKED_SECTOR_SIZE);
+	/*
+	Dosbox Original
+	*/
 	if (tracks[track].sectorSize != RAW_SECTOR_SIZE && raw) return false;
+	
+
+	/* we must reject non-raw reads against CD audio sectors.
+	 * not just for correctness, but also to avoid a weird bug in MSCDEX.EXE
+	 * that reads the non-data sectors one-by-one looking for a volume label
+	 * that doesn't exist on pure CD audio emulated images */
+	/*
+	if (tracks[track].sectorSize == RAW_SECTOR_SIZE && !raw) {
+		if ((tracks[track].attr&0x40) == 0x00) {
+			fprintf(stderr,"Rejecting cooked read from raw audio CD sector\n");
+			return false;
+		}
+	}
+	*/
+	
 	if (tracks[track].sectorSize == RAW_SECTOR_SIZE && !tracks[track].mode2 && !raw) seek += 16;
 	if (tracks[track].mode2 && !raw) seek += 24;
 
@@ -562,8 +634,7 @@ void CDROM_Interface_Image::CDAudioCallBack(Bitu len)
 		//             the audio-codec to either fill our buffer or satify our
 		//             remaining playback - whichever is smaller.
 		//
-		bool have_consumed = false;
-		while (!have_consumed) {
+		while (true) {
 
 			// 1. Consume
 			// ==========
@@ -595,14 +666,13 @@ void CDROM_Interface_Image::CDAudioCallBack(Bitu len)
 				//
 				const float playbackPercentSoFar = static_cast<float>(player.playbackTotal - player.playbackRemaining) / player.playbackTotal;
 				player.currFrame = player.startFrame + ceil(player.numFrames * playbackPercentSoFar);
-
-				have_consumed = true;
-				// printProgress( (player.bufferPos - player.bufferConsumed)/(float)AUDIO_DECODE_BUFFER_SIZE, "consume");
 				break;
+				// printProgress( (player.bufferPos - player.bufferConsumed)/(float)AUDIO_DECODE_BUFFER_SIZE, "consume");
+			}
 
 			// 2. Wrap
 			// =======
-			} else {
+			else {
 				memcpy(player.buffer,
 					   player.buffer + player.bufferConsumed,
 					   player.bufferPos - player.bufferConsumed);
@@ -626,13 +696,17 @@ void CDROM_Interface_Image::CDAudioCallBack(Bitu len)
 				// that specified, then simply pad with zeros.
 				const Bit16s underDecode = chunkSize - decoded;
 				if (underDecode > 0) {
-					LOG_MSG("CDROM: Underdecoded by %d. Feeding mixer with zeros.", underDecode);
+
+                    #ifdef DEBUG
+					LOG_MSG("%s CDROM: Underdecoded by %d. Feeding mixer with zeros.", get_time(), underDecode);
+                    #endif
+
 					memset(player.buffer + player.bufferPos, 0, underDecode);
 					player.bufferPos += underDecode;
 				}
 				// printProgress( (player.bufferPos - player.bufferConsumed)/(float)AUDIO_DECODE_BUFFER_SIZE, "fill");
-			}
-		} // end while ! have_consumed
+			} // end of fill-while
+		} // end of decode and fill loop
 	} // end while total_requested
 
 	if (player.playbackRemaining <= 0) {
@@ -670,8 +744,11 @@ bool CDROM_Interface_Image::LoadIsoFile(char* filename)
 	} else if (CanReadPVD(track.file, RAW_SECTOR_SIZE, true)) {
 		track.sectorSize = RAW_SECTOR_SIZE;
 		track.mode2 = true;		
-	} else return false;
-	
+	} else {
+        delete track.file;
+        track.file = NULL;
+		return false;
+	}
 	track.length = track.file->getLength() / track.sectorSize;
 	// LOG_MSG("LoadIsoFile: %s, track 1, 0x40, sectorSize=%d, mode2=%s", filename, track.sectorSize, track.mode2 ? "true":"false");
 
@@ -722,11 +799,9 @@ bool CDROM_Interface_Image::LoadCueSheet(char *cuefile)
 	int shift = 0;
 	int currPregap = 0;
 	int totalPregap = 0;
-	int prestart = 0;
+	int prestart = -1;
 	bool success;
-	bool parsedIndex = false;
-	bool parsedTrack = false;
-	int frameFromCue = 0;
+	bool canAddTrack = false;
 	char tmp[MAX_FILENAME_LENGTH];	// dirname can change its argument
 	safe_strncpy(tmp, cuefile, MAX_FILENAME_LENGTH);
 	string pathname(dirname(tmp));
@@ -745,22 +820,13 @@ bool CDROM_Interface_Image::LoadCueSheet(char *cuefile)
 		GetCueKeyword(command, line);
 		
 		if (command == "TRACK") {
-			if (parsedTrack && parsedIndex) {
-				success = AddTrack(track, shift, prestart, totalPregap, currPregap, frameFromCue);
-				parsedTrack = false;
-				parsedIndex = false;
-				frameFromCue = 0;
-			}
-
+			if (canAddTrack) success = AddTrack(track, shift, prestart, totalPregap, currPregap);
 			else success = true;
 			
-			parsedTrack = false;
-			parsedIndex = false;
-			frameFromCue = 0;
 			track.start = 0;
 			track.skip = 0;
 			currPregap = 0;
-			prestart = 0;
+			prestart = -1;
 	
 			line >> track.number;
 			string type;
@@ -788,27 +854,22 @@ bool CDROM_Interface_Image::LoadCueSheet(char *cuefile)
 				track.mode2 = true;
 			} else success = false;
 			
-			parsedTrack = true;
+			canAddTrack = true;
 		}
 		else if (command == "INDEX") {
 			int index;
 			line >> index;
-			success = GetCueFrame(frameFromCue, line);
-			
-			if (index == 0) prestart = frameFromCue;
-			else if (index == 1) {
-				track.start = frameFromCue;
-				parsedIndex = true;
-			}
+			int frame;
+			success = GetCueFrame(frame, line);
+
+			if (index == 1) track.start = frame;
+			else if (index == 0) prestart = frame;
+			// ignore other indices
 		}
 		else if (command == "FILE") {
-			if (parsedTrack && parsedIndex) {
-				success = AddTrack(track, shift, prestart, totalPregap, currPregap, frameFromCue);
-				parsedTrack = false;
-				parsedIndex = false;
-				frameFromCue = 0;
-			}
+			if (canAddTrack) success = AddTrack(track, shift, prestart, totalPregap, currPregap);
 			else success = true;
+			canAddTrack = false;
 
 			string filename;
 			GetCueString(filename, line);
@@ -839,12 +900,15 @@ bool CDROM_Interface_Image::LoadCueSheet(char *cuefile)
 			|| command == "PERFORMER" || command == "POSTGAP" || command == "REM"
 			|| command == "SONGWRITER" || command == "TITLE" || command == "") success = true;
 		// failure
-		else success = false;
-
+		else {
+			delete track.file;
+			track.file = NULL;
+			success = false;
+		}
 		if (!success) return false;
 	}
 	// add last track
-	if (!AddTrack(track, shift, prestart, totalPregap, currPregap, frameFromCue)) return false;
+	if (!AddTrack(track, shift, prestart, totalPregap, currPregap)) return false;
 	
 	// add leadout track
 	track.number++;
@@ -852,20 +916,15 @@ bool CDROM_Interface_Image::LoadCueSheet(char *cuefile)
 	track.start = 0;
 	track.length = 0;
 	track.file = NULL;
-	if(!AddTrack(track, shift, 0, totalPregap, 0, 0)) return false;
+	if(!AddTrack(track, shift, -1, totalPregap, 0)) return false;
 
 	return true;
 }
 
-bool CDROM_Interface_Image::AddTrack(Track &curr, int &shift, int prestart, int &totalPregap, int currPregap, int frameFromCue)
+
+
+bool CDROM_Interface_Image::AddTrack(Track &curr, int &shift, int prestart, int &totalPregap, int currPregap)
 {
-	#ifdef DEBUG
-	LOG_MSG("AddTrack c.start=%d c.len=%d c.start+len=%d, shift=%d,"
-	        " prestart=%d, totalPregap=%d, currPregap=%d, frameFromCue=%d",
-	        curr.start, curr.length, curr.start + curr.length,
-	        shift, prestart, totalPregap, currPregap, frameFromCue);
-	#endif
-	
 	// frames between index 0(prestart) and 1(curr.start) must be skipped
 	int skip;
 	if (prestart > 0) {
@@ -885,45 +944,31 @@ bool CDROM_Interface_Image::AddTrack(Track &curr, int &shift, int prestart, int 
 	
 	Track &prev = *(tracks.end() - 1);
 
-	// MSF is defined so leave current start as-is and only calculate the previous length
-	if (frameFromCue)
-		prev.length = curr.start + totalPregap - prev.start - skip;
-
 	// current track consumes data from the same file as the previous
 	if (prev.file == curr.file) {
-		// MSF is 00:00:00, so we need to calculate curr.start
-		if (!frameFromCue) {
 			curr.start += shift;
-			// only modify previous length if was not set during a previous MSF pass
-			if (!prev.length) prev.length = curr.start + totalPregap - prev.start - skip;
+		if (!prev.length) {
+			prev.length = curr.start + totalPregap - prev.start - skip;
 		}
-		// common
 		curr.skip += prev.skip + prev.length * prev.sectorSize + skip * curr.sectorSize;
 		totalPregap += currPregap;
-
+		curr.start += totalPregap;
 	// current track uses a different file as the previous track
 	} else {
-		// MSF is 00:00:00, so we need to calculate curr.start
-		 if (!frameFromCue) {
-			// only modify previous length if was not set during a previous MSF pass
 			if (!prev.length) {
 				int tmp = prev.file->getLength() - prev.skip;
 				prev.length = tmp / prev.sectorSize;
 				if (tmp % prev.sectorSize != 0) prev.length++; // padding
 			}
-			curr.start += prev.start + prev.length;
-		}
-		// common
+		curr.start += prev.start + prev.length + currPregap;
 		curr.skip = skip * curr.sectorSize;
 		shift += prev.start + prev.length;
 		totalPregap = currPregap;
 	}
 	
-	// In all cases, bump our current start by the total pregap
-	curr.start += totalPregap;
-
 	#ifdef DEBUG
-	LOG_MSG("AddTrack c.start=%d c.len=%d c.start+len=%d | p.start=%d p.len=%d p.start+len=%d",
+	LOG_MSG("%s CDROM: AddTrack cur.start=%d cur.len=%d cur.start+len=%d | prev.start=%d prev.len=%d prev.start+len=%d",
+	        get_time(),
 	        curr.start, curr.length, curr.start + curr.length,
 	        prev.start, prev.length, prev.start + prev.length);
 	#endif

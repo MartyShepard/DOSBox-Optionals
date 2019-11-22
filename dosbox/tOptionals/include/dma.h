@@ -24,7 +24,7 @@ enum DMAEvent {
 	DMA_REACHED_TC,
 	DMA_MASKED,
 	DMA_UNMASKED,
-	//DMA_TRANSFEREND, this shouldn't really be a ignal
+	DMA_TRANSFEREND//, this shouldn't really be a ignal
 };
 
 class DmaChannel;

@@ -257,15 +257,36 @@ bool Property::CheckValue(Value const& in, bool warn){
 }
 
 void Property::Set_help(string const& in) {
+	/*
+	Original DOSBox
 	string result = string("CONFIG_") + propname;
 	upcase(result);
 	MSG_Add(result.c_str(),in.c_str());
+	*/
+	if (use_global_config_str) {
+		string result = string("CONFIG_") + propname;
+		upcase(result);
+		MSG_Add(result.c_str(),in.c_str());
+	}
+	else {
+		help_string = in;
+	}	
 }
 
 char const* Property::Get_help() {
+	/*
+	Original DOSBox
 	string result = string("CONFIG_") + propname;
 	upcase(result);
 	return MSG_Get(result.c_str());
+	*/
+	if (use_global_config_str) {
+		string result = string("CONFIG_") + propname;
+		upcase(result);
+		return MSG_Get(result.c_str());
+	}
+
+	return help_string.c_str();	
 }
 
 bool Prop_int::SetVal(Value const& in, bool forced, bool warn) {
@@ -838,22 +859,27 @@ bool Config::PrintConfig(char const * const configfilename) const {
 					help.replace(pos, 1, prefix);
 				}
 
-				fprintf(outfile, "# %*s: %s", (int)maxwidth, p->propname.c_str(), help.c_str());
+				//fprintf(outfile, "# %*s: %s", (int)maxwidth, p->propname.c_str(), help.c_str());
 
 				std::vector<Value> values = p->GetValues();
-				if (!values.empty()) {
-					fprintf(outfile, "%s%s:", prefix, MSG_Get("CONFIG_SUGGESTED_VALUES"));
-					std::vector<Value>::iterator it = values.begin();
-					while (it != values.end()) {
-						if((*it).ToString() != "%u") { //Hack hack hack. else we need to modify GetValues, but that one is const...
-							if (it != values.begin()) fputs(",", outfile);
-							fprintf(outfile, " %s", (*it).ToString().c_str());
+				if (help != "" || !values.empty()) {
+					fprintf(outfile, "# %*s: %s", (int)maxwidth, p->propname.c_str(), help.c_str());
+
+					if (!values.empty()) {
+						fprintf(outfile, "%s%s:", prefix, MSG_Get("CONFIG_SUGGESTED_VALUES"));
+						std::vector<Value>::iterator it = values.begin();
+						while (it != values.end()) {
+							if((*it).ToString() != "%u") { //Hack hack hack. else we need to modify GetValues, but that one is const...
+								if (it != values.begin()) fputs(",", outfile);
+								fprintf(outfile, " %s", (*it).ToString().c_str());
+							}
+							++it;
 						}
-						++it;
+						fprintf(outfile,".");
 					}
-					fprintf(outfile,".");
+					fprintf(outfile, "\n");
 				}
-			fprintf(outfile, "\n");
+			//fprintf(outfile, "\n");
 			}
 		} else {
 			upcase(temp);
@@ -871,9 +897,9 @@ bool Config::PrintConfig(char const * const configfilename) const {
 			}
 		}
 
-		fprintf(outfile,"\n");
-		(*tel)->PrintData(outfile);
-		fprintf(outfile,"\n");		/* Always an empty line between sections */
+		//fprintf(outfile,"\n");
+		(*tel)->PrintData(outfile);			
+		fprintf(outfile,"\n");		/* Always an empty line between sections */		
 	}
 	fclose(outfile);
 	return true;
@@ -909,6 +935,9 @@ void Config::Init() {
 		(*tel)->ExecuteInit();
 	}
 }
+
+
+void Null_Init(Section *sec);													/* DOSBox-x */
 
 void Section::AddInitFunction(SectionFunction func,bool canchange) {
 	initfunctions.push_back(Function_wrapper(func,canchange));

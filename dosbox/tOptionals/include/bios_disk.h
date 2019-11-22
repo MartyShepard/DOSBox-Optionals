@@ -31,9 +31,9 @@
 #endif
 
 /* The Section handling Bios Disk Access */
-#define BIOS_MAX_DISK 10
+#define BIOS_MAX_DISK 20
 
-#define MAX_SWAPPABLE_DISKS 20
+#define MAX_SWAPPABLE_DISKS 40
 struct diskGeo {
 	Bit32u ksize;  /* Size in kilobytes */
 	Bit16u secttrack; /* Sectors per track */
@@ -45,11 +45,22 @@ extern diskGeo DiskGeometryList[];
 
 class imageDisk  {
 public:
+	enum {		
+		ID_BASE=0,
+		ID_EL_TORITO_FLOPPY
+	};
+	int class_id;
+	
 	Bit8u Read_Sector(Bit32u head,Bit32u cylinder,Bit32u sector,void * data);
 	Bit8u Write_Sector(Bit32u head,Bit32u cylinder,Bit32u sector,void * data);
 	Bit8u Read_AbsoluteSector(Bit32u sectnum, void * data);
 	Bit8u Write_AbsoluteSector(Bit32u sectnum, void * data);
-
+	
+	/* INT13, IDE              ========================================================================= */	
+	void Set_Reserved_Cylinders(Bitu resCyl);
+	Bit32u Get_Reserved_Cylinders();
+	/* INT13, IDE              ========================================================================= */	
+	
 	void Set_Geometry(Bit32u setHeads, Bit32u setCyl, Bit32u setSect, Bit32u setSectSize);
 	void Get_Geometry(Bit32u * getHeads, Bit32u *getCyl, Bit32u *getSect, Bit32u *getSectSize);
 	Bit8u GetBiosType(void);
@@ -65,6 +76,8 @@ public:
 
 	Bit32u sector_size;
 	Bit32u heads,cylinders,sectors;
+	/* INT13, IDE              ========================================================================= */		
+	Bit32u reserved_cylinders;
 	/* DOSBox-MB IMGMAKE patch. ========================================================================= */
 	Bit64u current_fpos;
 	/* DOSBox-MB IMGMAKE patch. ========================================================================= */	
@@ -88,7 +101,7 @@ extern RealPt imgDTAPtr; /* Real memory location of temporary DTA pointer for fa
 extern DOS_DTA *imgDTA;
 
 void swapInDisks(void);
-void swapInNextDisk(void);
+void swapInNextDisk(bool clicked, bool FLOPPY, bool CDROM);
 bool getSwapRequest(void);
 
 #endif

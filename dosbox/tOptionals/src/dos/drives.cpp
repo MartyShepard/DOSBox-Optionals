@@ -27,7 +27,7 @@
 #include "..\gui\version.h"
 
 char sDriveNotify[4096];
-char sDriveLabel[256];
+char sDriveLabel[4096];
 
 extern void GFX_SetTitle(Bit32s cycles,int frameskip,bool paused);
 
@@ -191,7 +191,15 @@ void DriveManager::CycleDisks(int drive, bool notify) {
 		strcpy(newDisk->curdir, oldDisk->curdir);
 		newDisk->Activate();
 		Drives[drive] = newDisk;
-		if (notify){			
+		//LOG_MSG("%s", Drives[drive]->GetLabel());
+		if (notify){		
+			
+			strcpy(sDriveLabel,Drives[drive]->GetLabel());
+			
+			if ( strlen( sDriveLabel ) == 0 ){
+				strcpy(sDriveLabel,"NO_NAME");
+			}
+						
 			sprintf(sDriveNotify,"Mount Drive %c: [%s] (%d of %d is now Active)", 'A'+drive,sDriveLabel,currentDisk+1, numDisks);
 
 			/* Schreibe in die Log   */
@@ -204,14 +212,21 @@ void DriveManager::CycleDisks(int drive, bool notify) {
 			*/
 			
 			/* Aktualisiere das Window Title */
-			strcpy(sDriveLabel,Drives[drive]->GetLabel());  GFX_SetTitle(-1,-1,false);
+			GFX_SetTitle(-1,-1,false);
 			
 		}
 	}
 }
 
 void DriveManager::CycleAllDisks(void) {
-	for (int idrive=0; idrive<DOS_DRIVES; idrive++) CycleDisks(idrive, true);
+	/*
+	for (int idrive=0; idrive<DOS_DRIVES; idrive++)CycleDisks(idrive, true);
+	*/
+	for (int idrive=0; idrive<2; idrive++) CycleDisks(idrive, true); 			/* Cycle all DISKS meaning A: and B: */
+}
+
+void DriveManager::CycleAllCDs(void) {
+	for (int idrive=2; idrive<DOS_DRIVES; idrive++) CycleDisks(idrive, true); 	/* Cycle all CDs in C: D: ... Z: */
 }
  
 int DriveManager::UnmountDrive(int drive) {

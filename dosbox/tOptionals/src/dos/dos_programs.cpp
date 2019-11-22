@@ -40,6 +40,7 @@
 #include "inout.h"
 #include "dma.h"
 #include "mousedrv.h"
+#include "ide.h"
 
 
 
@@ -113,7 +114,28 @@ static const char* UnmountHelper(char umount) {
 		return MSG_Get("PROGRAM_MOUNT_UMOUNT_NOT_MOUNTED");
 
 	if (Drives[i_drive]) {
+		/*
+			isoDrive * cdrom = dynamic_cast<isoDrive*>(Drives[i_drive]);
+		*/
+						
 		switch (DriveManager::UnmountDrive(i_drive)) {
+			/*
+			case 0: //success
+				{
+			*/
+					/* 
+						If the drive letter is also a CD-ROM drive attached to IDE, then let the IDE code know
+					*/
+			/*
+				if (cdrom) IDE_CDROM_Detach(i_drive);
+
+					Drives[i_drive] = NULL;
+					if (i_drive == DOS_GetDefaultDrive())
+						DOS_SetDrive(toupper('Z') - 'A');					
+					return MSG_Get("PROGRAM_MOUNT_UMOUNT_SUCCESS");
+				}
+			*/			
+			
 			case 1: return MSG_Get("PROGRAM_MOUNT_UMOUNT_NO_VIRTUAL");
 			case 2: return MSG_Get("MSCDEX_ERROR_MULTIPLE_CDROMS");
 		}
@@ -472,6 +494,7 @@ public:
 		Drives[drive-'A']=newdrive;
 		/* Set the correct media byte in the table */
 		mem_writeb(Real2Phys(dos.tables.mediaid)+(drive-'A')*9,newdrive->GetMediaByte());
+
 		if (type != "overlay") WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_2"),drive,newdrive->GetInfo());
 		else WriteOut("Overlay %s on drive %c mounted.\n",temp_line.c_str(),drive);
 		/* check if volume label is given and don't allow it to updated in the future */
@@ -1849,18 +1872,162 @@ static void INTRO_ProgramStart(Program * * make) {
 	*make=new INTRO;
 }
 
+bool ElTorito_ChecksumRecord(unsigned char *entry/*32 bytes*/) {
+	unsigned int word,chk=0,i;
+
+	for (i=0;i < 16;i++) {
+		word = ((unsigned int)entry[0]) + ((unsigned int)entry[1] << 8);
+		chk += word;
+		entry += 2;
+	}
+	chk &= 0xFFFF;
+	return (chk == 0);
+}
+
+		/************************************************************************************* EL_TORITO */
+bool ElTorito_ScanForBootRecord(CDROM_Interface *drv,unsigned long &boot_record,unsigned long &el_torito_base) {
+	char buffer[2048];
+	unsigned int sec;
+
+	for (sec=16;sec < 32;sec++) {
+		if (!drv->ReadSectorsHost(buffer,false,sec,1))
+			break;
+
+		/* stop at terminating volume record */
+		if (buffer[0] == 0xFF) break;
+
+		/* match boot record and whether it conforms to El Torito */
+		if (buffer[0] == 0x00 && memcmp(buffer+1,"CD001",5) == 0 && buffer[6] == 0x01 &&
+			memcmp(buffer+7,"EL TORITO SPECIFICATION\0\0\0\0\0\0\0\0\0",32) == 0) {
+			boot_record = sec;
+			el_torito_base = (unsigned long)buffer[71] +
+					((unsigned long)buffer[72] << 8UL) +
+					((unsigned long)buffer[73] << 16UL) +
+					((unsigned long)buffer[74] << 24UL);
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
+/* C++ class implementing El Torito floppy emulation */
+class imageDiskElToritoFloppy : public imageDisk {
+public:
+	/* Read_Sector and Write_Sector take care of geometry translation for us,
+	 * then call the absolute versions. So, we override the absolute versions only */
+	virtual Bit8u Read_AbsoluteSector(Bit32u sectnum, void * data) {
+		unsigned char buffer[2048];
+
+		bool GetMSCDEXDrive(unsigned char drive_letter,CDROM_Interface **_cdrom);
+
+		CDROM_Interface *src_drive=NULL;
+		if (!GetMSCDEXDrive(CDROM_drive-'A',&src_drive)) return 0x05;
+
+		if (!src_drive->ReadSectorsHost(buffer,false,cdrom_sector_offset+(sectnum>>2)/*512 byte/sector to 2048 byte/sector conversion*/,1))
+			return 0x05;
+
+		memcpy(data,buffer+((sectnum&3)*512),512);
+		return 0x00;
+	}
+	virtual Bit8u Write_AbsoluteSector(Bit32u sectnum, void * data) {
+		return 0x05; /* fail, read only */
+	}
+	imageDiskElToritoFloppy(unsigned char new_CDROM_drive,unsigned long new_cdrom_sector_offset,unsigned char floppy_emu_type) : imageDisk(NULL,NULL,0,false) {
+		diskimg = NULL;
+		sector_size = 512;
+		CDROM_drive = new_CDROM_drive;
+		cdrom_sector_offset = new_cdrom_sector_offset;
+		class_id = ID_EL_TORITO_FLOPPY;
+
+		if (floppy_emu_type == 1) { /* 1.2MB */
+			heads = 2;
+			cylinders = 80;
+			sectors = 15;
+		}
+		else if (floppy_emu_type == 2) { /* 1.44MB */
+			heads = 2;
+			cylinders = 80;
+			sectors = 18;
+		}
+		else if (floppy_emu_type == 3) { /* 2.88MB */
+			heads = 2;
+			cylinders = 80;
+			sectors = 36; /* FIXME: right? */
+		}
+		else {
+			heads = 2;
+			cylinders = 69;
+			sectors = 14;
+			fprintf(stderr,"BUG! unsupported floppy_emu_type in El Torito floppy object\n");
+		}
+
+		active = true;
+	}
+	virtual ~imageDiskElToritoFloppy() {
+	}
+
+	unsigned long cdrom_sector_offset;
+	unsigned char CDROM_drive;
+/*
+	int class_id;
+
+	bool hardDrive;
+	bool active;
+	FILE *diskimg;
+	std::string diskname;
+	Bit8u floppytype;
+
+	Bit32u sector_size;
+	Bit32u heads,cylinders,sectors;
+	Bit32u reserved_cylinders;
+	Bit64u current_fpos; */
+};
+		/************************************************************************************* EL_TORITO */
+
 /* //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 inline bool ExistsHDD (const std::string& name) {
   struct stat buffer;   
   return (stat (name.c_str(), &buffer) == 0); 
 }
 
+void IDE_InfoConnect(std::string type, int ide_index, bool ide_slave, bool autoconnect){
+	
+	std::string sIDEIndex  ="--";
+	std::string sIDEChannel="--";
+	std::string sIDEAutoCon="--";	
+	std::string sIDEHDType ="--";	
+			
+	switch ( ide_index ) {
+		case 0 : { sIDEIndex ="Primary"   ;break; }
+		case 1 : { sIDEIndex ="Seconadry" ;break; } 
+		case 2 : { sIDEIndex ="Tertiary"  ;break; }
+		case 3 : { sIDEIndex ="Quaternary";break; }			
+		default: sIDEIndex   ="";	
+	}
+			
+	if ( ide_slave == false ) { sIDEChannel ="Master"; }
+	if ( ide_slave == true  ) { sIDEChannel ="Slave "; }		
+			
+	if ( autoconnect == true){
+		sIDEAutoCon = "[Auto Mode]";
+	}
+	if ( autoconnect == false){
+		sIDEAutoCon = "[Jumper Mode]";
+	}			
+			
+	LOG_MSG( "\nIDE Atapi: Connect %s %s To %s %s", type.c_str(), sIDEIndex.c_str() ,sIDEChannel.c_str(), sIDEAutoCon.c_str());			
+}
 /* //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 class IMGMOUNT : public Program {
 public:
 	void Run(void) {
-		//Hack To allow long commandlines
+		
+		/* Hack To allow long commandlines */
 		ChangeToLongCmd();
+		
 		/* In secure mode don't allow people to change imgmount points. 
 		 * Neither mount nor unmount */
 		if(control->SecureMode()) {
@@ -1874,34 +2041,218 @@ public:
 		std::string label;
 		std::vector<std::string> paths;
 		std::string umount;
+		
 		/* Check for unmounting */
 		if (cmd->FindString("-u",umount,false)) {
 			WriteOut(UnmountHelper(umount[0]), toupper(umount[0]));
 			return;
 		}
 
-
+		/************************************************************************************* IDE Emulation */
+		bool ide_slave 	      = false;
+		signed char ide_index = -1;
+		std::string ideattach ="auto";
+		/************************************************************************************* IDE Emulation */
+		unsigned long el_torito_floppy_base=~0UL;
+		unsigned char el_torito_floppy_type=0xFF;		
+		char el_torito_cd_drive = 0;
+		std::string el_torito;		
+		/************************************************************************************* EL_TORITO */
+		
 		std::string type="hdd";
 		
 		/* DOSBox-MB IMGMAKE patch. ========================================================================= */
-		// default to floppy for drive letters A and B and numbers 0 and 1
-		if (!cmd->FindCommand(1,temp_line) || (temp_line.size() > 2) ||
-			((temp_line.size()>1) && (temp_line[1]!=':'))) {
-			// drive not valid
+		/* 
+			default to floppy for drive letters A and B and numbers 0 and 1
+		*/
+		
+		if (!cmd->FindCommand(1,temp_line) || (temp_line.size() > 2) ||	((temp_line.size()>1) && (temp_line[1]!=':'))) {
+			/*
+				drive not valid
+			*/
 		} else {
 			Bit8u tdr = toupper(temp_line[0]);
-			if(tdr=='A'||tdr=='B'||tdr=='0'||tdr=='1') type="floppy";
+			
+			if(tdr=='A'||tdr=='B'||tdr=='0'||tdr=='1'){
+				
+				type="floppy";
+			}
 		}
+		
+		/************************************************************************************* EL_TORITO */		
+		cmd->FindString("-el-torito",el_torito,true);
+		if (el_torito != "") {
+			unsigned char entries[2048],*entry,ent_num=0;
+			int header_platform = -1,header_count=0;
+			bool header_final = false;
+			int header_more = -1;
+			
+			el_torito_cd_drive = toupper(el_torito[0]);
+
+			/* must be valid drive letter, C to Z */
+			if (!isalpha(el_torito_cd_drive) || el_torito_cd_drive < 'C') {
+				WriteOut("-el-torito requires a proper drive letter corresponding to your CD-ROM drive\n");
+				return;
+			}
+
+			/* drive must not exist (as a hard drive) */
+			if (imageDiskList[el_torito_cd_drive-'C'] != NULL) {
+				WriteOut("-el-torito CD-ROM drive specified already exists as a non-CD-ROM device\n");
+				return;
+			}
+
+			bool GetMSCDEXDrive(unsigned char drive_letter,CDROM_Interface **_cdrom);
+
+			/* get the CD-ROM drive */
+			CDROM_Interface *src_drive=NULL;
+			if (!GetMSCDEXDrive(el_torito_cd_drive-'A',&src_drive)) {
+				WriteOut("-el-torito CD-ROM drive specified is not actually a CD-ROM drive\n");
+				return;
+			}
+
+			/* FIXME: We only support the floppy emulation mode at this time.
+			 *        "Superfloppy" or hard disk emulation modes are not yet implemented */
+			if (type != "floppy") {
+				WriteOut("-el-torito must be used with -t floppy at this time\n");
+				return;
+			}
+
+			/* Okay. Step #1: Scan the volume descriptors for the Boot Record. */
+			unsigned long el_torito_base = 0,boot_record_sector = 0;
+			if (!ElTorito_ScanForBootRecord(src_drive,boot_record_sector,el_torito_base)) {
+				WriteOut("El Torito boot record not found\n");
+				return;
+			}
+
+			fprintf(stderr,"El Torito emulation: Found ISO 9660 Boot Record in sector %lu, pointing to sector %lu\n",
+				boot_record_sector,el_torito_base);
+				
+
+			/* Step #2: Parse the records. Each one is 32 bytes long */
+			if (!src_drive->ReadSectorsHost(entries,false,el_torito_base,1)) {
+				WriteOut("El Torito entries unreadable\n");
+				return;
+			}
+
+			/* for more information about what this loop is doing, read:
+			 * http://download.intel.com/support/motherboards/desktop/sb/specscdrom.pdf
+			 */
+			/* FIXME: Somebody find me an example of a CD-ROM with bootable code for both x86, PowerPC, and Macintosh.
+			 *        I need an example of such a CD since El Torito allows multiple "headers" */
+			/* TODO: Is it possible for this record list to span multiple sectors? */
+			for (ent_num=0;ent_num < (2048/0x20);ent_num++) {
+				entry = entries + (ent_num*0x20);
+
+				if (memcmp(entry,"\0\0\0\0""\0\0\0\0""\0\0\0\0""\0\0\0\0""\0\0\0\0""\0\0\0\0""\0\0\0\0""\0\0\0\0",32) == 0)
+					break;
+
+				if (entry[0] == 0x01/*header*/) {
+					if (!ElTorito_ChecksumRecord(entry)) {
+						fprintf(stderr,"Warning: El Torito checksum error in header(0x01) entry\n");
+						continue;
+					}
+
+					if (header_count != 0) {
+						fprintf(stderr,"Warning: El Torito has more than one Header/validation entry\n");
+						continue;
+					}
+
+					if (header_final) {
+						fprintf(stderr,"Warning: El Torito has an additional header past the final header\n");
+						continue;
+					}
+
+					header_more = -1;
+					header_platform = entry[1];
+					fprintf(stderr,"El Torito entry: first header platform=0x%02x\n",header_platform);
+					header_count++;
+				}
+				else if (entry[0] == 0x90/*header, more follows*/ || entry[0] == 0x91/*final header*/) {
+					if (header_final) {
+						fprintf(stderr,"Warning: El Torito has an additional header past the final header\n");
+						continue;
+					}
+
+					header_final = (entry[0] == 0x91);
+					header_more = ((unsigned int)entry[2]) + (((unsigned int)entry[3]) << 8);
+					header_platform = entry[1];
+					fprintf(stderr,"El Torito entry: first header platform=0x%02x more=%u final=%u\n",header_platform,header_more,header_final);
+					header_count++;
+				}
+				else {
+					if (header_more == 0) {
+						fprintf(stderr,"El Torito entry: Non-header entry count expired, ignoring record 0x%02x\n",entry[0]);
+						continue;
+					}
+					else if (header_more > 0) {
+						header_more--;
+					}
+
+					if (entry[0] == 0x44) {
+						fprintf(stderr,"El Torito entry: ignoring extension record\n");
+					}
+					else if (entry[0] == 0x00/*non-bootable*/) {
+						fprintf(stderr,"El Torito entry: ignoring non-bootable record\n");
+					}
+					else if (entry[0] == 0x88/*bootable*/) {
+						if (header_platform == 0x00/*x86*/) {
+							unsigned char mediatype = entry[1]&0xF;
+							unsigned short load_segment = ((unsigned int)entry[2]) + (((unsigned int)entry[3]) << 8);
+							unsigned char system_type = entry[4];
+							unsigned short sector_count = ((unsigned int)entry[6]) + (((unsigned int)entry[7]) << 8);
+							unsigned long load_rba = ((unsigned int)entry[8]) + (((unsigned int)entry[9]) << 8) +
+								(((unsigned int)entry[10]) << 16) + (((unsigned int)entry[11]) << 24);
+
+							fprintf(stderr,"El Torito entry: bootable x86 record mediatype=%u load_segment=0x%04x "
+								"system_type=0x%02x sector_count=%u load_rba=%lu\n",
+								mediatype,load_segment,system_type,sector_count,load_rba);
+
+							/* already chose one, ignore */
+							if (el_torito_floppy_base != ~0UL)
+								continue;
+
+							if (load_segment != 0 && load_segment != 0x7C0)
+								fprintf(stderr,"El Torito boot warning: load segments other than 0x7C0 not supported yet\n");
+							if (sector_count != 1)
+								fprintf(stderr,"El Torito boot warning: sector counts other than 1 are not supported yet\n");
+
+							if (mediatype < 1 || mediatype > 3) {
+								fprintf(stderr,"El Torito boot entry: media types other than floppy emulation not supported yet\n");
+								continue;
+							}
+
+							el_torito_floppy_base = load_rba;
+							el_torito_floppy_type = mediatype;
+						}
+						else {
+							fprintf(stderr,"El Torito entry: ignoring bootable non-x86 (platform_id=0x%02x) record\n",header_platform);
+						}
+					}
+					else {
+						fprintf(stderr,"El Torito entry: ignoring unknown record ID %02x\n",entry[0]);
+					}
+				}
+			}
+
+			if (el_torito_floppy_type == 0xFF || el_torito_floppy_base == ~0UL) {
+				WriteOut("El Torito bootable floppy not found\n");
+				return;
+			}				
+		}
+		/************************************************************************************* EL_TORITO */		
+		
 		/* DOSBox-MB IMGMAKE patch. ========================================================================= */		
 		std::string fstype="fat";
 		
 		cmd->FindString("-t",type,true);
 		cmd->FindString("-fs",fstype,true);
 
-
 		
 		if (type == "cdrom"){
-			type = "iso";		 //Tiny hack for people who like to type -t cdrom
+			type = "iso";		 
+			/*
+				Tiny hack for people who like to type -t cdrom
+			*/
 		}
 		Bit8u mediaid;	
 		
@@ -1912,13 +2263,62 @@ public:
 			std::string str_size;
 			mediaid=0xF8;
 
+			int reserved_cylinders=0;
+			std::string reservecyl;
+			/* DOSBox-X: to please certain 32-bit drivers like Windows 3.1 WDCTRL, or to emulate older h/w configurations,
+			 *           we allow the user or script to specify the number of reserved cylinders. older BIOSes were known
+			 *           to subtract 1 or 2 additional cylinders from the total in the fixed disk param table. the -reservecyl
+			 *           option allows the number we subtract from the total in INT 13H to be set */
+			cmd->FindString("-reservecyl",reservecyl,true);
+			if (reservecyl != ""){
+				
+				reserved_cylinders = atoi(reservecyl.c_str());
+			}
+
+			
+			/************************************************************************************* IDE Emulation */
+			/*                                  DOSBox-X: we allow "-ide" to allow controlling
+												which IDE controller and slot to attach the hard
+												disk/CD-ROM to
+			*/
+			cmd->FindString("-ide",ideattach,true);
+															
+			if (ideattach == "auto") {
+				
+				if (type == "floppy") {
+				}
+				else {
+					IDE_Auto(ide_index,ide_slave);	
+					IDE_InfoConnect(type, ide_index, ide_slave, true);
+				}				
+				
+			}			
+			else if (ideattach != "none" && isdigit(ideattach[0]) && ideattach[0] > '0') {
+				/* 
+					takes the form [controller]<m/s> such as: 1m for primary master
+				*/				
+				ide_index = ideattach[0] - '1';
+				if (ideattach.length() >= 2){
+																				
+					ide_slave = (ideattach[1] == 's');
+				} 				
+				IDE_InfoConnect(type, ide_index, ide_slave, false);				
+			}			
+			/************************************************************************************* IDE Emulation */			
+			
 			if (type=="floppy") {
-				mediaid=0xF0;		
-			} else if (type=="iso") {
-				//str_size="2048,1,65535,0";	// ignored, see drive_iso.cpp (AllocationInfo)
-				mediaid=0xF8;		
-				fstype = "iso";
+				mediaid		= 0xF0;
+				ideattach	= "none";				
+				
+			} else if (type== "iso") {
+				/*
+					str_size="2048,1,65535,0";
+					ignored, see drive_iso.cpp (AllocationInfo)
+				*/
+				mediaid		= 0xF8;		
+				fstype 		= "iso";
 			} 
+			
 			
 			cmd->FindString("-size",str_size,true);		
 			
@@ -1930,23 +2330,32 @@ public:
 						
 				char number[21] = { 0 };const char * scan = str_size.c_str();
 				Bitu index = 0;Bitu count = 0;
-				/* Parse the str_size string */
-				while (*scan && index < 20 && count < 4) {
-					if (*scan==',') {
-						number[index] = 0;
+				/* 
+					Parse the str_size string
+				*/
+				while ( *scan && index < 20 && count < 4 ) {
+					
+					if ( *scan == ',' ) {
+						
+						number[index]  = 0;
 						sizes[count++] = atoi(number);
-						index = 0;
+						index 		   = 0;
+					
 					} else number[index++] = *scan;										
 					scan++;
 				}
+				
 				if (count < 4) {
-					number[index] = 0; //always goes correct as index is max 20 at this point.
-					sizes[count] = atoi(number);
+					number[index] = 0; 					/* always goes correct as index is max 20 at this point.*/
+					sizes[count]  = atoi(number);
 				}
 			}
 		
 			if(fstype=="fat" || fstype=="iso") {
-				// get the drive letter
+				/* 
+					get the drive letter
+				*/
+				
 				if (!cmd->FindCommand(1,temp_line) || (temp_line.size() > 2) || ((temp_line.size()>1) && (temp_line[1]!=':'))) {
 					WriteOut_NoParsing(MSG_Get("PROGRAM_IMGMOUNT_SPECIFY_DRIVE"));
 					return;
@@ -1974,9 +2383,17 @@ public:
 			}
 			
 			// find all file parameters, assuming that all option parameters have been removed
+			
+			/*
+			  int cnt = 0;
+			  a Counter for Multiple Images. If an Image can't found say me the Position/Slot.			  
+			*/
+			int ImageCNT = 0;
+			
 			while(cmd->FindCommand((unsigned int)(paths.size() + 2), temp_line) && temp_line.size()) {
 				
-				struct stat test;
+				
+				struct stat test; ImageCNT += 1;
 				if (stat(temp_line.c_str(),&test)) {
 					//See if it works if the ~ are written out
 					std::string homedir(temp_line);
@@ -1991,7 +2408,8 @@ public:
 
 						Bit8u dummy;
 						if (!DOS_MakeName(tmp, fullname, &dummy) || strncmp(Drives[dummy]->GetInfo(),"local directory",15)) {
-							WriteOut(MSG_Get("PROGRAM_IMGMOUNT_NON_LOCAL_DRIVE"));
+							WriteOut(MSG_Get("PROGRAM_IMGMOUNT_NON_LOCAL_DRIVE"));							
+							WriteOut("Image not Found\n [at Position %d] in %s\n", ImageCNT, homedir.c_str());
 							return;
 						}
 
@@ -2015,13 +2433,21 @@ public:
 				}
 				paths.push_back(temp_line);
 			}
-			if (paths.size() == 0) {
-				WriteOut(MSG_Get("PROGRAM_IMGMOUNT_SPECIFY_FILE"));
-				return;	
-			}
-			if (paths.size() == 1)
-				temp_line = paths[0];
 
+			if (el_torito != "") {
+				if (paths.size() != 0) {
+					WriteOut("Do not specify files when mounting virtual floppy disk images from El Torito bootable CDs\n");
+					return;
+				}
+			}
+			else {
+				if (paths.size() == 0) {
+					WriteOut(MSG_Get("PROGRAM_IMGMOUNT_SPECIFY_FILE"));				
+					return;	
+				}
+				if (paths.size() == 1)
+					temp_line = paths[0];
+			}
 		
 			if (type == "autohdd"){
 				type = "hdd";
@@ -2090,6 +2516,12 @@ public:
 			}
 				
 			if(fstype=="fat") {
+				
+				if (el_torito != "") {
+					WriteOut("El Torito bootable CD: -fs fat mounting not supported\n"); /* <- NTS: Someday!! */
+					return;
+				}				
+				
 				if (imgsizedetect) {
 
 /* DOSBox-MB IMGMAKE patch. ========================================================================= */					
@@ -2270,23 +2702,28 @@ public:
 				dos.dta(save_dta);
 				
 				// Multiple Imagemount ======================================================== BEGIN
-				WriteOut("\nMultiple ImgMount Active 1:\n");
-				std::string tmp; std::string lfw; int ddn = 0;
-				for (i = 0; i < paths.size(); i++) {
-					ddn = i;
-					std::string lfw(paths[i]);										
-					tmp += paths[i] + "; " ;
-					WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_3"), lfw.c_str(), drive);
-
-							  
-										
-							
+				std::string lfw(paths[0]);
+				int ddn = 0;
+				
+				for (i = 1; i < paths.size(); i++) {
+					ddn = i;					
 				}
-				if (ddn > 2){						
-					WriteOut("All Disks Mounted - Press CTRL+4 to Cycle\n\n");								
+				
+				if (ddn > 0){						
+					WriteOut("=========== Multiples Mount on Drive %c: ===========\n"
+						     "            Press CTRL + F4 to Cycle through Disk's\n",drive);																
+					WriteOut("Mounted:\n");							 
+					
+					for (i = 0; i < paths.size(); i++) {
+						WriteOut("%s\n", paths[i].c_str());	
+					}					
+					WriteOut("====================================================\n");
+					
 				}else{
-					WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_2"), drive, tmp.c_str());
+					WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_2"), drive, lfw.c_str());
+					
 				}
+				
 				// Multiple Imagemount ======================================================== END
 				if (paths.size() == 1) {
 					newdrive = imgDisks[0];
@@ -2296,6 +2733,8 @@ public:
 						if(!((fatDrive *)newdrive)->loadedDisk->hardDrive) {
 							if(imageDiskList[drive - 'A'] != NULL) delete imageDiskList[drive - 'A'];
 							imageDiskList[drive - 'A'] = ((fatDrive *)newdrive)->loadedDisk;
+							// If instructed, attach to IDE controller as ATA hard disk
+							if (ide_index >= 0) IDE_Hard_Disk_Attach(ide_index,ide_slave,2);						
 						}
 						break;
 					case 2:
@@ -2303,6 +2742,8 @@ public:
 						if(((fatDrive *)newdrive)->loadedDisk->hardDrive) {
 							if(imageDiskList[drive - 'A'] != NULL) delete imageDiskList[drive - 'A'];
 							imageDiskList[drive - 'A'] = ((fatDrive *)newdrive)->loadedDisk;
+							// If instructed, attach to IDE controller as ATA hard disk
+							if (ide_index >= 0) IDE_Hard_Disk_Attach(ide_index,ide_slave,3);							
 							updateDPT();
 						}
 					break;
@@ -2310,6 +2751,11 @@ public:
 				}
 			} else if (fstype=="iso") {
 
+				if (el_torito != "") {
+					WriteOut("El Torito bootable CD: -fs iso mounting not supported\n"); /* <- NTS: Will never implement, either */
+					return;
+				}
+				
 				if (Drives[drive-'A']) {
 					WriteOut(MSG_Get("PROGRAM_IMGMOUNT_ALREADY_MOUNTED"));
 					return;
@@ -2318,6 +2764,7 @@ public:
 				std::vector<DOS_Drive*> isoDisks;
 				std::vector<std::string>::size_type i;
 				std::vector<DOS_Drive*>::size_type ct;
+				
 				for (i = 0; i < paths.size(); i++) {
 					int error = -1;
 					DOS_Drive* newDrive = new isoDrive(drive, paths[i].c_str(), mediaid, error);
@@ -2349,15 +2796,49 @@ public:
 				// Set the correct media byte in the table 
 				mem_writeb(Real2Phys(dos.tables.mediaid) + (drive - 'A') * 9, mediaid);
 				
-				// Print status message (success)
-				WriteOut(MSG_Get("MSCDEX_SUCCESS"));
+				int ddn = 0;
 				std::string tmp(paths[0]);
+				
 				for (i = 1; i < paths.size(); i++) {
-					tmp += "; " + paths[i];
+					ddn = i;
 				}
-				WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_2"), drive, tmp.c_str());
+				
+				/*
+					If instructed, attach to IDE controller as ATAPI CD-ROM device
+				*/
+				if (ide_index >= 0){
+					IDE_CDROM_Attach(ide_index,ide_slave,drive - 'A');
+					IDE_InfoConnect(fstype, ide_index, ide_slave, false);	
+					LOG_MSG("IDE Atapi: CDROM %c: Mounted\n[%s]",drive - 'A', tmp.c_str());				
+				}
+			
+				// Print status message (success)
+				WriteOut("\n");				
+				WriteOut(MSG_Get("MSCDEX_SUCCESS"));			
+				if (ddn > 0){						
+					WriteOut("=========== Multiples Mount on Drive %c: ===========\n"
+						     "            Press CTRL + F3 to Cycle through CD's\n",drive);																
+					WriteOut("Mounted:\n");							 
+					
+					for (i = 0; i < paths.size(); i++) {
+						WriteOut("%s\n", paths[i].c_str());	
+					}					
+					WriteOut("====================================================\n");
+					
+				}else{
+					WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_2"), drive, tmp.c_str());
+					
+				}
 
+			} else if (el_torito != "") {
+				newImage = new imageDiskElToritoFloppy(el_torito_cd_drive,el_torito_floppy_base,el_torito_floppy_type);
+				
 			} else {
+				if (el_torito != "") {
+					WriteOut("El Torito bootable CD: -fs none unexpected path (BUG)\n");
+					return;
+				}
+				
 /* DOSBox-MB IMGMAKE patch. ========================================================================= */					
 				FILE *newDisk = fopen64(temp_line.c_str(), "rb+");			
 /* DOSBox-MB IMGMAKE patch. ========================================================================= */					
@@ -2371,7 +2852,8 @@ public:
 /* DOSBox-MB IMGMAKE patch. ========================================================================= */					
 
 				newImage = new imageDisk(newDisk, (Bit8u *)temp_line.c_str(), imagesize, (imagesize > 2880));
-				if(imagesize>2880) newImage->Set_Geometry(sizes[2],sizes[3],sizes[1],sizes[0]);
+				if(imagesize>2880) newImage->Set_Geometry(sizes[2],sizes[3],sizes[1],sizes[0]);				
+				if (reserved_cylinders > 0) newImage->Set_Reserved_Cylinders(reserved_cylinders);
 			}
 		} else {
 			WriteOut(MSG_Get("PROGRAM_IMGMOUNT_TYPE_UNSUPPORTED"),type.c_str());
@@ -2382,7 +2864,16 @@ public:
 			delete imageDiskList[drive-'0'];
 			imageDiskList[drive-'0'] = newImage;
 			updateDPT();
+			
 			WriteOut(MSG_Get("PROGRAM_IMGMOUNT_MOUNT_NUMBER"),drive-'0',temp_line.c_str());
+			/*
+				If instructed, attach to IDE controller as ATA hard disk
+			*/
+			if (ide_index >= 0) {
+				IDE_Hard_Disk_Attach(ide_index,ide_slave,drive-'0');				
+				IDE_InfoConnect(fstype, ide_index, ide_slave, false);			
+			}
+			
 		} else {
 			delete newImage;			
 		}
@@ -2483,7 +2974,7 @@ void DOS_SetupPrograms(void) {
 	MSG_Add("PROGRAM_MOUNT_CDROMS_FOUND","CDROMs found: %d\n");	
 	MSG_Add("PROGRAM_MOUNT_STATUS_FORMAT","%-5s  %-58s %-12s\n");
 				// Multiple Imagemount ======================================================== BEGIN	
-	MSG_Add("PROGRAM_MOUNT_STATUS_2","Drive %c is mounted as %s\n");
+	MSG_Add("PROGRAM_MOUNT_STATUS_2","Mount Drive %c: %s\n");
 				// Multiple Imagemount ======================================================== END	
 	MSG_Add("PROGRAM_MOUNT_STATUS_3","Mount: %s in Drive %c\n");	
 	MSG_Add("PROGRAM_MOUNT_STATUS_1","The currently mounted drives are:\n");

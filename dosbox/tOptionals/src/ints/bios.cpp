@@ -1079,10 +1079,21 @@ static Bitu Default_IRQ_Handler(void) {
 	return CBRET_NONE;
 }
 
+/* For IDE Emulation */
+static Bitu IRQ14_Dummy(void) {
+	/* FIXME: That's it? Don't I EOI the PIC? */
+	return CBRET_NONE;
+}
+/* For IDE Emulation */
+static Bitu IRQ15_Dummy(void) {
+	/* FIXME: That's it? Don't I EOI the PIC? */
+	return CBRET_NONE;
+}
+
 static Bitu Reboot_Handler(void) {
 	// switch to text mode, notify user (let's hope INT10 still works)
 	const char* const text = "\n\n\n\n\n            Reboot Requested\n\n\n"
-	                                                   "             Shutdown System. Please Restart Dosbox";
+	                                                   "             Shutdown System or let Dosbox Restart";           
 	reg_ax = 0;
 	CALLBACK_RunRealInt(0x10);
 	reg_ah = 0xe;
@@ -1092,9 +1103,14 @@ static Bitu Reboot_Handler(void) {
 		CALLBACK_RunRealInt(0x10);
 	}
 	LOG_MSG(text);
+	
 	double start = PIC_FullIndex();
-	while((PIC_FullIndex()-start)<3000) CALLBACK_Idle();
-	throw 1;
+	
+	while( (PIC_FullIndex()-start) < 3000 ){
+		CALLBACK_Idle();
+	}
+	//throw 1;
+	Restart(true);	
 	return CBRET_NONE;
 }
 
@@ -1109,7 +1125,7 @@ void BIOS_SetupDisks(void);
 
 class BIOS:public Module_base{
 private:
-	CALLBACK_HandlerObject callback[11];
+	CALLBACK_HandlerObject callback[13]; /* Was callback[11]; */
 public:
 	BIOS(Section* configuration):Module_base(configuration){
 		/* tandy DAC can be requested in tandy_sound.cpp by initializing this field */
@@ -1200,6 +1216,40 @@ public:
 		// This is not a complete reboot as it happens after the POST
 		// We don't handle it, so use the reboot function as exit.
 		RealSetVec(0x19,rptr);
+		
+		/* IDE Emulation **********************************************/
+		// INT 7Eh: IDE IRQ 14
+		// INT 76h: IDE IRQ 14
+		// This is just a dummy IRQ handler to prevent crashes when
+		// IDE emulation fires the IRQ and OS's like Win95 expect
+		// the BIOS to handle the interrupt.
+		// FIXME: Shouldn't the IRQ send an ACK to the PIC as well?!?		
+		callback[11].Install(&IRQ14_Dummy,CB_IRET,"irq 14 ide");
+		/*
+		Original Dosbox 
+			callback[11].Set_RealVec(0x7E);
+			rptr = callback[11].Get_RealPointer();
+			phys_writeb(((rptr>>16)<<4)+(rptr&0xFFFF),0xCF); /* IRET
+		*/
+		callback[11].Set_RealVec(0x76);
+
+		// INT 7Fh: IDE IRQ 15
+		// INT 77h: IDE IRQ 15
+		// This is just a dummy IRQ handler to prevent crashes when
+		// IDE emulation fires the IRQ and OS's like Win95 expect
+		// the BIOS to handle the interrupt.
+		// FIXME: Shouldn't the IRQ send an ACK to the PIC as well?!?
+		callback[12].Install(&IRQ15_Dummy,CB_IRET,"irq 15 ide");
+		/*
+			Original Dosbox 		
+			callback[12].Set_RealVec(0x7F);
+			rptr = callback[12].Get_RealPointer();
+			phys_writeb(((rptr>>16)<<4)+(rptr&0xFFFF),0xCF); /* IRET
+		*/
+		callback[12].Set_RealVec(0x77);
+
+		init_vm86_fake_io();
+		/* IDE Emulation ***************************************end****/		
 
 		// The farjump at the processor reset entry point (jumps to POST routine)
 		// Unorthodox methods of PCjr detection

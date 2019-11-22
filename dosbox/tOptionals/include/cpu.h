@@ -139,6 +139,8 @@ void CPU_RunException(void);
 
 void CPU_ENTER(bool use32,Bitu bytes,Bitu level);
 
+void init_vm86_fake_io();
+
 #define CPU_INT_SOFTWARE		0x1
 #define CPU_INT_EXCEPTION		0x2
 #define CPU_INT_HAS_ERROR		0x4
@@ -489,5 +491,8 @@ static INLINE void CPU_SetFlagsw(Bitu word) {
 	CPU_SetFlags(word,mask);
 }
 
+/* For IDE Emulation ***************************************************/
+Bitu CPU_ForceV86FakeIO_In(Bitu port,Bitu len);
+void CPU_ForceV86FakeIO_Out(Bitu port,Bitu val,Bitu len);
 
 #endif

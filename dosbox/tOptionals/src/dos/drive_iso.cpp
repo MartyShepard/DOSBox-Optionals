@@ -141,13 +141,14 @@ bool  MSCDEX_GetVolumeName(Bit8u subUnit, char* name);
 Bit8u MSCDEX_GetSubUnit(char driveLetter);
 
 isoDrive::isoDrive(char driveLetter, const char *fileName, Bit8u mediaid, int &error)
-         :dataCD(false),
+         :iso(false),
+          dataCD(false),
           mediaid(0),
+          fileName{'\0'},
           subUnit(0),
-		  driveLetter('\0')
+          driveLetter('\0'),
+          discLabel{'\0'}
  {
-	this->fileName[0]  = '\0';
-	this->discLabel[0] = '\0';	 
 	nextFreeDirIterator = 0;
 	memset(dirIterators, 0, sizeof(dirIterators));
 	memset(sectorHashEntries, 0, sizeof(sectorHashEntries));
@@ -159,7 +160,7 @@ isoDrive::isoDrive(char driveLetter, const char *fileName, Bit8u mediaid, int &e
 	if (!error) {
 		if (loadImage()) {
 			strcpy(info, "isoDrive ");
-			strncat(info, fileName, sizeof(info)/sizeof(info[0])-10);
+			strcat(info, fileName);
 			this->driveLetter = driveLetter;
 			this->mediaid = mediaid;
 			char buffer[32] = { 0 };
@@ -168,7 +169,7 @@ isoDrive::isoDrive(char driveLetter, const char *fileName, Bit8u mediaid, int &e
 
 		} else if (CDROM_Interface_Image::images[subUnit]->HasDataTrack() == false) { //Audio only cdrom
 			strcpy(info, "isoDrive ");
-			strncat(info, fileName, sizeof(info)/sizeof(info[0])-10);
+			strcat(info, fileName);
 			this->driveLetter = driveLetter;
 			this->mediaid = mediaid;
 			char buffer[32] = { 0 };
@@ -559,4 +560,11 @@ bool isoDrive :: lookup(isoDirEntry *de, const char *path) {
 		if (!found) return false;
 	}
 	return true;
+}
+
+/* ATAPI CDRom Chnage Status with CTRL+F4 */
+void IDE_ATAPI_MediaChangeNotify(unsigned char drive_index);
+
+void isoDrive :: MediaChange() {
+	IDE_ATAPI_MediaChangeNotify(toupper(driveLetter) - 'A'); /* ewwww */
 }

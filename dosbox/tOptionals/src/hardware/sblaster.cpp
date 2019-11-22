@@ -11,7 +11,7 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License along
+ *  You should have received a copy of the GNU General Public License along along
  *  with this program; if not, write to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
@@ -709,6 +709,8 @@ static void DSP_DoDMATransfer(DMA_MODES mode,Bitu freq,bool autoinit, bool stere
 		autoinit ? "Auto-Init" : "Single-Cycle",
 		freq, sb.dma.rate, sb.dma.left
 		);
+#else
+	type = type;		
 #endif
 }
 
@@ -792,7 +794,7 @@ static void DSP_Reset(void) {
 	sb.dma.remain_size=0;
 	if (sb.dma.chan) sb.dma.chan->Clear_Request();
 
-	sb.freq=22050;
+	sb.freq=44100;//22050;
 	sb.time_constant=45;
 	sb.dac.used=0;
 	sb.dac.last=0;
@@ -800,7 +802,7 @@ static void DSP_Reset(void) {
 	sb.e2.count=0;
 	sb.irq.pending_8bit=false;
 	sb.irq.pending_16bit=false;
-	sb.chan->SetFreq(22050);
+	sb.chan->SetFreq(44100);//22050
 //	DSP_SetSpeaker(false);
 	PIC_RemoveEvents(END_DMA_Event);
 }
@@ -1691,7 +1693,7 @@ public:
 		}
 		if (sb.type==SBT_NONE || sb.type==SBT_GB) return;
 
-		sb.chan=MixerChan.Install(&SBLASTER_CallBack,22050,"SB");
+		sb.chan=MixerChan.Install(&SBLASTER_CallBack,44100,"SB");//22050
 		sb.dsp.state=DSP_S_NORMAL;
 		sb.dsp.out.lastval=0xaa;
 		sb.dma.chan=NULL;

@@ -56,9 +56,15 @@
 #define CROSS_NONE	0
 #define CROSS_FILE	1
 #define CROSS_DIR	2
+/*
+../../include/cross.h:60:0: warning: "ftruncate" redefined
+/include/unistd.h:87:0: note: this is the location of the previous definition
+ #define ftruncate ftruncate64
+
 #if defined (WIN32)
 #define ftruncate(blah,blah2) chsize(blah,blah2)
 #endif
+*/
 
 //Solaris maybe others
 #if defined (DB_HAVE_NO_POWF)

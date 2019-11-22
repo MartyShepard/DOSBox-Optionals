@@ -76,6 +76,7 @@ iterated W    = 18.32 [48 bits]
 
 #include "dosbox.h"
 #include "cross.h"
+#include "video.h"
 #include "control.h"
 
 #include "voodoo_emu.h"
@@ -567,7 +568,15 @@ void raster_generic_2tmu(void *destbase, INT32 y, const poly_extent *extent, con
 	raster_generic(2, v->tmu[0].reg[textureMode].u, v->tmu[1].reg[textureMode].u, destbase, y, extent, extradata);
 }
 
-
+/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+int Get_DosboxVideo(void){
+	Uint32 dosboxScreenId;
+	SDL_Window   *Dosbox_Surface;
+	
+		dosboxScreenId = GFX_GetSDLVideo();
+		Dosbox_Surface = SDL_GetWindowFromID(dosboxScreenId);
+		return SDL_GetWindowDisplayIndex(Dosbox_Surface);
+}
 
 /*************************************
  *
@@ -593,7 +602,8 @@ void vGet_Configuration(void){
 		
 	UseOwnWindowResolution  = sectsdl->Get_bool("VoodooUseOwnWindowRes");
 	UseOwnFullScResolution  = sectsdl->Get_bool("VoodooUseOwnFullScRes");	
-	int displaynumber 	    = sectsdl->Get_int("display");	
+	int displaynumber 	    = Get_DosboxVideo();
+	
 	// Voodoo Use the same Resolution Output how Dosbox
 	if (!UseOwnWindowResolution){
 		vresolution=sectsdl->Get_string("windowresolution");	
@@ -649,14 +659,20 @@ void vGet_Configuration(void){
 		}else if (strcmp(vresolution,"desktop") == 0) { //desktop = 0x0
 			
 				SDL_DisplayMode displayMode;
-				SDL_GetDesktopDisplayMode(displaynumber, &displayMode);										
+				SDL_GetDesktopDisplayMode(displaynumber, &displayMode);
 				pciFSW = displayMode.w;
 				pciFSH = displayMode.h;
 				
 		}else if (strcmp(vresolution,"0x0") == 0) { //desktop = 0x0		
 
-				pciFSW = (GLdouble)v->fbi.width;				
-				pciFSH = (GLdouble)v->fbi.height;	
+				//pciFSW = (GLdouble)v->fbi.width;				
+				//pciFSH = (GLdouble)v->fbi.height;	
+				
+				SDL_DisplayMode displayMode;
+				SDL_GetDesktopDisplayMode(displaynumber, &displayMode);
+				pciFSW = displayMode.w;
+				pciFSH = displayMode.h;
+				
 		}else{
 				char* height = const_cast<char*>(strchr(vresolution,'x'));
 				if(height && *height) {
@@ -666,7 +682,7 @@ void vGet_Configuration(void){
 				}
 		}
 	}
-	
+	LOG_MSG("Voodoo Emu: DisplayNummer %d", displaynumber);
 }
 	
 void init_fbi(voodoo_state *v, fbi_state *f, int fbmem)

@@ -28,6 +28,7 @@
 #include "setup.h"
 #include "programs.h"
 #include "paging.h"
+#include "callback.h"
 #include "lazyflags.h"
 #include "support.h"
 
@@ -351,7 +352,7 @@ bool CPU_SwitchTask(Bitu new_tss_selector,TSwitchType tstype,Bitu old_eip) {
 	FillFlags();
 	TaskStateSegment new_tss;
 	if (!new_tss.SetSelector(new_tss_selector)) 
-		E_Exit("Illegal TSS for switch, selector=%x, switchtype=%x",new_tss_selector,tstype);
+		E_Exit("Illegal TSS for switch, selector=%" sBitfs(x) ", switchtype=%x",new_tss_selector,tstype);
 	if (tstype==TSwitch_IRET) {
 		if (!new_tss.desc.IsBusy())
 			E_Exit("TSS not busy for IRET");
@@ -505,7 +506,7 @@ doconforming:
 			Segs.val[cs]=new_cs;
 			break;
 		default:
-			E_Exit("Task switch CS Type %d",cs_desc.Type());
+			E_Exit("Task switch CS Type %" sBitfs(u),cs_desc.Type());
 		}
 	}
 	CPU_SetSegGeneral(es,new_es);
@@ -727,8 +728,8 @@ do_interrupt:
 					}
 					break;		
 				default:
-					LOG_MSG("INT:Gate Selector points to illegal descriptor with type %x",cs_desc.Type());
-					//E_Exit("INT:Gate Selector points to illegal descriptor with type %x",cs_desc.Type());
+					LOG_MSG("INT:Gate Selector points to illegal descriptor with type %" sBitfs(x),cs_desc.Type());
+					//E_Exit("INT:Gate Selector points to illegal descriptor with type %" sBitfs(x),cs_desc.Type());
 				}
 
 				Segs.val[cs]=(gate_sel&0xfffc) | cpu.cpl;
@@ -758,7 +759,7 @@ do_interrupt:
 			}
 			return;
 		default:
-			E_Exit("Illegal descriptor type %X for int %X",gate.Type(),num);
+			E_Exit("Illegal descriptor type %" sBitfs(X) " for int %" sBitfs(X),gate.Type(),num);
 		}
 	}
 	assert(1);
@@ -906,8 +907,7 @@ void CPU_IRET(bool use32,Bitu oldeip) {
 			break;
 		default:
 			if ( !n_cs_desc.Type() == 0){
-				//LOG_MSG("IRET:Illegal descriptor type %X",n_cs_desc.Type());
-				E_Exit("IRET:Illegal descriptor type %X",n_cs_desc.Type());
+				E_Exit("IRET:Illegal descriptor type %" sBitfs(X), n_cs_desc.Type());
 			}
 		}
 		CPU_CHECK_COND(!n_cs_desc.saved.seg.p,
@@ -1065,7 +1065,7 @@ CODE_jmp:
 			CPU_SwitchTask(selector,TSwitch_JMP,oldeip);
 			break;
 		default:
-			E_Exit("JMP Illegal descriptor type %X",desc.Type());
+			E_Exit("JMP Illegal descriptor type %" sBitfs(X),desc.Type());
 		}
 	}
 	assert(1);
@@ -1301,8 +1301,8 @@ call_code:
 			CPU_Exception(EXCEPTION_GP,selector & 0xfffc);
 			return;
 		default:
-			//E_Exit("CALL:Descriptor type %x unsupported",call.Type());
-			LOG_MSG("CALL:Descriptor type %x unsupported",call.Type());
+			//E_Exit("CALL:Descriptor type %" sBitfs(x) " unsupported",call.Type());
+			LOG_MSG("CALL:Descriptor type %" sBitfs(x) " unsupported",call.Type());
 		}
 	}
 	assert(1);
@@ -1360,11 +1360,13 @@ void CPU_RET(bool use32,Bitu bytes,Bitu oldeip) {
 					EXCEPTION_GP,selector & 0xfffc)
 				break;
 			default:
-				LOG_MSG("CPU : cpu.cpp (RET From Illegal Descriptor Type %X)",desc.Type());
-				/* E_Exit Disabled				
+				/* 
+					E_Exit Disabled				
 				   Microsoft DirectX Diagnosting Tool, On Close it brings a Type 0 Descriptor
 				   Seen only on this. No Idea but the System Works.                     				   
-				   E_Exit("RET from illegal descriptor type %X",desc.Type());*/
+				   E_Exit("RET from illegal descriptor type %" sBitfs(X),desc.Type());
+				*/
+				LOG_MSG("RET from illegal descriptor type %" sBitfs(X),desc.Type());
 				break;
 			}
 RET_same_level:
@@ -1410,7 +1412,7 @@ RET_same_level:
 					EXCEPTION_GP,selector & 0xfffc)
 				break;
 			default:
-				E_Exit("RET from illegal descriptor type %X",desc.Type());		// or #GP(selector)
+				E_Exit("RET from illegal descriptor type %" sBitfs(X),desc.Type());		// or #GP(selector)
 			}
 
 			CPU_CHECK_COND(!desc.saved.seg.p,
@@ -1521,7 +1523,7 @@ bool CPU_LTR(Bitu selector) {
 			LOG(LOG_CPU,LOG_ERROR)("LTR failed, selector=%X (not present)",selector);
 			return CPU_PrepareException(EXCEPTION_NP,selector);
 		}
-		if (!cpu_tss.SetSelector(selector)) E_Exit("LTR failed, selector=%X",selector);
+		if (!cpu_tss.SetSelector(selector)) E_Exit("LTR failed, selector=%" sBitfs(X),selector);
 		cpu_tss.desc.SetBusy(true);
 		cpu_tss.SaveSelector();
 	} else {
@@ -2051,27 +2053,38 @@ bool CPU_CPUID(void) {
 			
 			switch(CPU_Kennung){
 				/* http://www.cpu-world.com/cgi-bin/CPUID.pl?MANUF=&FAMILY=&MODEL=&SIGNATURE=5425&PART=&ACTION=Filter&STEPPING= */
-				case 513:  {reg_eax=0x513; }break; /* intel pentium */	
-				case 610:  {reg_eax=0x610; }break; /* intel pentium pro */				
-				case 611:  {reg_eax=0x611; }break; /* intel pentium pro */				
-				case 612:  {reg_eax=0x612; }break; /* intel pentium pro */
-				case 616:  {reg_eax=0x616; }break; /* intel pentium pro */
-				case 621:  {reg_eax=0x621; }break; /* AMD Athlon */	
-				case 631:  {reg_eax=0x631; }break; /* AMD Duron */	
-				case 634:  {reg_eax=0x634; }break; /* Intel Pentium II */					
-				case 642:  {reg_eax=0x642; }break; /* AMD Athlon */
-				case 650:  {reg_eax=0x650; }break; /* Intel Pentium II*/		
-				case 660:  {reg_eax=0x660; }break; /* IIntel Celeron*/
-				case 672:  {reg_eax=0x672; }break; /* Intel Pentium III*/					
-				case 673:  {reg_eax=0x673; }break; /* Intel Pentium III*/					
-				case 683:  {reg_eax=0x683; }break; /* Intel Celeron / Pentium III / Pentium III Xeon */		
-				case 1531: {reg_eax=0x1531;}break; /* Intel Pentium Overdrive 63MHz */		
-				case 1532: {reg_eax=0x1532;}break; /* Intel Pentium Overdrive 83MHz */			
-				case 1543: {reg_eax=0x1543;}break; /* Intel Pentium MMX Overdrive 200Mhz */		
-				case 1544: {reg_eax=0x1544;}break; /* Intel Pentium MMX Overdrive 166Mhz */					
-				case 1632: {reg_eax=0x1632;}break; /* Intel Pentium II Overdrive	333 Mhz*/		
+				case 513:  {reg_eax=0x513;  }break; /* intel pentium */	
+				case 543:
+				{
+					reg_eax=0x543;		/* intel pentium mmx (P55C) */
+					reg_ebx=0;			/* Not Supported */
+					reg_ecx=0;			/* No features */
+					reg_edx=0x00800030|(1);	/* FPU+TimeStamp/RDTSC+MMX+ModelSpecific/MSR */
+					reg_edx |= 0x20; /* ModelSpecific/MSR */
+					reg_edx |= 0x100; /* CMPXCHG8B */	
+					break;
+				}				
+				case 610:  {reg_eax=0x610;  }break; /* intel pentium pro */				
+				case 611:  {reg_eax=0x611;  }break; /* intel pentium pro */				
+				case 612:  {reg_eax=0x612;  }break; /* intel pentium pro */
+				case 616:  {reg_eax=0x616;  }break; /* intel pentium pro */
+				case 621:  {reg_eax=0x621;  }break; /* AMD Athlon */	
+				case 631:  {reg_eax=0x631;  }break; /* AMD Duron */	
+				case 634:  {reg_eax=0x634;  }break; /* Intel Pentium II */					
+				case 642:  {reg_eax=0x642;  }break; /* AMD Athlon */
+				case 650:  {reg_eax=0x650;  }break; /* Intel Pentium II*/		
+				case 660:  {reg_eax=0x660;  }break; /* IIntel Celeron*/
+				case 672:  {reg_eax=0x672;  }break; /* Intel Pentium III*/					
+				case 673:  {reg_eax=0x673;  }break; /* Intel Pentium III*/					
+				case 683:  {reg_eax=0x683;  }break; /* Intel Celeron / Pentium III / Pentium III Xeon */		
+				case 1531: {reg_eax=0x1531; }break; /* Intel Pentium Overdrive 63MHz */		
+				case 1532: {reg_eax=0x1532; }break; /* Intel Pentium Overdrive 83MHz */			
+				case 1543: {reg_eax=0x1543; }break; /* Intel Pentium MMX Overdrive 200Mhz */		
+				case 1544: {reg_eax=0x1544; }break; /* Intel Pentium MMX Overdrive 166Mhz */					
+				case 1632: {reg_eax=0x1632; }break; /* Intel Pentium II Overdrive	333 Mhz*/		
 				case 10661:{reg_eax=0x10661;}break; /* Intel Celeron */				
 				case 20650:{reg_eax=0x20650;}break; /* Intel Core i7 Mobile*/
+
 				//case 50651:{reg_eax=0x50651;}break; /* Intel Xeon 1,5Ghz*/					
 				
 				default:   reg_eax=CPU_Kennung;		
@@ -2556,3 +2569,105 @@ void CPU_Init(Section* sec) {
 }
 //initialize static members
 bool CPU ::inited=false;
+
+
+/* For IDE Emulation, virtual 8086 mode fake I/O instructions **************************************************/
+
+static Bitu vm86_fake_io_seg = 0xF000;	/* unused area in BIOS for IO instruction */
+static Bitu vm86_fake_io_off = 0x0700;
+
+static Bitu vm86_fake_io_offs[3*2]={0};	/* offsets from base off because of dynamic core cache */
+
+void init_vm86_fake_io() {
+	Bitu phys = (vm86_fake_io_seg << 4) + vm86_fake_io_off;
+	Bitu wo = 0;
+
+	if (vm86_fake_io_offs[0] != 0)
+		return;
+
+	/* read */
+	vm86_fake_io_offs[0] = vm86_fake_io_off + wo;
+	phys_writeb(phys+wo+0x00,(Bit8u)0xEC);	/* IN AL,DX */
+	phys_writeb(phys+wo+0x01,(Bit8u)0xCB);	/* RETF */
+	wo += 2;
+
+	vm86_fake_io_offs[1] = vm86_fake_io_off + wo;
+	phys_writeb(phys+wo+0x00,(Bit8u)0xED);	/* IN AX,DX */
+	phys_writeb(phys+wo+0x01,(Bit8u)0xCB);	/* RETF */
+	wo += 2;
+
+	vm86_fake_io_offs[2] = vm86_fake_io_off + wo;
+	phys_writeb(phys+wo+0x00,(Bit8u)0x66);	/* IN EAX,DX */
+	phys_writeb(phys+wo+0x01,(Bit8u)0xED);
+	phys_writeb(phys+wo+0x02,(Bit8u)0xCB);	/* RETF */
+	wo += 3;
+
+	/* write */
+	vm86_fake_io_offs[3] = vm86_fake_io_off + wo;
+	phys_writeb(phys+wo+0x00,(Bit8u)0xEE);	/* OUT DX,AL */
+	phys_writeb(phys+wo+0x01,(Bit8u)0xCB);	/* RETF */
+	wo += 2;
+
+	vm86_fake_io_offs[4] = vm86_fake_io_off + wo;
+	phys_writeb(phys+wo+0x00,(Bit8u)0xEF);	/* OUT DX,AX */
+	phys_writeb(phys+wo+0x01,(Bit8u)0xCB);	/* RETF */
+	wo += 2;
+
+	vm86_fake_io_offs[5] = vm86_fake_io_off + wo;
+	phys_writeb(phys+wo+0x00,(Bit8u)0x66);	/* OUT DX,EAX */
+	phys_writeb(phys+wo+0x01,(Bit8u)0xEF);
+	phys_writeb(phys+wo+0x02,(Bit8u)0xCB);	/* RETF */
+	wo += 3;
+}
+
+Bitu CPU_ForceV86FakeIO_In(Bitu port,Bitu len) {
+	static const char suffix[4] = {'B','W','?','D'};
+	Bitu old_ax,old_dx,ret;
+
+	/* save EAX:EDX and setup DX for IN instruction */
+	old_ax = reg_eax;
+	old_dx = reg_edx;
+
+	reg_edx = port;
+
+	/* DEBUG */
+	//	fprintf(stderr,"CPU virtual 8086 mode: Forcing CPU to execute 'IN%c 0x%04x so OS can trap it. ",suffix[len-1],port);
+	//	fflush(stderr);
+
+	/* make the CPU execute that instruction */
+	CALLBACK_RunRealFar(vm86_fake_io_seg,vm86_fake_io_offs[(len==4?2:(len-1))+0]);
+
+	/* take whatever the CPU or OS v86 trap left in EAX and return it */
+	ret = reg_eax;
+	if (len == 1) ret &= 0xFF;
+	else if (len == 2) ret &= 0xFFFF;
+	//	fprintf(stderr," => v86 result 0x%02x\n",ret);
+
+	/* then restore EAX:EDX */
+	reg_eax = old_ax;
+	reg_edx = old_dx;
+
+	return ret;
+}
+
+void CPU_ForceV86FakeIO_Out(Bitu port,Bitu val,Bitu len) {
+	static const char suffix[4] = {'B','W','?','D'};
+	Bitu old_ax,old_dx;
+
+	/* save EAX:EDX and setup DX/AX for OUT instruction */
+	old_ax = reg_eax;
+	old_dx = reg_edx;
+
+	reg_edx = port;
+	reg_eax = val;
+
+	/* DEBUG */
+//	fprintf(stderr,"CPU virtual 8086 mode: Forcing CPU to execute 'OUT%c 0x%04x,0x%02x so OS can trap it.\n",suffix[len-1],port,val);
+
+	/* make the CPU execute that instruction */
+	CALLBACK_RunRealFar(vm86_fake_io_seg,vm86_fake_io_offs[(len==4?2:(len-1))+3]);
+
+	/* then restore EAX:EDX */
+	reg_eax = old_ax;
+	reg_edx = old_dx;
+}

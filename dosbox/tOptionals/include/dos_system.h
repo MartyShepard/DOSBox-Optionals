@@ -134,6 +134,7 @@ private:
 	enum { NONE,READ,WRITE } last_action;
 };
 
+
 /* The following variable can be lowered to free up some memory.
  * The negative side effect: The stored searches will be turned over faster.
  * Should not have impact on systems with few directory entries. */
@@ -163,10 +164,10 @@ public:
 	void		CacheOut			(const char* path, bool ignoreLastDir = false);
 	void		AddEntry			(const char* path, bool checkExist = false);
 	void		AddEntryDirOverlay	(const char* path, bool checkExist = false);	
-
 	void		DeleteEntry			(const char* path, bool ignoreLastDir = false);
 
 	void		EmptyCache			(void);
+	void		MediaChange			(void);
 	void		SetLabel			(const char* name,bool cdrom,bool allowupdate);
 	char*		GetLabel			(void) { return label; };
 
@@ -253,6 +254,7 @@ public:
 	virtual Bit8u GetMediaByte(void)=0;
 	virtual void SetDir(const char* path) { strcpy(curdir,path); };
 	virtual void EmptyCache(void) { dirCache.EmptyCache(); };
+	virtual void MediaChange() {};
 	virtual bool isRemote(void)=0;
 	virtual bool isRemovable(void)=0;
 	virtual Bits UnMount(void)=0;

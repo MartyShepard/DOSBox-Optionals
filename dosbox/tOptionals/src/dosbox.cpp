@@ -28,6 +28,7 @@
 #include "video.h"
 #include "pic.h"
 #include "cpu.h"
+#include "ide.h"
 #include "callback.h"
 #include "inout.h"
 #include "mixer.h"
@@ -79,8 +80,21 @@ void HARDWARE_Init(Section*);
 
 #if defined(PCI_FUNCTIONALITY_ENABLED)
 void PCI_Init(Section*);
-void VOODOO_Init(Section*);						   
+/* Voodoo /////////////////////////////////////////////////////////////////////////////////////////////*/
+void VOODOO_Init(Section*);	
+					   
 #endif
+
+/* IDE Emulation /////////////////////////////////////////////////////////////////////////////////////////////*/
+void IDE_Primary_Init(Section*);
+void IDE_Secondary_Init(Section*);
+void IDE_Tertiary_Init(Section*);
+void IDE_Quaternary_Init(Section*);
+void IDE_Quinternary_Init(Section*);
+void IDE_Sexternary_Init(Section*);
+void IDE_Septernary_Init(Section*);
+void IDE_Octernary_Init(Section*);
+/* IDE Emulation /////////////////////////////////////////////////////////////////////////////////////////////*/
 
 
 void KEYBOARD_Init(Section*);	//TODO This should setup INT 16 too but ok ;)
@@ -752,7 +766,118 @@ void DOSBOX_Init(void) {
 	secprop->AddInitFunction(&VGA_Init);
 	secprop->AddInitFunction(&KEYBOARD_Init);
 
+	/*************************************** IDE emulation options and setup ***************************************************/
+	for (size_t i=0;i < MAX_IDE_CONTROLLERS;i++) {
+		secprop=control->AddSection_prop(ide_names[i],ide_inits[i],false);//done
+					/* Primary and Secondary are on by default, Teritary and Quaternary are off by default.
+					 * Throughout the life of the IDE interface it was far more common for a PC to have just
+					 * a Primary and Secondary interface */		
+					
+					/* ( Property::Changeable::OnlyAtStart,(i < 2) false?true: )
+					 * Dont Enbale IDE by Default
+					 */
+					 
+		Pbool = secprop->Add_bool("enable",Property::Changeable::OnlyAtStart,false);
+		
+		if (i == 0) {
+		Pbool->Set_help(        "================================================================================================\n"
+								"Enable IDE Interface");
+		}
+		
+		Pbool = secprop->Add_bool("ISA-PNP Enumerate IDE",Property::Changeable::OnlyAtStart,false);
+		if ( i == 0 ) {
+			Pbool->Set_help(    "================================================================================================\n"
+								"List IDE device in ISA PnP BIOS enumeration");	
+		} 
 
+		Pint = secprop->Add_int("IDE IRQ",Property::Changeable::WhenIdle,0/*use IDE default*/);
+		if ( i == 0 ) {
+			Pint->Set_help(     "================================================================================================\n"
+							    "IRQ used by IDE controller. Set to 0 for default. WARNING: Setting the IRQ to non-standard values\n"
+								"will not work unless the guest OS is using the ISA PnP BIOS to detect the IDE controller.\n"
+								"Setting the IRQ to one already occupied by another device or IDE controller will trigger \"resource\n"
+								"conflict\" errors in Windows 95. Using IRQ 9, 12, 13, or IRQ 2-7 may cause problems with MS-DOS\n"
+								"CD-ROM drivers.");
+		}
+		
+		Phex = secprop->Add_hex("IDE Base",Property::Changeable::WhenIdle,0/*use IDE default*/);
+		if (i == 0) {
+			Pint->Set_help(     "================================================================================================\n"
+							    "Base I/O port for IDE controller. Set to 0 for default. WARNING: Setting the I/O port to non-\n"
+								"standard values will not work unless the guest OS is using the ISA PnP BIOS to detect the IDE\n"
+						        "controller. Using any port other than 1F0, 170, 1E8 or 168 can prevent MS-DOS CD-ROM drivers from\n"
+								"detecting the IDE controller.");										
+		}
+		
+		
+		Phex = secprop->Add_hex("IDE Base (alt)",Property::Changeable::WhenIdle,0/*use IDE default*/);
+		if (i == 0) {
+			Pint->Set_help(     "================================================================================================\n"
+							    "Alternate I/O port for IDE controller (alt status, etc). Set to 0 for default. WARNING: Setting\n"
+								"the I/O port to non-standard values will not work unless the guest OS is using the ISA PnP BIOS\n"
+								"to detect the IDE controller. For best compatability set this value to io+0x106.\n"
+								"For example \"IDE Base=1F0\" and \"IDE Base (alt)=3F6\".");
+		}
+		Pbool = secprop->Add_bool("Int13FakeIO",Property::Changeable::WhenIdle,false);
+		if ( i == 0 ) {
+		Pbool->Set_help(        "================================================================================================\n"
+								"If set, force IDE state change on certain INT 13h commands. IDE registers will be changed as if\n"
+								"BIOS had carried out the action. If you are running Windows 3.11 or Windows 3.11 Windows for\n"
+								"Workgroups you must enable this option (and use -reservecyl 1) if you want 32-bit disk access\n"
+								"to work correctly in DOSBox.");						
+		}
+				
+		Pbool = secprop->Add_bool("Int13Fakev86IO",Property::Changeable::WhenIdle,false);
+		if ( i == 0 ) {
+		Pbool->Set_help(        "================================================================================================\n"
+								"If set, and int13fakeio is set, certain INT 13h commands will cause IDE emulation to issue fake CPU\n"
+								"I/O traps (GPF) in  virtual 8086 mode and a fake IRQ signal. you must enable this option if you want\n"
+								"32-bit disk access in Windows 95 to work with DOSBox.");
+		}
+		
+		Pbool = secprop->Add_bool("Enable PIO32",Property::Changeable::WhenIdle,false);
+		if ( i == 0 ) {
+		Pbool->Set_help(        "================================================================================================\n"
+								"If set, 32-bit I/O reads and writes are handled directly (much like PCI IDE implementations)\n"
+				                "If clear, 32-bit I/O will be handled as if two 16-bit I/O (much like ISA IDE implementations)");
+		}
+
+		Pbool = secprop->Add_bool("Ignore PIO32",Property::Changeable::WhenIdle,false);
+		if ( i == 0 ) {
+		Pbool->Set_help(        "================================================================================================\n"
+								"If 32-bit I/O is enabled, attempts to read/write 32-bit I/O will be ignored entirely.\n"
+				                "In this way, you can have DOSBox emulate one of the strange quirks of 1995-1997 era laptop hardware");
+		}
+
+				
+		Pint = secprop->Add_int("CDROM Spinup Time",Property::Changeable::WhenIdle,0			/*use IDE or CD-ROM default*/);
+		
+		if ( i == 0 ) {
+		Pint->Set_help(        "================================================================================================\n"
+							   "Emulated CD-ROM time in ms to spin up if CD is stationary. Set to 0 to use controller or CD-ROM\n"
+							   "drive-specific default.");
+		}
+
+		Pint = secprop->Add_int("CDROM Spindown Timeout",Property::Changeable::WhenIdle,0		/*use IDE or CD-ROM default*/);
+		if ( i == 0 ) {
+		Pint->Set_help(        "================================================================================================\n"
+							   "Emulated CD-ROM time in ms that drive will spin down automatically when not in use. Set to 0 to\n"
+							   "use controller or CD-ROM drive-specific default.");
+		}
+
+		Pint = secprop->Add_int("CDROM Insertion Delay",Property::Changeable::WhenIdle,0		/*use IDE or CD-ROM default*/);
+		
+		if ( i == 0 ) {
+		Pint->Set_help(       "================================================================================================\n"
+						      "Emulated CD-ROM time in ms that drive will report \"medium not present\" to emulate the time it\n"
+							  "takes for someone to take out a CD and insert a new one when DOSBox is instructed to swap or change\n"
+							  "CDs. When running Windows 95 or higher a delay of 4000ms is recommended to ensure that auto-insert\n"
+							  "notification triggers properly. Set to 0 to use controller or CD-ROM drive-specific default.");
+		}							  
+	}					
+	
+	
+	
 #if defined(PCI_FUNCTIONALITY_ENABLED)
 	secprop=control->AddSection_prop("pci",&PCI_Init,false); //PCI bus
 

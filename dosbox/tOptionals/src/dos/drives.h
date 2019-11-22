@@ -11,7 +11,7 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License along
+ *  You should have received a copy of the GNU General Public License along along
  *  with this program; if not, write to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
@@ -38,6 +38,7 @@ public:
 //	static void CycleDisk(bool pressed);
 	static void CycleDisks(int drive, bool notify);
 	static void CycleAllDisks(void);
+	static void CycleAllCDs(void);
 	static void Init(Section* sec);
 	
 private:
@@ -340,6 +341,7 @@ public:
    	virtual bool FileStat(const char *name, FileStat_Block *const stat_block);
 	virtual Bit8u GetMediaByte(void);
 	virtual void EmptyCache(void){}
+	virtual void MediaChange();
 	virtual bool isRemote(void);
 	virtual bool isRemovable(void);
 	virtual Bits UnMount(void);

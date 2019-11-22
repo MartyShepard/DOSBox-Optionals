@@ -11,7 +11,7 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License along
+ *  You should have received a copy of the GNU General Public License along along
  *  with this program; if not, write to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
@@ -44,6 +44,7 @@
 
 #include "dosbox.h"
 #include "video.h"
+#include "ide.h"
 #include "mouse.h"
 #include "pic.h"
 #include "timer.h"
@@ -58,6 +59,7 @@
 #include "control.h"
 #include "joystick.h"
 #include "version.h"
+#include "bios_disk.h"
 
 #define MAPPERFILE "KeyMap.map"
 //#define MAPPERFILE "MAPPER-SDL2-" VERSION ".map"
@@ -746,7 +748,9 @@ static int int_log2 (int val) {
 #define WM_SC_SYSMENUJSTCKD  (WM_SC_SYSMENUABOUT +7 )
 #define WM_SC_SYSMENUJSTCKE  (WM_SC_SYSMENUABOUT +8 )
 #define WM_SC_SYSMENUJSTCKF  (WM_SC_SYSMENUABOUT +9 )
-#define WM_SC_SYSMENUWEBSITE (WM_SC_SYSMENUABOUT +10 )
+#define WM_SC_SYSMENUCACHE   (WM_SC_SYSMENUABOUT +10 )
+#define WM_SC_SYSMENUCACHECD (WM_SC_SYSMENUABOUT +11 )
+#define WM_SC_SYSMENUWEBSITE (WM_SC_SYSMENUABOUT +12 )
 #endif
 
 /****** Block Key ***************************************************************************************************/
@@ -852,6 +856,10 @@ void Set_Window_HMenu(void){
 		::AppendMenu(hSysMenu, MF_STRING|MIIM_CHECKMARKS, WM_SC_SYSMENUJSTCKE    , "Joystick: ThrustmasterFS");
 		::AppendMenu(hSysMenu, MF_STRING|MIIM_CHECKMARKS, WM_SC_SYSMENUJSTCKF    , "Joystick: CH Flightstick");		
 		::AppendMenu(hSysMenu, MF_SEPARATOR, 0, "");
+		
+		::AppendMenu(hSysMenu, MF_STRING, WM_SC_SYSMENUCACHE   , "Swap Next Disk");		
+		::AppendMenu(hSysMenu, MF_STRING, WM_SC_SYSMENUCACHECD , "Swap Next CDRom");			
+		::AppendMenu(hSysMenu, MF_SEPARATOR, 0, "");	
 		
 		::AppendMenu(hSysMenu, MF_STRING, WM_SC_SYSMENUWEBSITE   , "Website: DOSBox");		
 		::AppendMenu(hSysMenu, MF_SEPARATOR, 0, "");		
@@ -2169,7 +2177,7 @@ static void OutputString(Bitu x,Bitu y,const char * text,Bit32u color,Bit32u col
 #include "dosbox_splash.h"
 
 //extern void UI_Run(bool);
-void Restart(bool pressed);
+extern void Restart(bool pressed);
 
 static void GUI_StartUp(Section * sec) {	
 	
@@ -3023,6 +3031,18 @@ static LRESULT CALLBACK SysMenuExtendWndProc(HWND hwnd, UINT uiMsg, WPARAM wpara
 					ShellExecute(0, "open", "http://dosbox.com", "", NULL, SW_SHOWNORMAL);
                 }
                 return 0;
+				
+			case WM_SC_SYSMENUCACHE:
+				{				
+					 swapInNextDisk(true, true, false);
+				}			
+				return 0;	
+			case WM_SC_SYSMENUCACHECD:
+				{				
+					 swapInNextDisk(true, false, true);
+				}			
+				return 0;					
+								
         }
     }
     return ::CallWindowProc(fnSDLDefaultWndProc, hwnd, uiMsg, wparam, lparam);
@@ -3231,7 +3251,8 @@ void Config_Add_SDL() {
 				       "2: CTRL+ALT+(Keypad -)\n"
 				       "3: CTRL+ALT+(Keypad +)\n"
 				       "4: CTRL+ALT+(Keypad /)\n"
-					   "If you saved the mapper file and you change then Quit Key in the Config. The Old Values are in mapper file.");	
+					   "If you saved the mapper file and you change then Quit Key in the Config. The Old Values are in\n"
+					   "mapper file.");	
 
 	Pbool = sdl_sec->Add_bool("VoodooUseOwnWindowRes",Property::Changeable::Always,false);
 	Pbool->Set_help(  "================================================================================================\n"
@@ -3251,7 +3272,7 @@ void Config_Add_SDL() {
 	Pint = sdl_sec->Add_int("WindowsTaskbarAdjust",Property::Changeable::Always,-5);	
 	Pint->SetMinMax(-256,256);	
 	Pint->Set_help(    "================================================================================================\n"
-	                   "Window Only: Fine Adjust the height of the centered window. Use this if your Centered Window\n%s\n"
+	                   "Window Only: Fine Adjust the height of the centered window. Use this if your Centered Window\n"
 					   "under and behind the Windows Taskbar is.");					   
 					   
 }
@@ -3803,6 +3824,7 @@ int main(int argc, char* argv[]) {
 //		UI_Init();
 //		if (control->cmdline->FindExist("-startui")) UI_Run(false);
 		/* Init all the sections */
+	
 		control->Init();
 		/* Some extra SDL Functions */
 		Section_prop * sdl_sec=static_cast<Section_prop *>(control->GetSection("sdl"));

@@ -20,7 +20,7 @@
  *
  */
 
-#define Revision 4290
+#define Revision 4293
 #define YearBuild 2019
 
  /* Build Automatic */
@@ -33,7 +33,7 @@
 #define DOSBOXREVISION "r" STR(Revision) " (Optionals)"
 #define DOSBOXSVERSION "r" STR(Revision)
 
-#define Comment "DOSbox Fork: Optionals, a DOS & Win9X Emulator"
+#define Comment "DOSBox Fork: Optionals, a DOS & Win9X Emulator"
 #define FileDescription "DOSBox r" STR(Revision) " (Optionals)"
 
 #define DOSBOXFEATSGFX "3DFX CGA-Extension "

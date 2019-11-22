@@ -89,3 +89,7 @@ bool CDROM_Interface_Fake :: GetMediaTrayStatus(bool& mediaPresent, bool& mediaC
 	trayOpen     = false;
 	return true;
 }
+bool CDROM_Interface_Fake::ReadSectorsHost(void *buffer, bool raw, unsigned long sector, unsigned long num)
+{
+	return false;/*TODO*/
+};
