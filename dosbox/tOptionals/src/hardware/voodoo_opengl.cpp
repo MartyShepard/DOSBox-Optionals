@@ -127,6 +127,7 @@ struct SDL_Block {
 		bool  glPersCor_flag;
 		bool  glG_Smoth_flag;	
 		bool  a_ClipLowYHigh;
+		bool  gl_QuadsDraw;
 		bool  voodoo_aspect;
 		bool  gl_PointSize_use;
 		float gl_PointSize_num;		
@@ -1540,8 +1541,8 @@ void ogl_shaders(const poly_extra_data *extra) {
 			ogl_printInfoLog(m_hProgramObject);
 			LOG_MSG("ERROR: Error linking program");	
 			SDL_Delay(2000);			
-			E_Exit("ERROR: Error linking program");
-			return;
+			//E_Exit("ERROR: Error linking program");
+			//return;
 		}
 
 		/* use this shader */
@@ -1948,12 +1949,25 @@ void voodoo_ogl_draw_pixel(int x, int y, bool has_rgb, bool has_alpha, int r, in
 	x2 = (GLfloat) x + 0.5;
 	y2 = (GLfloat) y + 0.5;	
 
-	VOGL_BeginMode(GL_POINTS);
-	{	
-		glColor4ub((GLubyte)(r&0xff), (GLubyte)(g&0xff), (GLubyte)(b&0xff), (GLubyte)(a&0xff));
-		glVertex2f(x2, y2);
-	}
-	
+	if ( sdl.opengl.gl_QuadsDraw == true ){
+
+			VOGL_BeginMode(GL_QUADS);
+		{					
+			glColor4ub(r,g,b,a);
+			glVertex2f(x2     , y2);
+			glVertex2f(x2 + 1 , y2);
+			glVertex2f(x2 + 1 , y2 + 1);
+			glVertex2f(x2     , y2 + 1);		
+		}
+		
+	}else{
+		VOGL_BeginMode(GL_POINTS);
+		{	
+			glColor4ub((GLubyte)(r&0xff), (GLubyte)(g&0xff), (GLubyte)(b&0xff), (GLubyte)(a&0xff));
+			glVertex2f(x2, y2);
+		}		
+		
+	}	
 	
 }
 
@@ -2023,10 +2037,24 @@ void voodoo_ogl_draw_pixel_pipeline(int x, int y, int r, int g, int b) {
 	x2 = (GLfloat) x + 0.5;
 	y2 = (GLfloat) y + 0.5;						
 	
-	VOGL_BeginMode(GL_POINTS);
-	{
-		glColor3ub((GLubyte)(r&0xff), (GLubyte)(g&0xff), (GLubyte)(b&0xff));
-		glVertex2f(x2, y2);
+	if ( sdl.opengl.gl_QuadsDraw == true ){
+
+			VOGL_BeginMode(GL_QUADS);
+		{					
+			glColor4ub(r,g,b,0xff);
+			glVertex2f(x2     , y2);
+			glVertex2f(x2 + 1 , y2);
+			glVertex2f(x2 + 1 , y2 + 1);
+			glVertex2f(x2     , y2 + 1);		
+		}
+		
+	}else{
+		VOGL_BeginMode(GL_POINTS);
+		{	
+			glColor3ub((GLubyte)(r&0xff), (GLubyte)(g&0xff), (GLubyte)(b&0xff));
+			glVertex2f(x2, y2);
+		}		
+		
 	}
 	
 }
@@ -2517,7 +2545,7 @@ void voodoo_ogl_set_glViewport(void) {
 				- Miss Calculate on Lower Screens
 				*/
 				SDL_DisplayMode displayMode;
-				SDL_GetDesktopDisplayMode(sdl.displaynumber, &displayMode);
+				SDL_GetDesktopDisplayMode(nCurrentDisplay, &displayMode);
 											
 				adjust_x = (displayMode.w - (GLsizei)sdl.pciFSW) /2;
 				adjust_y = (displayMode.h - (GLsizei)sdl.pciFSH) /2;						
@@ -2733,7 +2761,7 @@ void vPCI_Get_Configuration(void){
 		}else if (strcmp(vresolution,"desktop") == 0) { //desktop = 0x0
 				
 				SDL_DisplayMode displayMode;
-				SDL_GetDesktopDisplayMode(sdl.displaynumber, &displayMode);										
+				SDL_GetDesktopDisplayMode(nCurrentDisplay, &displayMode);										
 				sdl.pciW = displayMode.w;
 				sdl.pciH = displayMode.h;				
 				
@@ -2773,7 +2801,7 @@ void vPCI_Get_Configuration(void){
 				sdl.full_fixed = true;
 				
 				SDL_DisplayMode displayMode;
-				SDL_GetDesktopDisplayMode(sdl.displaynumber, &displayMode);										
+				SDL_GetDesktopDisplayMode(nCurrentDisplay, &displayMode);										
 				sdl.pciFSW = displayMode.w;
 				sdl.pciFSH = displayMode.h;
 				
@@ -2783,7 +2811,7 @@ void vPCI_Get_Configuration(void){
 				//sdl.pciFSH = (GLdouble)v->fbi.height;	
 				
 				SDL_DisplayMode displayMode;
-				SDL_GetDesktopDisplayMode(sdl.displaynumber, &displayMode);										
+				SDL_GetDesktopDisplayMode(nCurrentDisplay, &displayMode);										
 				sdl.pciFSW = displayMode.w;
 				sdl.pciFSH = displayMode.h;
 				
@@ -2890,6 +2918,7 @@ void vPCI_Get_Configuration(void){
 	sdl.opengl.glScissor_flag   =  section->Get_bool ("glScissor_flag");
 	sdl.opengl.gl_PointSize_num =  section->Get_float("gl_PointSize_num");		
 	sdl.opengl.gl_PointSize_use =  section->Get_bool ("gl_PointSize_use");	
+	sdl.opengl.gl_QuadsDraw     =  section->Get_bool ("gl_QuadsDraw_use");		
 	sdl.opengl.glP_Smoth_flag	=  section->Get_bool ("glP_Smoth_flag");
 	sdl.opengl.glL_Smoth_flag	=  section->Get_bool ("glL_Smoth_flag");
 	sdl.opengl.glBlendFc_flag	=  section->Get_bool ("glBlendFc_flag");
@@ -3049,7 +3078,7 @@ void vOGL_Set_PontSize(void){
 	
 		// GLPointsize Settings, Dont use std::max in the loop, this breaks Perfoamce .. heavy
 		
-		if ( ((float)sdl.opengl.gl_PointSize_num == 0 ) && ( sdl.opengl.gl_PointSize_use == true)){
+		if ( sdl.opengl.gl_PointSize_use == true) {
 			
 			int w = 0;
 
@@ -3057,14 +3086,16 @@ void vOGL_Set_PontSize(void){
 				w = sdl.pciFSW;					
 			} else {			
 				SDL_GetWindowSize(sdl.surface, &w, NULL);				
-			}			
+			}						
 			
-			sdl.opengl.gl_PointSize_num  = std::max(1.0f, (float)(w / ((float)v->fbi.height)));
-			//LOG_MSG("VOODOO: sdl.opengl.gl_PointSize_num %f ",(float)sdl.opengl.gl_PointSize_num);
+			if (sdl.opengl.gl_PointSize_num == 0) {	
 			
-			if (sdl.opengl.gl_PointSize_use) {		
-				glPointSize( (float)sdl.opengl.gl_PointSize_num );
-			}			
+				sdl.opengl.gl_PointSize_num  = std::max(1.0f, (float)(w / ((float)v->fbi.height)));				
+			} 
+
+			glPointSize( (float)sdl.opengl.gl_PointSize_num );			
+			
+			LOG_MSG("VOODOO: sdl.opengl.gl_PointSize_num %f ",(float)sdl.opengl.gl_PointSize_num);
 		}
 };
 
@@ -3312,7 +3343,7 @@ void vPCI_SDL_Init_OpenGLCX(void){
 		sdl.desktop.Index = SDL_GetWindowDisplayIndex(sdl.surface);						
 					
 
-		if (sdl.displaynumber == 0){
+		if (sdl.desktop.Index == 0){
 			vPCI_SDL_SetWindowMode();
 			SDL_SetWindowPosition(sdl.surface,sdl.posX, sdl.posY);			
 		}
@@ -3337,11 +3368,11 @@ void vPCI_SDL_Init_OpenGLCX(void){
 
 		sdl.surface = sdl.Dosbox_Surface; bool success = false;
 		
-		const int mode_count= SDL_GetNumDisplayModes( 0 );
+		const int mode_count= SDL_GetNumDisplayModes( nCurrentDisplay );
 		for( int m= 0; m < mode_count; m++ )
 		{
 			SDL_DisplayMode mode;
-			const int result= SDL_GetDisplayMode( 0, m, &mode );
+			const int result= SDL_GetDisplayMode( nCurrentDisplay, m, &mode );
 			if( result < 0 )
 				continue;
 			
@@ -3467,7 +3498,7 @@ void voodoo_ogl_update_dimensions(void) {
 void vPCI_get_DosboxVideo(void){
 		sdl.dosboxScreenId = GFX_GetSDLVideo();
 		sdl.Dosbox_Surface = SDL_GetWindowFromID(sdl.dosboxScreenId);
-		sdl.displaynumber  = SDL_GetWindowDisplayIndex(sdl.Dosbox_Surface);
+		nCurrentDisplay    = SDL_GetWindowDisplayIndex(sdl.Dosbox_Surface);
 }		
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
@@ -3538,12 +3569,7 @@ bool voodoo_ogl_init(voodoo_state *v) {
 			GFX_ResetScreen();
 		}		
 		vPCI_check_OpenGLIII();				
-		vPCI_get_DosboxVideo();
-				
-		if ( sdl.displaynumber != nCurrentDisplay ) {
-			 sdl.displaynumber = nCurrentDisplay;
-		}
-		
+		vPCI_get_DosboxVideo();						
 		vPCI_force_to_OpenGL();
 	#endif	
 	
@@ -3588,7 +3614,7 @@ bool voodoo_ogl_init(voodoo_state *v) {
 			"        OGL Point Filter: %f\n"		
 			"        OGL Zoom Width  : %d\n"
 			"        OGL Zoom Height : %d\n"			
-			"        OGL Enabled     : %s\n",sdl.pciW, sdl.pciH, v->fbi.width, v->fbi.height ,sdl.displaynumber,strRenderHint,sdl.opengl.sfiltering, (float)sdl.opengl.gl_PointSize_num, (int)sdl.opengl.glZoomFaktor_W,(int)sdl.opengl.glZoomFaktor_H,features.c_str());
+			"        OGL Enabled     : %s\n",sdl.pciW, sdl.pciH, v->fbi.width, v->fbi.height ,nCurrentDisplay,strRenderHint,sdl.opengl.sfiltering, (float)sdl.opengl.gl_PointSize_num, (int)sdl.opengl.glZoomFaktor_W,(int)sdl.opengl.glZoomFaktor_H,features.c_str());
 	}else{
 	LOG_MSG("VOODOO: Resolution & OpenGL Enabled Features\n"
 			"        Fullscreen        \n"
@@ -3602,7 +3628,7 @@ bool voodoo_ogl_init(voodoo_state *v) {
 			"        OGL Point Filter: %f\n"		
 			"        OGL Zoom Width  : %d\n"
 			"        OGL Zoom Height : %d\n"			
-			"        OGL Enabled     : %s\n",sdl.pciFSW, sdl.pciFSH, v->fbi.width, v->fbi.height ,sdl.displaynumber,strRenderHint,sdl.opengl.sfiltering, (float)sdl.opengl.gl_PointSize_num,(int)sdl.opengl.glZoomFaktor_W,(int)sdl.opengl.glZoomFaktor_H, features.c_str());		
+			"        OGL Enabled     : %s\n",sdl.pciFSW, sdl.pciFSH, v->fbi.width, v->fbi.height ,nCurrentDisplay,strRenderHint,sdl.opengl.sfiltering, (float)sdl.opengl.gl_PointSize_num,(int)sdl.opengl.glZoomFaktor_W,(int)sdl.opengl.glZoomFaktor_H, features.c_str());		
 	}
 ;	
 	/* TDOD

@@ -607,7 +607,10 @@ enum STBVorbisError
    #undef __forceinline
    #endif
    #define __forceinline
-   #define alloca __builtin_alloca
+   // #define alloca __builtin_alloca
+   // note: this is the location of the previous definition include/malloc.h:183:0: 
+ #define alloca(x) __builtin_alloca((x))
+
 #elif !defined(_MSC_VER)
    #if __GNUC__
       #define __forceinline inline

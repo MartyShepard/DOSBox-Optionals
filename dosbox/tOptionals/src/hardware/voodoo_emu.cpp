@@ -4264,21 +4264,20 @@ void voodoo_leave(void) {
 #endif
 	}
 	v->active = false;
-	bVoodooOpen = false;
 }
 
 void voodoo_activate(void) {
-	v->active = true;	
-
-	if (v->ogl) {
-		bVoodooOpen = true;
+	v->active = true;				
+	if (v->ogl) {		
 		if (voodoo_ogl_init(v)) {
-			LOG_MSG("VOODOO: Acceleration Init");
+			bVoodooOpen = true;
+			LOG_MSG("VOODOO: Acceleration Init");			
 			voodoo_ogl_clear();
 			
 			// LOG_MSG("VOODOO: Acceleration Clear");
 		} else {
 			v->ogl = false;
+			bVoodooOpen = false;
 			LOG_MSG("VOODOO: Acceleration Disabled");
 		}
 	}

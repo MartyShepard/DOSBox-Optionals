@@ -827,7 +827,12 @@ Module::Module( Section* configuration ) : Module_base(configuration) {
 	mixerChan->SetScale( scale ); 
 
 	if (oplemu == "fast") {
+		
+		/*
+			Inkompatible, Windows 95/98 Setup and Dosbox Crash
+		*/
 		handler = new DBOPL::Handler();
+		
 	} else if (oplemu == "compat") {
 		if ( oplmode == OPL_opl2 ) {
 			handler = new OPL2::Handler();
@@ -835,6 +840,7 @@ Module::Module( Section* configuration ) : Module_base(configuration) {
 			handler = new OPL3::Handler();
 		}
 	}
+	
 	else if (oplemu == "mame") {
 		if (oplmode == OPL_opl2) {
 			handler = new MAMEOPL2::Handler();
@@ -846,7 +852,11 @@ Module::Module( Section* configuration ) : Module_base(configuration) {
 	else if (oplemu == "nuked") {
 		handler = new NukedOPL::Handler();
  	} else {
- 		handler = new DBOPL::Handler();
+		handler = new NukedOPL::Handler();
+		/*  Original Dosbox
+			handler = new DBOPL::Handler();
+		*/
+			
  	}
 	handler->Init( rate );
 	bool single = false;

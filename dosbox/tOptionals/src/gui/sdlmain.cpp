@@ -33,6 +33,7 @@
 	#include <signal.h>
 	#include <process.h>
 	#include "windows.h"
+	#include <winuser.h>
 	#include "Shellapi.h"	// for shellexecute
 	#include "shell.h"		// for shellexecute
 	#include "SDL2/SDL_mixer.h"
@@ -147,6 +148,7 @@ struct SDL_Block {
 	bool update_window;
 	bool automaticheight;
 	bool bOpenGLStartupInfo;
+	bool bVoodooScreenRequest;
 	int windowstaskbaradjust;
 	bool hSystemMenu;
 	int window_desired_width, window_desired_height;	
@@ -167,6 +169,7 @@ struct SDL_Block {
 		struct {
 			Bit16u width, height;
 		} window;
+		
 		Bit8u bpp;
 		Bit32u sdl2pixelFormat;
 		bool fullscreen;
@@ -179,6 +182,7 @@ struct SDL_Block {
 		SCREEN_TYPES want_type;
 	} desktop;
 #if C_OPENGL
+
 	struct {
 		SDL_GLContext context;
 		void * framebuf;
@@ -200,21 +204,28 @@ struct SDL_Block {
 		GLfloat vertex_data[12];
 		GLfloat texture_data[8];
 	} opengl;
+
 #endif	// C_OPENGL
+
 	struct {
 		PRIORITY_LEVELS focus;
 		PRIORITY_LEVELS nofocus;
 	} priority;
+
 	SDL_Rect clip;
 	SDL_Surface * surface;
 	SDL_Window * window;
 	SDL_Renderer * renderer;
+
 	const char * rendererDriver;
+	
 	int displayNumber;
+	
 	struct {
 		SDL_Texture * texture;
 		SDL_PixelFormat * pixelFormat;
 	} texture;
+	
 	SDL_cond *cond;
 	struct {
 		bool autolock;
@@ -617,6 +628,7 @@ static void PauseDOSBox(bool pressed) {
 				if (event.window.event == SDL_WINDOWEVENT_RESTORED) {
 					// We may need to re-create a texture and more
 					GFX_ResetScreen();
+					LOG_MSG("SDL : GFX_ResetScreen 1");								
 				}
 				break;
 			case SDL_KEYDOWN:   // Must use Pause/Break Key to resume.
@@ -699,25 +711,24 @@ check_surface:
 
 
 void GFX_ResetScreen(void) {
-	if 	( bVoodooOpen == true ){
-		  LOG_MSG("SDL : Voodoo Screen Reset ");
-		  voodoo_leave();
-		  bVoodooOpen = true;
-	}	
-	
 	GFX_Stop();
 	if (sdl.draw.callback)
 		(sdl.draw.callback)( GFX_CallBackReset );
-	GFX_Start();	
+	GFX_Start();		
 	CPU_Reset_AutoAdjust();
-	GFX_SetTitle(-1,-1,false);
-	
-	if 	( bVoodooOpen == true ){
-		  LOG_MSG("SDL : Voodoo Screen Reset ");
-		  voodoo_activate();	  
-	}	
+	GFX_SetTitle(-1,-1,false);	
 }
 
+void GFX_ResetVoodoo(void){
+	if ( bVoodooOpen == true){	
+		voodoo_leave();		
+		GFX_ResetScreen();							
+		voodoo_activate();		
+	} else {
+		GFX_ResetScreen();
+	}
+	
+}
 void GFX_ForceFullscreenExit(void) {
 	if (sdl.desktop.lazy_fullscreen) {
 //		sdl.desktop.lazy_fullscreen_req=true;
@@ -725,6 +736,7 @@ void GFX_ForceFullscreenExit(void) {
 	} else {
 		sdl.desktop.fullscreen=false;
 		GFX_ResetScreen();
+		LOG_MSG("SDL : GFX_ResetScreen 2");
 		
 	}
 
@@ -842,11 +854,11 @@ void Set_Window_HMenu(void){
 		HMENU hSysMenu = ::GetSystemMenu(system_info.info.win.window, FALSE);
 		
 		::AppendMenu(hSysMenu, MF_SEPARATOR, 0, "");
-		::AppendMenu(hSysMenu, MF_STRING, WM_SC_SYSMENUFULLSCREEN, "Maschine: Fullscreen");
-		::AppendMenu(hSysMenu, MF_STRING, WM_SC_SYSMENURESTART   , "Maschine: Restart");
+		::AppendMenu(hSysMenu, MF_STRING, WM_SC_SYSMENUFULLSCREEN, "Maschine: Fullscreen\tALT+ENTER");
+		::AppendMenu(hSysMenu, MF_STRING, WM_SC_SYSMENURESTART   , "Maschine: Restart\tCTRL+ALT+HOME");
 		::AppendMenu(hSysMenu, MF_SEPARATOR, 0, "");		
 		
-		::AppendMenu(hSysMenu, MF_STRING, WM_SC_SYSMENUMAPPER   ,  "Start Key-Mapper");		
+		::AppendMenu(hSysMenu, MF_STRING, WM_SC_SYSMENUMAPPER   ,  "Start Key-Mapper\tCTRL+F1");		
 		::AppendMenu(hSysMenu, MF_SEPARATOR, 0, "");		
 		
 		::AppendMenu(hSysMenu, MF_STRING|MIIM_CHECKMARKS, WM_SC_SYSMENUJSTCKA    , "Joystick: None");
@@ -857,8 +869,8 @@ void Set_Window_HMenu(void){
 		::AppendMenu(hSysMenu, MF_STRING|MIIM_CHECKMARKS, WM_SC_SYSMENUJSTCKF    , "Joystick: CH Flightstick");		
 		::AppendMenu(hSysMenu, MF_SEPARATOR, 0, "");
 		
-		::AppendMenu(hSysMenu, MF_STRING, WM_SC_SYSMENUCACHE   , "Swap Next Disk");		
-		::AppendMenu(hSysMenu, MF_STRING, WM_SC_SYSMENUCACHECD , "Swap Next CDRom");			
+		::AppendMenu(hSysMenu, MF_STRING, WM_SC_SYSMENUCACHE   , "Swap Next Disk\tCTRL+F4");		
+		::AppendMenu(hSysMenu, MF_STRING, WM_SC_SYSMENUCACHECD , "Swap Next CDRom\tCTRL+F3");			
 		::AppendMenu(hSysMenu, MF_SEPARATOR, 0, "");	
 		
 		::AppendMenu(hSysMenu, MF_STRING, WM_SC_SYSMENUWEBSITE   , "Website: DOSBox");		
@@ -1317,13 +1329,7 @@ GLfloat get_texture_y(GLfloat vertex_y, GLfloat video_y, GLfloat texture_y) {
 Bitu GFX_SetSize(Bitu width,Bitu height,Bitu flags,double scalex,double scaley,GFX_CallBack_t callback) {
 
 	/* Try to set the Current Desktop Index on Multi Monitor Systems*/
-	if ( bVoodooInUse == true ){
-		sdl.displayNumber = nCurrentDisplay;
-		bVoodooInUse = false;
-	}else{
-		sdl.displayNumber = SDL_GetWindowDisplayIndex(sdl.window);
-		nCurrentDisplay   = sdl.displayNumber;
-	}
+
 	
 	Section_prop *section = static_cast<Section_prop *>(control->GetSection("render"));	
 	bool rDebug = section->Get_bool("debug");
@@ -1861,19 +1867,27 @@ void GFX_SwitchFullScreen(void) {
 		sticky_keys(true); //restore sticky keys to default state in windowed mode.
 #endif
 	}
-	GFX_ResetScreen();
+	
+		GFX_ResetVoodoo();
+		LOG_MSG("SDL : GFX_ResetScreen 3");	
 }
 
 static void SwitchFullScreen(bool pressed) {
-	if (!pressed)
+	if (!pressed){
 		return;
-
+	}		
+	 
 	if (sdl.desktop.lazy_fullscreen) {
-//		sdl.desktop.lazy_fullscreen_req=true;
+		sdl.desktop.lazy_fullscreen_req=true;
 		LOG_MSG("SDL : GFX LF, fullscreen switching not supported");
-	} else {
+	} else {	
+	
+	
+		LOG_MSG("SDL : Screen Switch (Is Voodoo Activ %d)",bVoodooOpen?true:false);	
+				
 		GFX_SwitchFullScreen();
-	}
+					
+	}		
 }
 
 int GFX_GetSDLVideo(void) {
@@ -2045,7 +2059,7 @@ void GFX_Stop() {
 }
 
 void GFX_Start() {
-	sdl.active=true;
+	sdl.active=true;		
 }
 
 /* NOTE: The following appears to do its job on Android only *before*
@@ -2233,6 +2247,17 @@ static void GUI_StartUp(Section * sec) {
 			
 	}
 
+	sdl.displayNumber=section->Get_int("display");
+	LOG_MSG("SDL : Display Found: 0->%d", SDL_GetNumVideoDisplays()-1);		
+	
+	if ( (sdl.displayNumber < 0) || (sdl.displayNumber >= SDL_GetNumVideoDisplays()) ) {		
+		LOG_MSG("SDL : Display  (%d): Out of Range, Using 0",sdl.displayNumber);
+		sdl.displayNumber = 0;
+	} else {
+		LOG_MSG("SDL : Display Use  : %d",sdl.displayNumber);	
+	}
+	nCurrentDisplay = sdl.displayNumber;
+	
 	SetPriority(sdl.priority.focus); //Assume focus on startup
 	sdl.mouse.locked=false;
 	mouselocked=false; //Global for mapper
@@ -2254,14 +2279,20 @@ static void GUI_StartUp(Section * sec) {
 					sdl.desktop.full.height = (Bit16u)atoi(height+1);
 					sdl.desktop.full.width  = (Bit16u)atoi(res);					
 				}
+			}else{
+				SDL_DisplayMode displayMode;
+				SDL_GetDesktopDisplayMode(nCurrentDisplay, &displayMode);				
+				sdl.desktop.full.height = displayMode.h;
+				sdl.desktop.full.width  = displayMode.w;					
 			}
 		}
 		// On SDL_WINDOW_FULLSCREEN_DESKTOP Force to 0x0
-		if ( sdl.desktop.screenflag == SDL_WINDOW_FULLSCREEN_DESKTOP ){
-			 sdl.desktop.full.height = 0;
-			 sdl.desktop.full.width  = 0;
-		}		
+		//if ( sdl.desktop.screenflag == SDL_WINDOW_FULLSCREEN_DESKTOP ){
+		//	 sdl.desktop.full.height = 0;
+		//	 sdl.desktop.full.width  = 0;
+		//}		
 	}
+	
 	sdl.desktop.window.width  = 0;
 	sdl.desktop.window.height = 0;
 	const char* windowresolution=section->Get_string("windowresolution");
@@ -2270,30 +2301,29 @@ static void GUI_StartUp(Section * sec) {
 		safe_strncpy( res,windowresolution, sizeof( res ));
 		windowresolution = lowcase (res);//so x and X are allowed
 		if(strcmp(windowresolution,"original")) {
-			char* height = const_cast<char*>(strchr(windowresolution,'x'));
-			if(height && *height) {
-				*height = 0;
-				sdl.desktop.window.height = (Bit16u)atoi(height+1);
-				sdl.desktop.window.width  = (Bit16u)atoi(res);
-			}
+			if (strcmp(windowresolution,"desktop")) { //desktop = 0x0
+				char* height = const_cast<char*>(strchr(windowresolution,'x'));
+				if(height && *height) {
+					*height = 0;
+					sdl.desktop.window.height = (Bit16u)atoi(height+1);
+					sdl.desktop.window.width  = (Bit16u)atoi(res);
+				}
+			}else{
+				SDL_DisplayMode displayMode;
+				SDL_GetDesktopDisplayMode(nCurrentDisplay, &displayMode);				
+				sdl.desktop.window.height = displayMode.h;
+				sdl.desktop.window.width  = displayMode.w;				
+			}			
 		}
 	}
+	
+	LOG_MSG("SDL : Display Full : %dx%d",sdl.desktop.full.width, sdl.desktop.full.height);
+	LOG_MSG("SDL : Display Win  : %dx%d",sdl.desktop.window.width, sdl.desktop.window.height);	
 
 	sdl.automaticheight=section->Get_bool("AutomaticHeight");
 	sdl.windowstaskbaradjust=section->Get_int("WindowsTaskbarAdjust");
 	sdl.desktop.vsync=section->Get_bool("vsync");
-
-	sdl.displayNumber=section->Get_int("display");
-	LOG_MSG("SDL : Display Found: 0->%d", SDL_GetNumVideoDisplays()-1);
-	
-	if ( (sdl.displayNumber < 0) || (sdl.displayNumber >= SDL_GetNumVideoDisplays()) ) {		
-		LOG_MSG("SDL : Display  (%d): Out of Range, Using 0",sdl.displayNumber);
-		sdl.displayNumber = 0;
-	} else {
-		LOG_MSG("SDL : Display Use  : %d",sdl.displayNumber);	
-	}
-	nCurrentDisplay = sdl.displayNumber;
-	
+		
 	sdl.desktop.full.display_res = sdl.desktop.full.fixed && (!sdl.desktop.full.width || !sdl.desktop.full.height);
 	if (sdl.desktop.full.display_res) {
 		GFX_ObtainDisplayDimensions();
@@ -2323,22 +2353,23 @@ static void GUI_StartUp(Section * sec) {
 		sdl.desktop.want_type=SCREEN_SURFACE;
 	} else if (output == "texture") {
 		sdl.desktop.want_type=SCREEN_TEXTURE;
-		SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+		SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");			
 	} else if (output == "texturenb") {
 		sdl.desktop.want_type=SCREEN_TEXTURE;
 		// Currently the default, but... oh well
-		SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");
+		SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "0");
 	} else if (output == "texturebest") {
 		sdl.desktop.want_type=SCREEN_TEXTURE;
 		// Currently the default, but... oh well
-		SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "nearest");		
+		SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "2");		
 #if C_OPENGL
 	} else if (output == "opengl") {
 		sdl.desktop.want_type=SCREEN_OPENGL;
 		sdl.opengl.bilinear=true;
 	} else if (output == "openglnb") {
 		sdl.desktop.want_type=SCREEN_OPENGL;
-		sdl.opengl.bilinear=false;		
+		sdl.opengl.bilinear=false;
+
 #endif
 	} else {
 		LOG_MSG("SDL : Unsupported output device %s, switching back to surface",output.c_str());
@@ -2701,8 +2732,9 @@ void GFX_HandleVideoResize(int width, int height) {
 	 * in SDL_SetSDLWindowSurface by setting sdl.update_display_contents
 	 * to false.
 	 */
-	sdl.update_window = false;
-	GFX_ResetScreen();
+	sdl.update_window = false;	
+		GFX_ResetVoodoo();
+		LOG_MSG("SDL : GFX_ResetScreen 4");				
 	sdl.update_window = true;
 }
 
@@ -2777,13 +2809,22 @@ void GFX_Events() {
 			{
 				switch (event.window.event) {
 					
+					case SDL_WINDOWEVENT_MOVED:
+						if (!sdl.desktop.fullscreen) {
+							LOG_MSG("SDL : Display Use  : %d",SDL_GetWindowDisplayIndex(sdl.window));
+							sdl.displayNumber = SDL_GetWindowDisplayIndex(sdl.window);
+							nCurrentDisplay   = sdl.displayNumber;							
+							continue;
+						}
 					case SDL_WINDOWEVENT_RESTORED:
 					{
 						/* We may need to re-create a texture
 						 * and more on Android. Another case:
 						 * Update surface while using X11.
 						 */
-						GFX_ResetScreen();
+						GFX_ResetVoodoo();
+						LOG_MSG("SDL : GFX_ResetScreen 5");
+						
 						continue;
 					}	
 					case SDL_WINDOWEVENT_RESIZED:
@@ -2889,6 +2930,7 @@ void GFX_Events() {
 												
 												// We may need to re-create a texture and more
 												GFX_ResetScreen();
+												LOG_MSG("SDL : GFX_ResetScreen 6");
 											}
 									}
 									break;
@@ -3083,10 +3125,11 @@ void GFX_ShowMsg(char const* format,...) {
 	char buf[512];
 	va_list msg;
 	va_start(msg,format);
-	vsprintf(buf,format,msg);
-        strcat(buf,"\n");
+	vsnprintf(buf,sizeof(buf),format,msg);
 	va_end(msg);
-	if(!no_stdout) printf("%s",buf); //Else buf is parsed again.
+
+	buf[sizeof(buf) - 1] = '\0';
+	if (!no_stdout) puts(buf); //Else buf is parsed again. (puts adds end of line)
 }
 
 
@@ -3176,7 +3219,7 @@ void Config_Add_SDL() {
 		"software",
 		"vulkan",
 		0 };
-	Pstring = sdl_sec->Add_string("texture.renderer",Property::Changeable::Always,"vulkan");		
+	Pstring = sdl_sec->Add_string("texture.renderer",Property::Changeable::Always,"opengl");		
 	Pstring->Set_help("================================================================================================\n"
 	                  "Choose a renderer driver if output=texture or output=texturenb. Use output=auto for an automatic\n"
 	                  "choice.");
@@ -3581,9 +3624,22 @@ static void OpenConsole( HANDLE hConsole, SHORT xSize, SHORT ySize, SHORT yTop )
 }
 /*--------------------------------------------------------------------------------------------------------------------------*/
 
+void Disable_OS_Scaling() {
+#if defined (WIN32)
+	typedef BOOL (*function_set_dpi_pointer)();
+	function_set_dpi_pointer function_set_dpi;
+	function_set_dpi = (function_set_dpi_pointer) GetProcAddress(LoadLibrary("user32.dll"), "SetProcessDPIAware");
+	if (function_set_dpi) {
+		function_set_dpi();
+	}
+#endif
+}
+
 //extern void UI_Init(void);
 int main(int argc, char* argv[]) {
 	try {
+		Disable_OS_Scaling(); //Do this early on, maybe override it through some parameter.
+		
 		CommandLine com_line(argc,argv);
 		Config myconf(&com_line);
 		control=&myconf;
@@ -3678,6 +3734,10 @@ int main(int argc, char* argv[]) {
 	LOG_MSG("Copyright 2002-%s DOSBox Team, published under GNU GPL.",gDosboxYear);
 	LOG_MSG("\n\n");
 
+#if defined(WIN32)
+	SDL_setenv("SDL_AUDIODRIVER", "directsound", 1);
+#endif
+	
 	/* Init SDL */
 	if ( SDL_Init_Wrapper() < 0 )
 		E_Exit("Can't init SDL %s",SDL_GetError());

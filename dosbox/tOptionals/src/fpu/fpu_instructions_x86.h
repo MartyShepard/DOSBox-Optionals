@@ -967,7 +967,7 @@ static void FPU_PREP_PUSH(void){
 #if DB_FPU_STACK_CHECK_PUSH > DB_FPU_STACK_CHECK_NONE
 	if (GCC_UNLIKELY(fpu.tags[TOP] != TAG_Empty)) {
 #if DB_FPU_STACK_CHECK_PUSH == DB_FPU_STACK_CHECK_EXIT
-		E_Exit("FPU stack overflow");
+		//E_Exit("FPU stack overflow");
 #else
 		if (fpu.cw&1) { // Masked ?
 			fpu.sw &= 0x1; //Invalid Operation
@@ -976,7 +976,7 @@ static void FPU_PREP_PUSH(void){
 			//No need to set 0x80 as the exception is masked.
 			LOG(LOG_FPU,LOG_ERROR)("Masked stack overflow encountered!");
 		} else {
-			E_Exit("FPU stack overflow"); //Exit as this is bad
+			//E_Exit("FPU stack overflow"); //Exit as this is bad
 		}
 #endif
 	}
@@ -988,7 +988,7 @@ static void FPU_FPOP(void){
 #if DB_FPU_STACK_CHECK_POP > DB_FPU_STACK_CHECK_NONE
 	if (GCC_UNLIKELY(fpu.tags[TOP] == TAG_Empty)) {
 #if DB_FPU_STACK_CHECK_POP == DB_FPU_STACK_CHECK_EXIT
-		E_Exit("FPU stack underflow");
+		//E_Exit("FPU stack underflow");
 #else
 		if (fpu.cw&1) { // Masked ?
 			fpu.sw &= 0x1; //Invalid Operation

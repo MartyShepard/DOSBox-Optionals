@@ -1,7 +1,7 @@
 #define VERSION "SVN"
 
 /* Define to 1 to enable internal debugger, requires libcurses */
-#define C_DEBUG 0
+#define C_DEBUG 1
 
 /* Define to 1 to enable output=ddraw */
 #define C_DDRAW 1 
@@ -19,7 +19,7 @@
 #define C_IPX 1
 
 /* Enable some heavy debugging options */
-#define C_HEAVY_DEBUG 0
+#define C_HEAVY_DEBUG 1
 
 /* The type of cpu this host has */
 #ifdef _M_X64

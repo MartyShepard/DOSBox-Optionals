@@ -2091,13 +2091,19 @@ public:
 
 			/* must be valid drive letter, C to Z */
 			if (!isalpha(el_torito_cd_drive) || el_torito_cd_drive < 'C') {
-				WriteOut("-el-torito requires a proper drive letter corresponding to your CD-ROM drive\n");
+				WriteOut("ElTorito BootCD:\n"
+					/*   "= Requires a Proper Drive Letter Corresponding To Your CD-ROM drive\n"		*/
+						 "= Erfordert einen geeigneten Laufwerksbuchstaben fuer Ihr CD-ROM-Laufwerk\n"
+						 "");																				
 				return;
 			}
 
 			/* drive must not exist (as a hard drive) */
-			if (imageDiskList[el_torito_cd_drive-'C'] != NULL) {
-				WriteOut("-el-torito CD-ROM drive specified already exists as a non-CD-ROM device\n");
+			if (!imageDiskList[el_torito_cd_drive-'C'] != 0) {
+				WriteOut("ElTorito BootCD:\n"
+					/*	 "= CD-ROM drive [%c] specified already exists as a non-CD-ROM device\n"		*/
+						 "= Das angegebene CD-ROM-Laufwerk [%c] ist bereits als Nicht-CD-ROM-Geraet vorhanden\n"
+						 ,el_torito_cd_drive);
 				return;
 			}
 
@@ -2106,21 +2112,29 @@ public:
 			/* get the CD-ROM drive */
 			CDROM_Interface *src_drive=NULL;
 			if (!GetMSCDEXDrive(el_torito_cd_drive-'A',&src_drive)) {
-				WriteOut("-el-torito CD-ROM drive specified is not actually a CD-ROM drive\n");
+				WriteOut("ElTorito BootCD:\n"
+					/*	 "= CD-ROM drive specified is not actually a CD-ROM drive [%c]\n",				*/
+						 "= Das angegebene CD-ROM-Laufwerk [%c] ist kein CD-ROM-Laufwerk\n",
+						 el_torito_cd_drive);
 				return;
 			}
 
 			/* FIXME: We only support the floppy emulation mode at this time.
 			 *        "Superfloppy" or hard disk emulation modes are not yet implemented */
 			if (type != "floppy") {
-				WriteOut("-el-torito must be used with -t floppy at this time\n");
+				WriteOut("ElTorito BootCD:\n"
+					/*	 "= must be used with -t floppy at this time\n");								*/
+						 "= muss zu diesem Zeitpunkt mit -t Floppy verwendet werden\n");	
 				return;
 			}
 
 			/* Okay. Step #1: Scan the volume descriptors for the Boot Record. */
 			unsigned long el_torito_base = 0,boot_record_sector = 0;
 			if (!ElTorito_ScanForBootRecord(src_drive,boot_record_sector,el_torito_base)) {
-				WriteOut("El Torito boot record not found\n");
+				WriteOut("ElTorito BootCD:\n"
+					/*	 "= Boot Record not found\n"													*/
+						 "= Boot Record niocht gefunden\n" 
+					);
 				return;
 			}
 
@@ -3088,23 +3102,25 @@ void DOS_SetupPrograms(void) {
 		"\n"
 		"\033[33;1mALT-ENTER\033[0m   : Go full screen and back.\n"
 		"\033[33;1mALT-PAUSE\033[0m   : Pause DOSBox.\n"
+		"\033[33;1mALT-F9\033[0m      : Set Mixer [All Channels] Volume Up.\n"
+		"\033[33;1mALT-F10\033[0m     : Set Mixer [All Channels] Volume Down.\n"			
+		"\033[33;1mALT-F12\033[0m     : Unlock speed Fix (turbo button/fast forward).\n"			
+		"\033[33;1mALT-F12\033[0m     : Unlock speed (turbo button/fast forward).\n"		
 		"\033[33;1mCTRL-F1\033[0m     : Start the \033[33mkeymapper\033[0m.\n"
-		"\033[33;1mCTRL-F4\033[0m     : Update directory cache for all drives! Swap mounted disk-image.\n"
-		"\033[33;1mCTRL-ALT-F5\033[0m : Start/Stop creating a movie of the screen.\n"
+		"\033[33;1mCTRL-F3\033[0m     : Cyle/Swap/Update Directory Cache for CD-ROM's.\n"		
+		"\033[33;1mCTRL-F4\033[0m     : Cyle/Swap/Update Directory Cache for Floppy's.\n"		
 		"\033[33;1mCTRL-F5\033[0m     : Save a screenshot.\n"
 		"\033[33;1mCTRL-F6\033[0m     : Start/Stop recording sound output to a wave file.\n"
-		"\033[33;1mCTRL-ALT-F7\033[0m : Start/Stop recording of OPL commands.\n"
-		"\033[33;1mCTRL-ALT-F8\033[0m : Start/Stop the recording of raw MIDI commands.\n"
 		"\033[33;1mCTRL-F7\033[0m     : Decrease frameskip.\n"
 		"\033[33;1mCTRL-F8\033[0m     : Increase frameskip.\n"
 		"\033[33;1mCTRL-F9\033[0m     : Kill DOSBox.\n"
 		"\033[33;1mCTRL-F10\033[0m    : Capture/Release the mouse.\n"
 		"\033[33;1mCTRL-F11\033[0m    : Slow down emulation (Decrease DOSBox Cycles).\n"
-		"\033[33;1mCTRL-F12\033[0m    : Speed up emulation (Increase DOSBox Cycles).\n"
-		"\033[33;1mALT-F12\033[0m     : Unlock speed (turbo button/fast forward).\n"
-		"\033[33;1mCTRL-ALT-F12\033[0m: Unlock speed Fix (turbo button/fast forward).\n"
-		"\033[33;1mALT-F9\033[0m      : Set Mixer Volume Up.\n"
-		"\033[33;1mALT-F10\033[0m     : Set Mixer Volume Down.\n"			
+		"\033[33;1mCTRL-F12\033[0m    : Speed up emulation (Increase DOSBox Cycles).\n"		
+		"\033[33;1mCTRL-ALT-F5\033[0m : Start/Stop creating a movie of the screen.\n"				
+		"\033[33;1mCTRL-ALT-F7\033[0m : Start/Stop recording of OPL commands.\n"
+		"\033[33;1mCTRL-ALT-F8\033[0m : Start/Stop the recording of raw MIDI commands.\n"		
+	
 		);
 	MSG_Add("PROGRAM_BOOT_NOT_EXIST","Bootdisk file does not exist.  Failing.\n");
 	MSG_Add("PROGRAM_BOOT_NOT_OPEN","Cannot open bootdisk file.  Failing.\n");

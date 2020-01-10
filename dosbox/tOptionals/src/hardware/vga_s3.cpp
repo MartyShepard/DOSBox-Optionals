@@ -84,7 +84,20 @@ void SVGA_S3_WriteCRTC(Bitu reg,Bitu val,Bitu iolen) {
 	case 0x41:  /* CR41 BIOS flags */
 		vga.s3.reg_41 = val;
 		break;
-	case 0x43:	/* CR43 Extended Mode */
+	case 0x42:  /* CR42 Mode Control */
+		if ((val ^ vga.s3.reg_42) & 0x20) {
+			vga.s3.reg_42=val;
+			VGA_StartResize();
+		} else vga.s3.reg_42=val;
+		/*
+		3d4h index 42h (R/W):  CR42 Mode Control
+		bit  0-3  DCLK Select. These bits are effective when the VGA Clock Select
+				  (3C2h/3CCh bit 2-3) is 3.
+		       5  Interlaced Mode if set.
+	   */
+		break;		
+	
+	case 0x43:	/* Daum CR43 Extended Mode */
 		vga.s3.reg_43=val & ~0x4;
 		if (((val & 0x4) ^ (vga.config.scan_len >> 6)) & 0x4) {
 			vga.config.scan_len&=0x2ff;
@@ -96,7 +109,8 @@ void SVGA_S3_WriteCRTC(Bitu reg,Bitu val,Bitu iolen) {
 			2  Logical Screen Width bit 8. Bit 8 of the Display Offset Register/
 			(3d4h index 13h). (801/5,928) Only active if 3d4h index 51h bits 4-5
 			are 0
-		*/
+			Daum Ende
+		*/		
 	case 0x45:  /* Hardware cursor mode */
 		vga.s3.hgc.curmode = val;
 		// Activate hardware cursor code if needed
@@ -232,7 +246,9 @@ void SVGA_S3_WriteCRTC(Bitu reg,Bitu val,Bitu iolen) {
 				-stated if set
 		*/
 	case 0x58:	/* Linear Address Window Control */
-		vga.s3.reg_58=val;
+		vga.s3.reg_58=val;		
+		VGA_StartUpdateLFB();
+		
 		break;
 		/*
 			0-1	Linear Address Window Size. Must be less than or equal to video
@@ -553,10 +569,10 @@ void SVGA_Setup_S3Trio(void) {
 				case 2:	{vga.s3.reg_36 = 0x9a; break;}
 				case 3:	{vga.s3.reg_36 = 0x5a; break;}
 				case 4:	{vga.s3.reg_36 = 0x1a; break;}
-				case 5:	{vga.s3.reg_36 = 0x6a; break;}
+				case 5:	{vga.s3.reg_36 = 0x0a; break;}
 				case 8:	{vga.s3.reg_36 = 0x7a; break;}
 				default:
-					vga.s3.reg_36 = 0x1a;				
+					vga.s3.reg_36 = 0x7e;				
 			}
 		}	
 		

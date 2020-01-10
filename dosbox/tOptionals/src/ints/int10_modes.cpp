@@ -68,7 +68,7 @@ extern bool mouselocked;
  
  Mode 0x036 -  hack: 320x200x16bpp for "Process" demo (1997) with apparently hard-coded VBE mode 
  Mode 0x068 - Requested by The Big Red Adventure ('commandline was -24 (S3 Chip) 104 (0x68)' )
- ;ode 0x200 - Requested by Lands of Lore 2
+ Mode 0x200 - Requested by Lands of Lore 2
  Mode 0x201 - Requested by Akte Europa, Double Switch		
  Mode 0x211 - Requested by Die hard Trilogy 
  Mode 0x211 - Requested by 3 Skulls of the Toltecs as 320x480 not 640x480
@@ -828,6 +828,9 @@ static void FinishSetMode(bool clearmem) {
 	}
 }
 
+/* DOSBox-X */
+extern bool en_int33;
+
 bool INT10_SetVideoMode_OTHER(Bit16u mode,bool clearmem) {
 	switch (machine) {
 	case MCH_CGA:
@@ -1027,6 +1030,9 @@ bool INT10_SetVideoMode_OTHER(Bit16u mode,bool clearmem) {
 				RealOff(vparams) + i + crtc_block_index*16) << 8));
 	}
 	FinishSetMode(clearmem);
+	/* Dosbox-X */
+	if (en_int33) INT10_SetCurMode();
+	
 	return true;
 }
 
@@ -1043,7 +1049,7 @@ bool INT10_SetVideoMode(Bit16u mode) {
 		mode-=0x80;
 	}
 	int10.vesa_setmode=0xffff;
-	LOG(LOG_INT10,LOG_NORMAL)("Set Video Mode %X",mode);
+	LOG(LOG_INT10,LOG_NORMAL)("SetVideoMode: Set Video Mode %X",mode);
 	if (!IS_EGAVGA_ARCH) return INT10_SetVideoMode_OTHER(mode,clearmem);
 
 	/* First read mode setup settings from bios area */
@@ -1948,6 +1954,8 @@ dac_text16:
 	if (CurMode->type==M_TEXT) {
 		INT10_ReloadFont();
 	}
+	/* Dosbox */
+	if (en_int33) INT10_SetCurMode();
 	
 	if (mouselocked){
 	   GFX_CaptureMouse_Mousecap_on();

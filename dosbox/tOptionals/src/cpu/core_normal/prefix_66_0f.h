@@ -513,3 +513,4 @@
 	CASE_0F_D(0xcf)												/* BSWAP EDI */
 		if (CPU_ArchitectureType<CPU_ARCHTYPE_486OLDSLOW) goto illegal_opcode;
 		BSWAPD(reg_edi);break;
+//#include "prefix_0f_mmx.h"

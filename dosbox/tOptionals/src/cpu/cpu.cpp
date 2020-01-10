@@ -49,21 +49,27 @@ CPU_Regs cpu_regs;
 CPUBlock cpu;
 Segments Segs;
 
-Bit32s CPU_Cycles = 0;
-Bit32s CPU_CycleLeft = 3000;
-Bit32s CPU_CycleMax = 3000;
-Bit32s CPU_OldCycleMax = 3000;
-Bit32s CPU_CyclePercUsed = 100;
-Bit32s CPU_CycleLimit = -1;
-Bit32s CPU_CycleUp = 0;
-Bit32s CPU_CycleDown = 0;
-Bit64s CPU_IODelayRemoved = 0;
+Bit32s CPU_Cycles 			= 0;
+Bit32s CPU_CycleLeft 		= 3000;
+Bit32s CPU_CycleMax 		= 3000;
+Bit32s CPU_OldCycleMax 		= 3000;
+Bit32s CPU_CyclePercUsed 	= 100;
+Bit32s CPU_CycleLimit 		= -1;
+Bit32s CPU_CycleUp 			= 0;
+Bit32s CPU_CycleDown 		= 0;
+Bit64s CPU_IODelayRemoved 	= 0;
 
 CPU_Decoder * cpudecoder;
-bool CPU_CycleAutoAdjust = false;
+
+bool CPU_CycleAutoAdjust 	 = false;
 bool CPU_SkipCycleAutoAdjust = false;
-Bitu CPU_AutoDetermineMode = 0;
-Bitu CPU_Kennung = 612;
+bool CPU_Support_MMX		 = false;
+bool CPU_Support_3DNOW		 = false;
+bool CPU_Support_SSE1		 = false;
+bool CPU_Support_SSE2		 = false;
+bool CPU_Support_OTPS		 = false;
+Bitu CPU_AutoDetermineMode 	 = 0;
+Bitu CPU_Kennung 			 = 612;
 
 Bitu CPU_ArchitectureType = CPU_ARCHTYPE_MIXED;
 
@@ -2053,15 +2059,97 @@ bool CPU_CPUID(void) {
 			
 			switch(CPU_Kennung){
 				/* http://www.cpu-world.com/cgi-bin/CPUID.pl?MANUF=&FAMILY=&MODEL=&SIGNATURE=5425&PART=&ACTION=Filter&STEPPING= */
+				
 				case 513:  {reg_eax=0x513;  }break; /* intel pentium */	
 				case 543:
-				{
-					reg_eax=0x543;		/* intel pentium mmx (P55C) */
-					reg_ebx=0;			/* Not Supported */
-					reg_ecx=0;			/* No features */
-					reg_edx=0x00800030|(1);	/* FPU+TimeStamp/RDTSC+MMX+ModelSpecific/MSR */
-					reg_edx |= 0x20; /* ModelSpecific/MSR */
-					reg_edx |= 0x100; /* CMPXCHG8B */	
+				{			
+					/* Only for testing and at most Adding Features for Fake */
+					/* The Most Register Stuff is missing 					*/
+															
+					reg_eax=0x543;				/* intel pentium mmx (P55C) */
+
+					reg_ebx=0x0;				/* Not Supported */
+					
+					reg_ecx=0x0;				/* No Features */	
+
+					if (CPU_Support_OTPS){	
+						reg_ecx |= (1 << 23);		/*  POPCNT */											
+						reg_ecx |= (1 << 22);		/*  MOVBE */
+						LOG_MSG("CPU Feature Enabled: POPCNT, MOVBE");
+					}
+					
+					/*
+					reg_ecx |= (1 << 20); */	/* SSE4.2 */										
+					/* 
+					reg_ecx |= (1 << 19); */	/* SSE4.1 */										
+					/* 
+					reg_ecx |= (1 << 9);  */	/* SSSE3 */									
+					/* 
+					reg_ecx |= (1 << 0);  */	/* SSE3 */					
+					/*
+					reg_ecx |= (1 << 3);  */	/* MONITOR,MWAIT (SSE3 option) */
+					
+					if (CPU_Support_SSE1){	 
+						reg_ecx |= (1 << 1);	/*  PCLMULQDQ (SSE option) */	
+						LOG_MSG("CPU Feature Enabled: PCLMULQDQ (SSE option))");						
+					}
+					
+					if (CPU_Support_OTPS){					
+						reg_ecx |= (1 << 13);	/*  CMPXCHG16B */											
+						reg_ecx |= (1 << 12);	/*  FMA (AVX option) */	
+						LOG_MSG("CPU Feature Enabled: CMPXCHG16B, FMA (AVX option)");						
+					}
+
+
+					reg_edx  = 0x0;				/* No Steppings */
+					if (CPU_Support_3DNOW){						
+						reg_edx |= (1 << 30);	/* 3DNOWEXT */						
+						reg_edx |= (1 << 31);	/* 3DNOW */
+						LOG_MSG("CPU Feature Enabled: 3DNOWEXT, 3DNOW");						
+					}
+										
+					reg_edx |= (1 << 27);		/* RDTSCP */	
+										
+					if (CPU_Support_SSE2){										
+						reg_edx |= (1 << 26); 	/* SSE2 */						
+						LOG_MSG("CPU Feature Enabled: SSE2");
+					}
+							
+					if (CPU_Support_SSE1){								
+						reg_edx |= (1 << 25);	/* SSE1 */	
+						reg_edx |= (1 << 24);	/* FXSAVE, FXRSTOR (always with SSE) */
+						LOG_MSG("CPU Feature Enabled: SSE1, FXSAVE, FXRSTOR");						
+					}				
+										
+					if (CPU_Support_MMX) {						
+						reg_edx |= (1 << 23);	/* MMX */																					
+						reg_edx |= (1 << 22);	/* MMXEXT */
+						LOG_MSG("CPU Feature Enabled: MMX, MMXEXT");						
+					}					
+					
+					if (CPU_Support_SSE2){						
+						reg_edx |= (1 << 19);	/* CLFLUSH (SSE2 option) */
+						LOG_MSG("CPU Feature Enabled: CLFLUSH (SSE2 option)");						
+					}
+					
+					reg_edx |= (1 << 15);		/* CMOVcc */
+					
+					if (CPU_Support_OTPS){						
+						reg_edx |= (1 << 11);	/* SEP */
+						LOG_MSG("CPU Feature Enabled: SEP");	
+					}
+					
+					reg_edx |= (1 << 8);		/* CMPXCHG8B */
+					if (CPU_Support_OTPS){	
+						reg_edx |= (1 << 5);	/* MSR */	
+						LOG_MSG("CPU Feature Enabled: MSR");
+					}
+					
+					reg_edx |= (1 << 4);		/* TSC */											
+					reg_edx |= (1 << 0);		/* FPU */
+
+					LOG_MSG("CPU Feature Enabled: CMPXCHG8B, TSC, FPU, RDTSCP");					
+																		
 					break;
 				}				
 				case 610:  {reg_eax=0x610;  }break; /* intel pentium pro */				
@@ -2088,10 +2176,14 @@ bool CPU_CPUID(void) {
 				//case 50651:{reg_eax=0x50651;}break; /* Intel Xeon 1,5Ghz*/					
 				
 				default:   reg_eax=CPU_Kennung;		
-			}			
-			reg_ebx=0;			/* Not Supported */
-			reg_ecx=0;			/* No features */
-			reg_edx=0x00008011;	/* FPU+TimeStamp/RDTSC+CMOVcc */			
+			}
+			
+			if (!CPU_Kennung == 543 || !CPU_Kennung == 621){
+				reg_ebx=0;			/* Not Supported */
+				reg_ecx=0;			/* No features */
+				reg_edx=0x00008011;	/* FPU+TimeStamp/RDTSC+CMOVcc */			
+			}
+			
 		} else {
 			return false;
 		}
@@ -2536,6 +2628,12 @@ public:
 		}
 
 		CPU_Kennung = section->Get_int("cpuident");
+		
+		CPU_Support_MMX   = section->Get_bool("Enable-MMX");		
+		CPU_Support_3DNOW = section->Get_bool("Enable-3DNOW");
+		CPU_Support_SSE1  = section->Get_bool("Enable-SSE1");
+		CPU_Support_SSE2  = section->Get_bool("Enable-SSE2");
+		CPU_Support_OTPS  = section->Get_bool("Enable-OPTS");			
 		
 		if (CPU_ArchitectureType>=CPU_ARCHTYPE_486NEWSLOW) CPU_extflags_toggle=(FLAG_ID|FLAG_AC);
 		else if (CPU_ArchitectureType>=CPU_ARCHTYPE_486OLDSLOW) CPU_extflags_toggle=(FLAG_AC);

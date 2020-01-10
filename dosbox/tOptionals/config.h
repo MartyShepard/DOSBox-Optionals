@@ -40,7 +40,7 @@
 #define C_DDRAW 1
 
 /* Define to 1 to enable internal debugger, requires libcurses */
-/* #undef C_DEBUG */
+#define C_DEBUG 1
 
 /* Define to 1 if you want serial passthrough support (Win32, Posix and OS/2).
    */
@@ -73,7 +73,7 @@
 /* #undef C_HAVE_MPROTECT */
 
 /* Define to 1 to enable heavy debugging, also have to enable C_DEBUG */
-/* #undef C_HEAVY_DEBUG */
+#define C_HEAVY_DEBUG 1
 
 /* Define to 1 to enable IPX over Internet networking, requires SDL_net */
 #define C_IPX 1

@@ -191,6 +191,7 @@ typedef struct {
 	Bit8u reg_3a; // 4/8/doublepixel bit in there
 	Bit8u reg_40; // 8415/A functionality register
 	Bit8u reg_41; // BIOS flags 
+	Bit8u reg_42; // CR42 Mode Control	
 	Bit8u reg_43;
 	Bit8u reg_45; // Hardware graphics cursor
 	Bit8u reg_50;

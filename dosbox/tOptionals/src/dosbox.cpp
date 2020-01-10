@@ -674,20 +674,22 @@ void DOSBOX_Init(void) {
 	Pstring = secprop->Add_string("core",Property::Changeable::WhenIdle,"auto");
 	Pstring->Set_values(cores);
 	Pstring->Set_help(   "================================================================================================\n"
-	                     "CPU Core used in emulation. auto will switch to dynamic if available and\n"
-		"appropriate.");
+	                     "CPU Core used in emulation. 'Auto' will switch to Dynamic if available and appropriate.");
 
 	const char* cputype_values[] = { "auto", "386", "386_prefetch", "386_slow", "486_slow", "pentium_slow", "pentiumpro_slow" , 0};
 	Pstring = secprop->Add_string("cputype",Property::Changeable::Always,"auto");
 	Pstring->Set_values(cputype_values);
 	Pstring->Set_help(   "================================================================================================\n"
-	                     "CPU Type used in emulation. auto is the fastest choice.");
+	                     "CPU Type used in emulation. auto is the fastest choice.\n"
+						 "Pentium Slow   : CPUID 513, Support FPU + TimeStamp/RDTSC\n"
+						 "PentiumPro Slow: CPUID <look cpuident and set>. Additional set Features\n"
+						 "If Win9x at the beginning crasht. You have set the false cpuident.");
 
 	Pint = secprop->Add_int("cpuident",Property::Changeable::Always,612);
 	Pint->SetMinMax(1,1000000);
 	Pint->Set_help(         "================================================================================================\n"
 	                        "CPU Ident for Pentium Pro Settings (Default 612)\n"
-							"Intel Pentium          : 513\n"
+							"Intel Pentium          : 513, 543*\n"
 							"Intel Pentium pro      : 610, 611, 612, 616\n"
 							"AMD Athlon             : 621\n"	
 							"AMD Duron              : 631\n"
@@ -697,8 +699,8 @@ void DOSBOX_Init(void) {
 							"Intel Pentium III      : 672, 673\n"
 							"Intel Celeron/Xeon     : 683\n"									
 							"Intel Pentium Overdrive: 1531\n");
-							
-							
+		
+	
 	Pmulti_remain = secprop->Add_multiremain("cycles",Property::Changeable::Always," ");
 	Pmulti_remain->Set_help("================================================================================================\n"
 							"Amount of instructions DOSBox tries to emulate each millisecond. Setting this value too high\n"
@@ -758,6 +760,26 @@ void DOSBOX_Init(void) {
 	Pbool->Set_help(        "================================================================================================\n"
 	                        "A simple speed meter. Allows to tune cycles very reliably to the maximum possible, while having\n"
 					        "no impact on performance. Sourceforge: #75 speed meter, Author Moe");
+														
+	Pbool = secprop->Add_bool("Enable-MMX",Property::Changeable::Always,false);
+	Pbool->Set_help(        "================================================================================================\n"
+							"Only use this with CPUID 543. MMX Added from Daum's Version. Set this to true can slowly things");
+							
+	Pbool = secprop->Add_bool("Enable-SSE1",Property::Changeable::Always,false);
+	Pbool->Set_help(        "================================================================================================\n"
+							"Only use this with CPUID 543. Testing Only");
+
+	Pbool = secprop->Add_bool("Enable-SSE2",Property::Changeable::Always,false);
+	Pbool->Set_help(        "================================================================================================\n"
+							"Only use this with CPUID 543. Testing Only");							
+							
+	Pbool = secprop->Add_bool("Enable-OPTS",Property::Changeable::Always,false);
+	Pbool->Set_help(        "================================================================================================\n"
+							"Only use this with CPUID 543. Testing Only (POPCNT, MOVBE, CMPXCHG16B, SEP");	
+							
+	Pbool = secprop->Add_bool("Enable-3DNOW",Property::Changeable::Always,false);
+	Pbool->Set_help(        "================================================================================================\n"
+							"Only use this with CPUID 543. Testing Only");								
 	
 #if C_FPU
 	secprop->AddInitFunction(&FPU_Init);
@@ -983,7 +1005,7 @@ void DOSBOX_Init(void) {
 	
 	Pfloat = secprop->Add_float("Anisotropic_Level",Property::Changeable::OnlyAtStart,16.0);
 	Pfloat->SetMinMax(2.0,16.0);
-	Pfloat->Set_help(         "================================================================================================\n"
+	Pfloat->Set_help(       "================================================================================================\n"
 	                        "Anisotropic Filtering Levels. Only for Anisotropic Filter Mode (Default is Value 16)");
 														
 	Pbool = secprop->Add_bool("a_ClipLowYHigh",Property::Changeable::Always,false);		
@@ -1001,14 +1023,18 @@ void DOSBOX_Init(void) {
 	Pbool->Set_help(        "================================================================================================\n"
 	                        "This flag is intended to put the GL Into a Software (Default False)");	
 							
+						
+	Pbool = secprop->Add_bool("gl_QuadsDraw_use",Property::Changeable::Always,false);		
+	Pbool->Set_help(        "================================================================================================\n"
+	                        "OpenGL Only. Modify the 2D Texture on Higher Resolution and use GL_QUADS (Default False)");
 							
 	Pbool = secprop->Add_bool("gl_PointSize_use",Property::Changeable::Always,false);		
-	Pbool->Set_help(         "================================================================================================\n"
+	Pbool->Set_help(        "================================================================================================\n"
 	                        "OpenGL Only. Modify the 2D Texture on Higher Resolution. (Default False)");
 							
 	Pfloat = secprop->Add_float("gl_PointSize_num",Property::Changeable::OnlyAtStart,0.0);
 	Pfloat->SetMinMax(0.0,1000.0);
-	Pfloat->Set_help(         "================================================================================================\n"
+	Pfloat->Set_help(       "================================================================================================\n"
 	                        "OpenGL Only. Modify Amount the Pointsize the 2D Texture on Higher Resolution. (Default is Value 0)");
 							
 							
@@ -1604,9 +1630,10 @@ void DOSBOX_Init(void) {
 	Phex->Set_help(        "================================================================================================\n"
 	                        "The base address of the NE2000 board.");	
 
-	Pint = secprop->Add_int("nicirq", Property::Changeable::WhenIdle, 3);
+	Pint = secprop->Add_int("nicirq", Property::Changeable::WhenIdle, 6);
 	Pint->Set_help(        "================================================================================================\n"
-	                        "The interrupt it uses. Note serial2 uses IRQ3 as default.");		
+	                        "The interrupt it uses. Note serial2 uses IRQ3 as default and remember IRQ 10 use IDE on more as\n"
+							"3 Interfaces");		
 
 	Pstring = secprop->Add_string("macaddr", Property::Changeable::WhenIdle,"AC:DE:48:88:99:AA");	
 	Pstring->Set_help(      "================================================================================================\n"

@@ -42,6 +42,8 @@ static Bit16s oldmouseX, oldmouseY;
 // forward
 void WriteMouseIntVector(void);
 
+bool en_int33=false;
+
 struct button_event {
 	Bit8u type;
 	Bit8u buttons;
@@ -1051,6 +1053,15 @@ static Bitu MOUSE_BD_Handler(void) {
 static Bitu INT74_Handler(void) {
 	if (mouse.events>0 && !mouse.in_UIR) {
 		mouse.events--;
+
+		/* INT 33h emulation: HERE within the IRQ 12 handler is the appropriate place to
+		 * redraw the cursor. OSes like Windows 3.1 expect real-mode code to do it in
+		 * response to IRQ 12, not "out of the blue" from the SDL event handler like
+		 * the original DOSBox code did it. Doing this allows the INT 33h emulation
+		 * to draw the cursor while not causing Windows 3.1 to crash or behave
+		 * erratically. */
+		if (en_int33) DrawCursor();
+		
 		/* Check for an active Interrupt Handler that will get called */
 		if (mouse.sub_mask & mouse.event_queue[mouse.events].type) {
 			reg_ax=mouse.event_queue[mouse.events].type;

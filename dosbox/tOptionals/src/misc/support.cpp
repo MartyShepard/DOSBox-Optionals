@@ -183,9 +183,11 @@ void E_Exit(const char * format,...) {
 #endif
 	va_list msg;
 	va_start(msg,format);
-	vsprintf(buf,format,msg);
+	vsnprintf(buf,sizeof(buf),format,msg);
 	va_end(msg);
-	strcat(buf,"\n");
+
+	buf[sizeof(buf) - 1] = '\0';
+	//strcat(buf,"\n"); catcher should handle the end of line.. 
 	LOG_MSG("E_Exit: %s\n",buf);
 #if defined(WIN32) && !defined(C_SDL2)
 	/* Most Windows users DON'T run DOSBox-X from the command line! */

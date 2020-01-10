@@ -38,4 +38,5 @@ timer.h \
 vga.h \
 video.h \
 ne2000.h \
+mmx.h \
 voodoo.h
