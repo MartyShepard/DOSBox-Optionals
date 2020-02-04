@@ -1,9 +1,8 @@
-# DOSBox Optionals
- Alternate DOSBox Fork for Windows with Special Features
+### DOSBox Optionals
+#### Alternate DOSBox Fork for Windows with Special Features
 
-Features Compiled:
-32Bit DynamicX68 FpuCoreX68 OpenGL3 3DFX CGA-Extension PNG Fluidsynth MT32 SSI2001
-M.A.M.E.-Sound Nuked-OPL3 (dr)MP3 Decode (dr)FLAC Decode OGG-Vorbis Ogg-OPUS DirectSerial IPX Mode
+### Features Compiled:
+#### 32Bit DynamicX68 FpuCoreX68 OpenGL3 3DFX CGA-Extension PNG Fluidsynth MT32 SSI2001 M.A.M.E.-Sound Nuked-OPL3 (dr)MP3 Decode (dr)FLAC Decode OGG-Vorbis Ogg-OPUS DirectSerial IPX Mode
 
 Compiled with MingW32 on Windows 7 SP1
 Based on the OpenGL3 FORK 4006 from dugan
@@ -36,4 +35,4 @@ Based on the OpenGL3 FORK 4006 from dugan
 * last version of DOS4GW and DOS4GU for unbound and DOS32A are now on Z: for Games and stability
 * More joysticks with up to 10 buttons (can be used depending on the configuration. DOS / Windows95 / 98 with driver)
 * Due to the last svn version there is now something like "Cloudsaves"
-* Also in the archive. DOSBOx lite and Heavy Debug versions.
+* Also in the archive. DOSBOx lite and Heavy Debug version
