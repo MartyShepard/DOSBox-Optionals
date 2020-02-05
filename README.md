@@ -1,5 +1,5 @@
 ### DOSBox Optionals
-#### Alternate DOSBox Fork for Windows with Special Features
+#### DOSBox Optionals is a MS-DOS, Windows'95 & '98 emulator forked from DOSBox & is targetting Windows OS.
 
 ### Features Compiled:
 #### 32Bit DynamicX68 FpuCoreX68 OpenGL3 3DFX CGA-Extension PNG Fluidsynth MT32 SSI2001 M.A.M.E.-Sound Nuked-OPL3 (dr)MP3 Decode (dr)FLAC Decode OGG-Vorbis Ogg-OPUS DirectSerial IPX Mode
