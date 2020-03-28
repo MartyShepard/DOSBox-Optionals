@@ -81,9 +81,12 @@ public:
 	Bitu GetEnvCount(void);
 	bool SetEnv(const char * entry,const char * new_string);
 	void WriteOut(const char * format,...);				/* Write to standard output */
-	void WriteOut_NoParsing(const char * format);				/* Write to standard output, no parsing */
+	void WriteOut_NoParsing(const char * str);			/* Write to standard output, no parsing */
+	void InjectMissingNewline();						/* Inject newlines before displaying DOS prompt */
 	void ChangeToLongCmd();
 
+	static void ResetLastWrittenChar(char c);			/* Inject newlines before displaying DOS prompt */
+	
 };
 
 typedef void (PROGRAMS_Main)(Program * * make);

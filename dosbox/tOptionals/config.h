@@ -40,7 +40,7 @@
 #define C_DDRAW 1
 
 /* Define to 1 to enable internal debugger, requires libcurses */
-#define C_DEBUG 1
+/* #undef C_DEBUG */
 
 /* Define to 1 if you want serial passthrough support (Win32, Posix and OS/2).
    */
@@ -95,6 +95,10 @@
 
 /* Define to 1 if you have setpriority support */
 /* #undef C_SET_PRIORITY */
+
+/* Define to 1 to enable movie recording, requires zlib built without Z_SOLO
+   */
+#define C_SRECORD 1
 
 /* Define to 1 to enable screenshots, requires libpng */
 #define C_SSHOT 1

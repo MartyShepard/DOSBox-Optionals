@@ -606,13 +606,75 @@ static void KillSwitch(bool pressed) {
 	throw 1;
 }
 
+static void SetPriority(PRIORITY_LEVELS level) {
+
+	#if C_SET_PRIORITY
+	// Do nothing if priorties are not the same and not root, else the highest
+	// priority can not be set as users can only lower priority (not restore it)
+
+		if((sdl.priority.focus != sdl.priority.nofocus ) &&
+			(getuid()!=0) ) return;
+
+	#endif
+		switch (level) {
+	#ifdef WIN32
+		case PRIORITY_LEVEL_PAUSE:	// if DOSBox is paused, assume idle priority
+		case PRIORITY_LEVEL_LOWEST:
+			SetPriorityClass(GetCurrentProcess(),IDLE_PRIORITY_CLASS);
+			strPriority = "Prio: Lowest";
+			break;
+		case PRIORITY_LEVEL_LOWER:
+			SetPriorityClass(GetCurrentProcess(),BELOW_NORMAL_PRIORITY_CLASS);
+			strPriority = "Prio: Low";
+			break;
+		case PRIORITY_LEVEL_NORMAL:
+			SetPriorityClass(GetCurrentProcess(),NORMAL_PRIORITY_CLASS);
+			strPriority = "Prio: Normal";
+			break;
+		case PRIORITY_LEVEL_HIGHER:
+			SetPriorityClass(GetCurrentProcess(),ABOVE_NORMAL_PRIORITY_CLASS);
+			strPriority = "Prio: High";
+			break;
+		case PRIORITY_LEVEL_HIGHEST:
+			SetPriorityClass(GetCurrentProcess(),HIGH_PRIORITY_CLASS);
+			strPriority = "Prio: Highest";
+			break;
+		case PRIORITY_LEVEL_REALTIME:
+			SetPriorityClass(GetCurrentProcess(),REALTIME_PRIORITY_CLASS);
+			strPriority = "Prio: Realtime";
+			break;		
+	#elif C_SET_PRIORITY
+	/* Linux use group as dosbox has mulitple threads under linux */
+		case PRIORITY_LEVEL_PAUSE:	// if DOSBox is paused, assume idle priority
+		case PRIORITY_LEVEL_LOWEST:
+			setpriority (PRIO_PGRP, 0,PRIO_MAX);
+			break;
+		case PRIORITY_LEVEL_LOWER:
+			setpriority (PRIO_PGRP, 0,PRIO_MAX-(PRIO_TOTAL/3));
+			break;
+		case PRIORITY_LEVEL_NORMAL:
+			setpriority (PRIO_PGRP, 0,PRIO_MAX-(PRIO_TOTAL/2));
+			break;
+		case PRIORITY_LEVEL_HIGHER:
+			setpriority (PRIO_PGRP, 0,PRIO_MAX-((3*PRIO_TOTAL)/5) );
+			break;
+		case PRIORITY_LEVEL_HIGHEST:
+			setpriority (PRIO_PGRP, 0,PRIO_MAX-((3*PRIO_TOTAL)/4) );
+			break;
+	#endif
+		default:
+			break;
+		}
+		GFX_SetTitle(-1,-1,false);
+}
+
 static void PauseDOSBox(bool pressed) {
 	if (!pressed)
 		return;
 	GFX_SetTitle(-1,-1,true);
 	bool paused = true;
 	KEYBOARD_ClrBuffer();
-	SDL_Delay(500);
+	SDL_Delay(12);
 	SDL_Event event;
 	while (SDL_PollEvent(&event)) {
 		// flush event queue.
@@ -627,8 +689,8 @@ static void PauseDOSBox(bool pressed) {
 			case SDL_WINDOWEVENT:
 				if (event.window.event == SDL_WINDOWEVENT_RESTORED) {
 					// We may need to re-create a texture and more
-					GFX_ResetScreen();
-					LOG_MSG("SDL : GFX_ResetScreen 1");								
+					GFX_ResetVoodoo();
+					LOG(LOG_MISC,LOG_WARN)("SDL : Update Screen \n(File %s:, Line: %d)\n\n",__FILE__,__LINE__);							
 				}
 				break;
 			case SDL_KEYDOWN:   // Must use Pause/Break Key to resume.
@@ -637,6 +699,8 @@ static void PauseDOSBox(bool pressed) {
 
 				paused = false;
 				GFX_SetTitle(-1,-1,false);
+				SetPriority(sdl.priority.focus);
+				CPU_Disable_SkipAutoAdjust();				
 				break;
 			}
 #if defined (MACOSX)
@@ -719,6 +783,14 @@ void GFX_ResetScreen(void) {
 	GFX_SetTitle(-1,-1,false);	
 }
 
+void GFX_ResetVoodooDisplayMove(void){
+	if ( bVoodooOpen == true){	
+		voodoo_leave();								
+		voodoo_activate();		
+	}
+	
+}
+
 void GFX_ResetVoodoo(void){
 	if ( bVoodooOpen == true){	
 		voodoo_leave();		
@@ -732,11 +804,11 @@ void GFX_ResetVoodoo(void){
 void GFX_ForceFullscreenExit(void) {
 	if (sdl.desktop.lazy_fullscreen) {
 //		sdl.desktop.lazy_fullscreen_req=true;
-		LOG_MSG("SDL : GFX LF, invalid screen change");
+		LOG_MSG("SDL : Invalid Screen  Change \n(File %s:, Line: %d)\n\n",__FILE__,__LINE__);
 	} else {
 		sdl.desktop.fullscreen=false;
 		GFX_ResetScreen();
-		LOG_MSG("SDL : GFX_ResetScreen 2");
+		LOG(LOG_MISC,LOG_WARN)("SDL : Update Screen \n(File %s:, Line: %d)\n\n",__FILE__,__LINE__);
 		
 	}
 
@@ -984,6 +1056,8 @@ void Center_SDL_SetWindowMode(int pciW, int pciH){
 	
 }
 
+
+
 static SDL_Window * GFX_SetSDLWindowMode(Bit16u width, Bit16u height, bool fullscreen, SCREEN_TYPES screenType) {
 	static SCREEN_TYPES lastType = SCREEN_SURFACE;
 	
@@ -1062,13 +1136,15 @@ static SDL_Window * GFX_SetSDLWindowMode(Bit16u width, Bit16u height, bool fulls
 		                 width, height,
 		                 (fullscreen ? (sdl.desktop.full.display_res ? SDL_WINDOW_FULLSCREEN_DESKTOP : SDL_WINDOW_FULLSCREEN) : 0)
 		                 |SDL_RENDERER_ACCELERATED| ((screenType == SCREEN_OPENGL) ? SDL_WINDOW_OPENGL : 0) | SDL_WINDOW_SHOWN| (sdl.desktop.borderless ? SDL_WINDOW_BORDERLESS : 0));		
-
+					 
+		//SDL_RaiseWindow(sdl.window);				 
 		//int nCurrentDisplay = SDL_GetNumVideoDisplays()-1;		
 
 		
 		//LOG_MSG("WIndows:::::: %d,", sdl.displayNumber);
 		
 		nCurrentDisplay = sdl.displayNumber;
+				
 		if (sdl.window){								
 			GFX_SetTitle(-1,-1,false); //refresh title.
 			
@@ -1330,6 +1406,8 @@ Bitu GFX_SetSize(Bitu width,Bitu height,Bitu flags,double scalex,double scaley,G
 
 	/* Try to set the Current Desktop Index on Multi Monitor Systems*/
 
+	//sdl.displayNumber = SDL_GetWindowDisplayIndex(sdl.window);
+	//nCurrentDisplay   = sdl.displayNumber;
 	
 	Section_prop *section = static_cast<Section_prop *>(control->GetSection("render"));	
 	bool rDebug = section->Get_bool("debug");
@@ -1768,6 +1846,7 @@ void GFX_GetCaptureMouse(void){}
 
 void GFX_CaptureMouse(void) {
 	sdl.mouse.locked=!sdl.mouse.locked;
+	
 	if (sdl.mouse.locked) {
 		SDL_SetRelativeMouseMode(SDL_TRUE);
 		/* Code not Finished: DisableKeys.Block();*/
@@ -1783,8 +1862,9 @@ void GFX_CaptureMouse(void) {
 		}		
 		if (sdl.mouse.autoenable || !sdl.mouse.autolock) SDL_ShowCursor(SDL_ENABLE);
 	}
-    mouselocked=sdl.mouse.locked;
+    mouselocked=sdl.mouse.locked;		
 	GFX_SetTitle(-1,-1,false);	
+	
 	//LOG_MSG("SDL GFX_CaptureMouse Mouse %d",mouselocked?true:false);	
 }
 
@@ -1795,8 +1875,10 @@ void GFX_CaptureMouse_Mousecap_on(void) {
 			SDL_SetWindowGrab(sdl.window, SDL_TRUE);
 		//}
 	mouselocked=true;
-	sdl.mouse.locked=mouselocked;	
-	GFX_SetTitle(-1,-1,false);		
+	sdl.mouse.locked=mouselocked;		
+	GFX_SetTitle(-1,-1,false);	
+	
+	
 	//LOG_MSG("SDL GFX_CaptureMouse_Mousecap_on Mouse %d",mouselocked?true:false);	
 }
 
@@ -1869,7 +1951,9 @@ void GFX_SwitchFullScreen(void) {
 	}
 	
 		GFX_ResetVoodoo();
-		LOG_MSG("SDL : GFX_ResetScreen 3");	
+		LOG(LOG_MISC,LOG_WARN)("SDL : Update Screen \n(File %s:, Line: %d)\n\n",__FILE__,__LINE__);
+		
+		
 }
 
 static void SwitchFullScreen(bool pressed) {
@@ -1879,11 +1963,11 @@ static void SwitchFullScreen(bool pressed) {
 	 
 	if (sdl.desktop.lazy_fullscreen) {
 		sdl.desktop.lazy_fullscreen_req=true;
-		LOG_MSG("SDL : GFX LF, fullscreen switching not supported");
+		LOG(LOG_MISC,LOG_WARN)("SDL : GFX LF, fullscreen switching not supported \n(File %s:, Line: %d)\n\n",__FILE__,__LINE__);
 	} else {	
 	
 	
-		LOG_MSG("SDL : Screen Switch (Is Voodoo Activ %d)",bVoodooOpen?true:false);	
+		LOG(LOG_MISC,LOG_WARN)("SDL : Screen Switch (Is Voodoo Activ %d)",bVoodooOpen?true:false);	
 				
 		GFX_SwitchFullScreen();
 					
@@ -2106,67 +2190,7 @@ static void GUI_ShutDown(Section * /*sec*/) {
 }
 
 
-static void SetPriority(PRIORITY_LEVELS level) {
 
-	#if C_SET_PRIORITY
-	// Do nothing if priorties are not the same and not root, else the highest
-	// priority can not be set as users can only lower priority (not restore it)
-
-		if((sdl.priority.focus != sdl.priority.nofocus ) &&
-			(getuid()!=0) ) return;
-
-	#endif
-		switch (level) {
-	#ifdef WIN32
-		case PRIORITY_LEVEL_PAUSE:	// if DOSBox is paused, assume idle priority
-		case PRIORITY_LEVEL_LOWEST:
-			SetPriorityClass(GetCurrentProcess(),IDLE_PRIORITY_CLASS);
-			strPriority = "Prio: Lowest";
-			break;
-		case PRIORITY_LEVEL_LOWER:
-			SetPriorityClass(GetCurrentProcess(),BELOW_NORMAL_PRIORITY_CLASS);
-			strPriority = "Prio: Low";
-			break;
-		case PRIORITY_LEVEL_NORMAL:
-			SetPriorityClass(GetCurrentProcess(),NORMAL_PRIORITY_CLASS);
-			strPriority = "Prio: Normal";
-			break;
-		case PRIORITY_LEVEL_HIGHER:
-			SetPriorityClass(GetCurrentProcess(),ABOVE_NORMAL_PRIORITY_CLASS);
-			strPriority = "Prio: High";
-			break;
-		case PRIORITY_LEVEL_HIGHEST:
-			SetPriorityClass(GetCurrentProcess(),HIGH_PRIORITY_CLASS);
-			strPriority = "Prio: Highest";
-			break;
-		case PRIORITY_LEVEL_REALTIME:
-			SetPriorityClass(GetCurrentProcess(),REALTIME_PRIORITY_CLASS);
-			strPriority = "Prio: Realtime";
-			break;		
-	#elif C_SET_PRIORITY
-	/* Linux use group as dosbox has mulitple threads under linux */
-		case PRIORITY_LEVEL_PAUSE:	// if DOSBox is paused, assume idle priority
-		case PRIORITY_LEVEL_LOWEST:
-			setpriority (PRIO_PGRP, 0,PRIO_MAX);
-			break;
-		case PRIORITY_LEVEL_LOWER:
-			setpriority (PRIO_PGRP, 0,PRIO_MAX-(PRIO_TOTAL/3));
-			break;
-		case PRIORITY_LEVEL_NORMAL:
-			setpriority (PRIO_PGRP, 0,PRIO_MAX-(PRIO_TOTAL/2));
-			break;
-		case PRIORITY_LEVEL_HIGHER:
-			setpriority (PRIO_PGRP, 0,PRIO_MAX-((3*PRIO_TOTAL)/5) );
-			break;
-		case PRIORITY_LEVEL_HIGHEST:
-			setpriority (PRIO_PGRP, 0,PRIO_MAX-((3*PRIO_TOTAL)/4) );
-			break;
-	#endif
-		default:
-			break;
-		}
-		GFX_SetTitle(-1,-1,false);
-}
 
 extern Bit8u int10_font_14[256 * 14];
 static void OutputString(Bitu x,Bitu y,const char * text,Bit32u color,Bit32u color2,SDL_Surface * output_surface) {
@@ -2272,25 +2296,25 @@ static void GUI_StartUp(Section * sec) {
 		fullresolution = lowcase (res);//so x and X are allowed
 		if (strcmp(fullresolution,"original")) {
 			sdl.desktop.full.fixed = true;
-			if (strcmp(fullresolution,"desktop")) { //desktop = 0x0
+			//if (strcmp(fullresolution,"desktop")) { //desktop = 0x0
 				char* height = const_cast<char*>(strchr(fullresolution,'x'));
 				if (height && * height) {
 					*height = 0;
 					sdl.desktop.full.height = (Bit16u)atoi(height+1);
 					sdl.desktop.full.width  = (Bit16u)atoi(res);					
 				}
-			}else{
+			/*}else{
 				SDL_DisplayMode displayMode;
 				SDL_GetDesktopDisplayMode(nCurrentDisplay, &displayMode);				
 				sdl.desktop.full.height = displayMode.h;
 				sdl.desktop.full.width  = displayMode.w;					
-			}
+			}*/
 		}
 		// On SDL_WINDOW_FULLSCREEN_DESKTOP Force to 0x0
-		//if ( sdl.desktop.screenflag == SDL_WINDOW_FULLSCREEN_DESKTOP ){
-		//	 sdl.desktop.full.height = 0;
-		//	 sdl.desktop.full.width  = 0;
-		//}		
+		if ( sdl.desktop.screenflag == SDL_WINDOW_FULLSCREEN_DESKTOP ){
+			 sdl.desktop.full.height = 0;
+			 sdl.desktop.full.width  = 0;
+		}		
 	}
 	
 	sdl.desktop.window.width  = 0;
@@ -2420,6 +2444,7 @@ static void GUI_StartUp(Section * sec) {
 				SDL_MinimizeWindow(sdl.window);
 			}
 		}
+		
 		
 		//SDL_SetWindowPosition(sdl.window,640, 0);			
 		sdl.opengl.program_object=0;
@@ -2577,7 +2602,7 @@ static void GUI_StartUp(Section * sec) {
 				SDL_UpdateWindowSurface(sdl.window);
 				
 			}	
-			SDL_FreeSurface(splash_surf);
+			SDL_FreeSurface(splash_surf);		
 			delete [] tmpbufp;
 		}
 	}
@@ -2592,7 +2617,9 @@ static void GUI_StartUp(Section * sec) {
 				 SDL_SetWindowBordered(sdl.window,SDL_TRUE);
 			}
 			SDL_RestoreWindow(sdl.window);
-		}		
+		}
+
+			
 	} /* OPENGL is requested end */	
 			
 #endif	//OPENGL
@@ -2718,7 +2745,7 @@ void GFX_HandleVideoResize(int width, int height) {
 		/* Note: We should not use GFX_ObtainDisplayDimensions
 		(SDL_GetDisplayBounds) on Android after a screen rotation:
 		The older values from application startup are returned. */
-		sdl.desktop.full.width = width;
+		sdl.desktop.full.width  = width;
 		sdl.desktop.full.height = height;
 	}
 	/* Even if the new window's dimensions are actually the desired ones
@@ -2732,10 +2759,12 @@ void GFX_HandleVideoResize(int width, int height) {
 	 * in SDL_SetSDLWindowSurface by setting sdl.update_display_contents
 	 * to false.
 	 */
-	sdl.update_window = false;	
-		GFX_ResetVoodoo();
-		LOG_MSG("SDL : GFX_ResetScreen 4");				
+	sdl.update_window = false;		
+	
+	GFX_ResetVoodoo();
+	LOG(LOG_MISC,LOG_WARN)("SDL : Update Screen \n(File %s:, Line: %d)\n\n",__FILE__,__LINE__);			
 	sdl.update_window = true;
+	
 }
 
 bool GFX_IsFullscreen(void) {
@@ -2807,13 +2836,15 @@ void GFX_Events() {
 		switch (event.type) {		
 			case SDL_WINDOWEVENT:
 			{
+				
 				switch (event.window.event) {
 					
 					case SDL_WINDOWEVENT_MOVED:
-						if (!sdl.desktop.fullscreen) {
-							LOG_MSG("SDL : Display Use  : %d",SDL_GetWindowDisplayIndex(sdl.window));
+						{
+							LOG_MSG("SDL : Use now Display Index %d",SDL_GetWindowDisplayIndex(sdl.window));
 							sdl.displayNumber = SDL_GetWindowDisplayIndex(sdl.window);
-							nCurrentDisplay   = sdl.displayNumber;							
+							nCurrentDisplay   = sdl.displayNumber;		
+							GFX_ResetVoodooDisplayMove();						
 							continue;
 						}
 					case SDL_WINDOWEVENT_RESTORED:
@@ -2821,14 +2852,15 @@ void GFX_Events() {
 						/* We may need to re-create a texture
 						 * and more on Android. Another case:
 						 * Update surface while using X11.
-						 */
+						 */		
+				 
 						GFX_ResetVoodoo();
-						LOG_MSG("SDL : GFX_ResetScreen 5");
+						LOG(LOG_MISC,LOG_WARN)("SDL : Update Screen \n(File %s:, Line: %d)\n\n",__FILE__,__LINE__);
 						
 						continue;
 					}	
 					case SDL_WINDOWEVENT_RESIZED:
-					{
+					{						
 						GFX_HandleVideoResize(event.window.data1, event.window.data2);
 						continue;
 					}	
@@ -2849,7 +2881,7 @@ void GFX_Events() {
 						
 					}	
 					case SDL_WINDOWEVENT_FOCUS_LOST:
-					{
+					{						
 						if (sdl.mouse.locked) {
 	#ifdef WIN32
 							if (sdl.desktop.fullscreen) {							
@@ -2871,6 +2903,7 @@ void GFX_Events() {
 				/* Non-focus priority is set to pause; check to see if we've lost window or input focus
 				 * i.e. has the window been minimised or made inactive?
 				 */
+				
 				if (sdl.priority.nofocus == PRIORITY_LEVEL_PAUSE) {
 					
 					if ((event.window.event == SDL_WINDOWEVENT_FOCUS_LOST) ||
@@ -2886,7 +2919,7 @@ void GFX_Events() {
 
 							GFX_SetTitle(-1,-1,true);
 							KEYBOARD_ClrBuffer();														
-							SDL_Delay(500);
+							SDL_Delay(12);
 							while (SDL_PollEvent(&ev)) {
 								// flush event queue.
 							}
@@ -2916,7 +2949,9 @@ void GFX_Events() {
 												(ev.window.event == SDL_WINDOWEVENT_RESTORED)     ||
 												(ev.window.event == SDL_WINDOWEVENT_EXPOSED)){
 												paused = false;
-												GFX_SetTitle(-1,-1,false);	
+												GFX_SetTitle(-1,-1,false);
+												SetPriority(sdl.priority.focus);
+												CPU_Disable_SkipAutoAdjust();													
 												//blocker.block();													
 											}
 
@@ -2929,8 +2964,9 @@ void GFX_Events() {
 											if (ev.window.event == SDL_WINDOWEVENT_RESTORED) {
 												
 												// We may need to re-create a texture and more
-												GFX_ResetScreen();
-												LOG_MSG("SDL : GFX_ResetScreen 6");
+												GFX_ResetVoodoo();
+												LOG(LOG_MISC,LOG_WARN)("SDL : Update Screen \n(File %s:, Line: %d)\n\n",__FILE__,__LINE__);											
+												LOG(LOG_MISC,LOG_WARN)("SDL : Update Screen \n(File %s:, Line: %d)\n\n",__FILE__,__LINE__);												
 											}
 									}
 									break;
@@ -2940,6 +2976,7 @@ void GFX_Events() {
 					}
 				}
 				break;
+			
 			}
 			case SDL_MOUSEMOTION:
 				HandleMouseMotion(&event.motion);
@@ -3185,7 +3222,11 @@ void Config_Add_SDL() {
 		"opengl", "openglnb",
 #endif
 		0 };
+#if C_OPENGL && defined(MACOSX)
+	Pstring = sdl_sec->Add_string("output",Property::Changeable::Always,"opengl");
+#else		
 	Pstring = sdl_sec->Add_string("output",Property::Changeable::Always,"texturenb");
+#endif
 	Pstring->Set_help("================================================================================================\n"
 	                  "What video system to use for output.\n"
 					  "Info DOSBox SDL1  -  DOSBox SDL2\n"

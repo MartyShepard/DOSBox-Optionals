@@ -589,7 +589,7 @@ int pciW=0;
 int pciH=0;	
 int pciFSH = 0;
 int pciFSW = 0;
-void vGet_Configuration(void){
+void vGet_Configuration(void){	
 	
 	Section_prop *section = static_cast<Section_prop *>(control->GetSection("pci"));
 	Section_prop *sectsdl = static_cast<Section_prop *>(control->GetSection("sdl"));	
@@ -682,7 +682,7 @@ void vGet_Configuration(void){
 				}
 		}
 	}
-	LOG_MSG("Voodoo Emu: DisplayNummer %d", displaynumber);
+	LOG(LOG_VOODOO,LOG_WARN)("Voodoo Emu: Display Index %d", displaynumber);
 }
 	
 void init_fbi(voodoo_state *v, fbi_state *f, int fbmem)
@@ -1467,8 +1467,11 @@ void register_w(UINT32 offset, UINT32 data) {
 	/* first make sure this register is readable */
 	if (!(v->regaccess[regnum] & REGISTER_WRITE))
 	{
-		if (regnum <= 0xe0) LOG(LOG_VOODOO,LOG_WARN)("VOODOO.ERROR:Invalid attempt to write %s\n", v->regnames[regnum]);
-		else LOG(LOG_VOODOO,LOG_WARN)("VOODOO.ERROR:Invalid attempt to write #%x\n", regnum);
+		if (regnum <= 0xe0) {
+			LOG(LOG_VOODOO,LOG_WARN)("VOODOO.ERROR:Invalid attempt to write %s\n", v->regnames[regnum]);
+		} else {
+			LOG(LOG_VOODOO,LOG_WARN)("VOODOO.ERROR:Invalid attempt to write #%x\n", regnum);
+		}
 		return;
 	}
 
@@ -1845,13 +1848,17 @@ void register_w(UINT32 offset, UINT32 data) {
 					hbp = (v->reg[backPorch].u & 0xff) + 2;
 					vbp = (v->reg[backPorch].u >> 16) & 0xff;
 
+					
 					LOG_MSG("Voodoo: Screen Mode Note: ==============");						
 					LOG_MSG("Voodoo: Vertical   Visible:  (%d, 0x%x)",vvis,vvis);						
 					LOG_MSG("Voodoo: Horizontal Visible:  (%d, 0x%x)",hvis,hvis);					
 					LOG_MSG("Voodoo: Vertical   Total  :  (%d, 0x%x)",vtotal,vtotal);						
 					LOG_MSG("Voodoo: Horizontal Total  :  (%d, 0x%x)",htotal,htotal);										
 					LOG_MSG("Voodoo: Horizontal BP     :  (%d, 0x%x)",hbp,hbp);		
-					LOG_MSG("Voodoo: Vertical   BP     :  (%d, 0x%x)\n\n",vbp,vbp);						
+					LOG_MSG("Voodoo: Vertical   BP     :  (%d, 0x%x)\n\n",vbp,vbp);		
+					
+					
+					
 					
 //					attoseconds_t refresh = video_screen_get_frame_period(v->screen).attoseconds;
 					attoseconds_t refresh = 0;
@@ -4194,6 +4201,7 @@ static raster_info *find_rasterizer(voodoo_state *v, int texcount)
 
 static void raster_fastfill(void *destbase, INT32 y, const poly_extent *extent, const void *extradata)
 {
+	
 	const poly_extra_data *extra = (const poly_extra_data *)extradata;
 	voodoo_state *v = extra->state;
 	stats_block *stats = &v->thread_stats[0];
@@ -4252,7 +4260,7 @@ void voodoo_vblank_flush(void) {
 
 void voodoo_set_window(void) {
 	
-	if (v->ogl && v->active) {
+	if (v->ogl && v->active) {					
 		voodoo_ogl_set_window(v);
 	}
 }
@@ -4263,14 +4271,14 @@ void voodoo_leave(void) {
 		voodoo_ogl_leave(true);
 #endif
 	}
-	v->active = false;
+	v->active = false;	
 }
 
 void voodoo_activate(void) {
 	v->active = true;				
 	if (v->ogl) {		
 		if (voodoo_ogl_init(v)) {
-			bVoodooOpen = true;
+			bVoodooOpen = true;	
 			LOG_MSG("VOODOO: Acceleration Init");			
 			voodoo_ogl_clear();
 			
@@ -4280,7 +4288,7 @@ void voodoo_activate(void) {
 			bVoodooOpen = false;
 			LOG_MSG("VOODOO: Acceleration Disabled");
 		}
-	}
+	}	
 }
 
 void voodoo_update_dimensions(void) {

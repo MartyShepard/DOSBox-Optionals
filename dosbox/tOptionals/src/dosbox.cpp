@@ -570,6 +570,11 @@ void DOSBOX_Init(void) {
 						 "this if your Game or Scene Demo Crashed with this Mode. Example? This fixed: (Default false)\n"
 						 "- Scene Demo: Habitual Demo");
 
+	Pbool = secprop->Add_bool("S3Screen_Fix_640x480x15",Property::Changeable::Always,false);
+	Pbool->Set_help(     "================================================================================================\n"
+	                     "This Patch and Change the Resolution Stretch at ndex 0x110. Example? This fixed: (Default false)\n"
+						 "- Game: Alien Trilogy [DOS, 16Bit Screenmode]");	
+						 
 	Pbool = secprop->Add_bool("S3Screen_Fix_640x480x16",Property::Changeable::Always,false);
 	Pbool->Set_help(     "================================================================================================\n"
 	                     "This Patch and Change the Resolution at index 0x211. From 640x480x16 bit to 320x480x8 Bit. Use\n"
@@ -711,7 +716,9 @@ void DOSBOX_Init(void) {
 							"                  (Example: fixed 4000).\n"
 							"  'max'           will allocate as much cycles as your computer is able to handle. The next\n"
 							"                  values based on The Speed Test Program, v1.14. Note: These values give an\n"
-							"                  approximate. guide value to CPU_CycleMax aka Max Cyles\n"
+							"                  approximate guide value to CPU_CycleMax aka Max Cyles\n"
+							"  'max 200%'      Max Cycles can be overpowered or slowed downed. The Default Max Cycles is 100%\n"
+							"                  Max Cycles Values: 0 to 500%."
 							"  'i8088_477'     CPU 8088    with a speed from 4,77mhz\n"
 							"  'i8088_716'     CPU 8088    with a speed from 7,16mhz\n"
 							"  'i8088_954'     CPU 8088    with a speed from 9,54mhz\n"

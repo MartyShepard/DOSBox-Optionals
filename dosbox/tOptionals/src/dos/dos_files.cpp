@@ -167,15 +167,38 @@ bool DOS_MakeName(char const * const name,char * const fullname,Bit8u * drive) {
 				if ((c>='A') && (c<='Z')) continue;
 				if ((c>='0') && (c<='9')) continue;
 				switch (c) {
-				case '$':	case '#':	case '@':	case '(':	case ')':
-				case '!':	case '%':	case '{':	case '}':	case '`':	case '~':
-				case '_':	case '-':	case '.':	case '*':	case '?':	case '&':
-				case '\'':	case '+':	case '^':	case 246:	case 255:	case 0xa0:
-				case 0xe5:	case 0xbd:	case 0x9d:
+					case '$':
+					case '#':
+					case '@':
+					case '(':
+					case ')':
+					case '!':
+					case '%':
+					case '{':
+					case '}':
+					case '`':
+					case '~':
+					case '_':
+					case '-':
+					case '.':
+					case '*':
+					case '?':
+					case '&':
+					case '\'':
+					case '+':
+					case '^':
+					case 246:
+					case 255:
+					case 0xa0:
+					case 0xe5:
+					case 0xbd:
+					case 0x9d:
 					break;
 				default:
-					LOG(LOG_FILES,LOG_NORMAL)("Makename encountered an illegal char %c hex:%X in %s!",c,c,name);
-					DOS_SetError(DOSERR_PATH_NOT_FOUND);return false;
+					LOG(LOG_FILES,LOG_NORMAL)("Makename encountered an illegal char %c hex:%X in %s!",c,c,name);					
+					//LOG_MSG("Makename encountered an illegal char %c hex:%X in %s!",c,c,name);	
+					DOS_SetError(DOSERR_PATH_NOT_FOUND);
+					return false;
 					break;
 				}
 			}

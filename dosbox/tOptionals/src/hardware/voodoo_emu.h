@@ -40,6 +40,7 @@ extern void voodoo_leave(void);
 extern void voodoo_activate(void);
 void voodoo_update_dimensions(void);
 void voodoo_set_window(void);
+void voodoo_set_fullscreen(void);
 
 void voodoo_vblank_flush(void);
 void voodoo_swap_buffers(voodoo_state *v);

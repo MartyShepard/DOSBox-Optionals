@@ -350,7 +350,7 @@ public:
 	virtual void Activate(void);
 private:
 	int  readDirEntry(isoDirEntry *de, Bit8u *data);
-	bool loadImage();
+	bool loadImage(const char* filename);
 	bool lookupSingle(isoDirEntry *de, const char *name, Bit32u sectorStart, Bit32u length);
 	bool lookup(isoDirEntry *de, const char *path);
 	int  UpdateMscdex(char driveLetter, const char* physicalPath, Bit8u& subUnit);

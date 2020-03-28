@@ -271,7 +271,6 @@ int CMscdex::AddDrive(Bit16u _drive, char* physicalPath, Bit8u& subUnit)
 		return 3;
 	}
 
-
 	if (rootDriverHeaderSeg==0) {
 		
 		Bit16u driverSize = sizeof(DOS_DeviceHeader::sDeviceHeader) + 10; // 10 = Bytes for 3 callbacks
@@ -326,6 +325,7 @@ int CMscdex::AddDrive(Bit16u _drive, char* physicalPath, Bit8u& subUnit)
 		devHeader.SetInterrupt(off+5);
 	}
 
+
 	// Set drive
 	DOS_DeviceHeader devHeader(PhysMake(rootDriverHeaderSeg,0));
 	devHeader.SetNumSubUnits(devHeader.GetNumSubUnits()+1);
@@ -348,6 +348,7 @@ int CMscdex::AddDrive(Bit16u _drive, char* physicalPath, Bit8u& subUnit)
 		dinfo[numDrives].physDrive	= (Bit8u)toupper(physicalPath[0]);
 		subUnit = (Bit8u)numDrives;
 	}
+			
 	numDrives++;
 	// init channel control
 	for (Bit8u chan=0;chan<4;chan++) {
@@ -952,7 +953,7 @@ static Bit16u MSCDEX_IOCTL_Input(PhysPt buffer,Bit8u drive_unit) {
 					TMSF abs,rel;
 					mscdex->GetSubChannelData(drive_unit,attr,track,index,rel,abs);
 					mem_writeb(buffer+1,attr);
-					mem_writeb(buffer+2,track);
+					mem_writeb(buffer+2,((track/10)<<4)|(track%10)); // track in BCD
 					mem_writeb(buffer+3,index);
 					mem_writeb(buffer+4,rel.min);
 					mem_writeb(buffer+5,rel.sec);
@@ -1257,6 +1258,7 @@ bool device_MSCDEX::WriteToControlChannel(PhysPt bufptr,Bit16u size,Bit16u * ret
 
 int MSCDEX_AddDrive(char driveLetter, const char* physicalPath, Bit8u& subUnit)
 {
+
 	int result = mscdex->AddDrive(driveLetter-'A',(char*)physicalPath,subUnit);
 	return result;
 }

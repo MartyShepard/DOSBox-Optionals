@@ -21,15 +21,27 @@
 
 //#include "render.h"
 #include "video.h"
+
+#define SCALER_MAX_MUL_WIDTH  3
+#define SCALER_MAX_MUL_HEIGHT 3
+
 #if RENDER_USE_ADVANCED_SCALERS>0
 /* Custom S3 VGA /////////////////////////////////////////////////////////////////////////////////////////////*/
 #define SCALER_MAXWIDTH		1600
 #define SCALER_MAXHEIGHT	1200
+#define SCALER_MAXX     	4096
 /* Custom S3 VGA /////////////////////////////////////////////////////////////////////////////////////////////*/
 #else
 // reduced to save some memory
 #define SCALER_MAXWIDTH		800 
 #define SCALER_MAXHEIGHT	600
+#define SCALER_MAXX     	2048
+#endif
+
+#if (SCALER_MAX_MUL_WIDTH * SCALER_MAXWIDTH) > SCALER_MAXX
+#define SCALER_MAXLINE_WIDTH SCALER_MAXX
+#else 
+#define SCALER_MAXLINE_WIDTH (SCALER_MAX_MUL_WIDTH * SCALER_MAXWIDTH)
 #endif
 
 #if RENDER_USE_ADVANCED_SCALERS>1

@@ -194,6 +194,19 @@ foundit:
 				}
 			}
 			
+			if ( int10.bModePatch0x110 )
+			{
+					
+				if ( ( ModeList_VGA[i].mode==0x110 ) && ( ModeList_VGA[i].type==M_LIN15 ) )
+				{	
+					mblock=&ModeTableA_S3_Fixes[4];	
+					#if defined(C_DEBUG)
+						LOG_MSG("VGA: Using S3 Screen Fix 640x480x15 --- (File %s, Line %d)",__FILE__,__LINE__);
+					#endif
+					/* Fix für die Habitual Demo. 400x300*8 zu 320x200*8, Siehe Int10_Modes.cpp */
+				}
+			}			
+			
 			
 					
 			if ( int10.bVesaPatch32bit  || (int10.vesa_no24bpp) ){
@@ -792,11 +805,13 @@ void INT10_SetupVESA(void) {
 	int10.bModePatch0x153 = section->Get_bool("S3Screen_Fix_320x240x8");	
 	int10.bModePatch0x166 = section->Get_bool("S3Screen_Fix_400x300x8");
 	int10.bModePatch0x211 = section->Get_bool("S3Screen_Fix_640x480x16");
+	int10.bModePatch0x110 = section->Get_bool("S3Screen_Fix_640x480x15");	
 	int10.bVesaPatch32bit = section->Get_bool("VesaVbe1.2_32Bit_Modes");
 	
 	if (int10.bModePatch0x153){	LOG_MSG("VGA: Using S3 Screen Fix 320x240x8  -> 320x200x8\n");	}
 	if (int10.bModePatch0x166){	LOG_MSG("VGA: Using S3 Screen Fix 400x300x8  -> 320x480x8\n");	}	
-	if (int10.bModePatch0x211){	LOG_MSG("VGA: Using S3 Screen Fix 640x480x16 -> 320x480xx16\n");	}		
+	if (int10.bModePatch0x211){	LOG_MSG("VGA: Using S3 Screen Fix 640x480x16 -> 320x480xx16\n");	}	
+	if (int10.bModePatch0x110){	LOG_MSG("VGA: Using S3 Screen Fix 320x480x15 -> 640x480xx16\n");	}
 	if (int10.bVesaPatch32bit){	LOG_MSG("VGA: Using Vesa 1.2 32Bit Color Modes\n");	}	
 	
 	Section_prop *sRender = static_cast<Section_prop *>(control->GetSection("render"));	

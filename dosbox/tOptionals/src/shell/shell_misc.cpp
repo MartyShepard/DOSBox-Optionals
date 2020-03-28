@@ -34,10 +34,13 @@ void DOS_Shell::ShowPrompt(void) {
 	char dir[DOS_PATHLENGTH];
 	dir[0] = 0; //DOS_GetCurrentDir doesn't always return something. (if drive is messed up)
 	DOS_GetCurrentDir(0,dir);
-	//WriteOut("%c:\\%s>",drive,dir);
+	
+	/* WriteOut("%c:\\%s>",drive,dir); */	
+	
+	InjectMissingNewline();			// prevents excessive newline if cmd prints nothing	
 	std::string line;
 	char const *promptstr = "\0";
-
+	
 	if(GetEnvStr("PROMPT",line)) {
 		std::string::size_type idx = line.find('=');
 		std::string value=line.substr(idx +1 , std::string::npos);
@@ -83,6 +86,7 @@ void DOS_Shell::ShowPrompt(void) {
 		}
 		promptstr++;
 	}
+	ResetLastWrittenChar('\n'); 	// prevents excessive newline if cmd prints nothing		
 }	
 
 

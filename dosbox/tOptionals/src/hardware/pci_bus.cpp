@@ -29,7 +29,6 @@
 #include "..\ints\int10.h"
 #include "voodoo.h"						  				  
 
-
 #if defined(PCI_FUNCTIONALITY_ENABLED)
 
 static Bit32u pci_caddress=0;			// current PCI addressing
@@ -49,7 +48,7 @@ static PCI_Device* pci_devices[PCI_MAX_PCIDEVICES];		// registered PCI devices
 
 
 static void write_pci_addr(Bitu port,Bitu val,Bitu iolen) {
-	LOG(LOG_PCI,LOG_NORMAL)("Write PCI address :=%x",val);
+	LOG(LOG_PCI,LOG_NORMAL)("Write PCI address :=%x",val);	
 	pci_caddress=val;
 }
 

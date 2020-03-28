@@ -274,6 +274,7 @@ static INLINE void SB_RaiseIRQ(SB_IRQS type) {
 	}
 }
 
+
 static INLINE void DSP_FlushData(void) {
 	sb.dsp.out.used=0;
 	sb.dsp.out.pos=0;
@@ -296,7 +297,9 @@ static void DSP_DMA_CallBack(DmaChannel * chan, DMAEvent event) {
 			if (!min_size) min_size = 1;
 			min_size *= 2;
 			if (sb.dma.left > min_size) {
-				if (s > (sb.dma.left-min_size)) s = sb.dma.left - min_size;
+				if (s > (sb.dma.left - min_size)) s = sb.dma.left - min_size;
+				//This will trigger a irq, see GenerateDMASound, so lets not do that
+				if (!sb.dma.autoinit && sb.dma.left <= sb.dma.min) s = 0;
 					if (s) GenerateDMASound(s);
 			}
 			sb.mode = MODE_DMA_MASKED;

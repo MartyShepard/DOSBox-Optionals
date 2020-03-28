@@ -156,6 +156,7 @@ typedef struct {
 	bool vesa_oldvbe;
 
 	bool bModePatch0x013;
+	bool bModePatch0x110;	
 	bool bModePatch0x153;
 	bool bModePatch0x166;	
 	bool bModePatch0x211;

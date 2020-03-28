@@ -562,7 +562,7 @@ void SVGA_Setup_S3Trio(void) {
 			 vga.s3.reg_36 = 0xfa;
 		} else {
 			
-			vga.vmemsize = MemoryVgaS3 * 1024 * 1024;
+			vga.vmemsize = ( MemoryVgaS3 * 1024 ) * 1024;
 			switch( MemoryVgaS3 ){
 			
 				case 1:	{vga.s3.reg_36 = 0xda; break;}			
@@ -572,7 +572,7 @@ void SVGA_Setup_S3Trio(void) {
 				case 5:	{vga.s3.reg_36 = 0x0a; break;}
 				case 8:	{vga.s3.reg_36 = 0x7a; break;}
 				default:
-					vga.s3.reg_36 = 0x7e;				
+					vga.s3.reg_36 = 0x7a;				
 			}
 		}	
 		

@@ -24,6 +24,7 @@
 #include "dos_system.h"
 #include "support.h"
 #include "drives.h"
+#include "..\hardware\chd\chd.h"
 
 #define FLAGS1	((iso) ? de.fileFlags : de.timeZone)
 #define FLAGS2	((iso) ? de->fileFlags : de->timeZone)
@@ -156,9 +157,9 @@ isoDrive::isoDrive(char driveLetter, const char *fileName, Bit8u mediaid, int &e
 	
 	safe_strncpy(this->fileName, fileName, CROSS_LEN);
 	error = UpdateMscdex(driveLetter, fileName, subUnit);
-
+	
 	if (!error) {
-		if (loadImage()) {
+		if (loadImage(fileName)) {
 			strcpy(info, "isoDrive ");
 			strcat(info, fileName);
 			this->driveLetter = driveLetter;
@@ -175,7 +176,9 @@ isoDrive::isoDrive(char driveLetter, const char *fileName, Bit8u mediaid, int &e
 			char buffer[32] = { 0 };
 			strcpy(buffer, "Audio_CD");
 			Set_Label(buffer,discLabel,true);
-		} else error = 6; //Corrupt image
+		} else {
+			error = 6; //Corrupt image
+		}
 	}
 }
 
@@ -196,7 +199,7 @@ int isoDrive::UpdateMscdex(char driveLetter, const char* path, Bit8u& subUnit) {
 		MSCDEX_ReplaceDrive(cdrom, subUnit);
 		return 0;
 	} else {
-		return MSCDEX_AddDrive(driveLetter, path, subUnit);
+		return MSCDEX_AddDrive(driveLetter, path, subUnit);		
 	}
 }
 
@@ -471,6 +474,8 @@ inline bool isoDrive :: readSector(Bit8u *buffer, Bit32u sector) {
 	return CDROM_Interface_Image::images[subUnit]->ReadSector(buffer, false, sector);
 }
 
+
+
 int isoDrive :: readDirEntry(isoDirEntry *de, Bit8u *data) {	
 	// copy data into isoDirEntry struct, data[0] = length of DirEntry
 //	if (data[0] > sizeof(isoDirEntry)) return -1;//check disabled as isoDirentry is currently 258 bytes large. So it always fits
@@ -511,13 +516,26 @@ int isoDrive :: readDirEntry(isoDirEntry *de, Bit8u *data) {
 	return de->length;
 }
 
-bool isoDrive :: loadImage() {
+bool isoDrive :: loadImage(const char* fileName) {  
 	Bit8u pvd[COOKED_SECTOR_SIZE];
 	dataCD = false;
-	readSector(pvd, ISO_FIRST_VD);
-	if (pvd[0] == 1 && !strncmp((char*)(&pvd[1]), "CD001", 5) && pvd[6] == 1) iso = true;
-	else if (pvd[8] == 1 && !strncmp((char*)(&pvd[9]), "CDROM", 5) && pvd[14] == 1) iso = false;
-	else return false;
+	chd_file* m_chd = nullptr;
+	chd_error error = chd_open(fileName, CHD_OPEN_READ, NULL, &m_chd);
+	if (error != CHDERR_NONE) {
+		readSector(pvd, ISO_FIRST_VD);
+	}else {
+	}
+	
+	if (pvd[0] == 1 && !strncmp((char*)(&pvd[1]), "CD001", 5) && pvd[6] == 1){
+		iso = true;
+	
+	} else if (pvd[8] == 1 && !strncmp((char*)(&pvd[9]), "CDROM", 5) && pvd[14] == 1){
+		iso = false;
+	
+	} else {
+		return false;
+	}
+	
 	Bit16u offset = iso ? 156 : 180;
 	if (readDirEntry(&this->rootEntry, &pvd[offset])>0) {
 		dataCD = true;

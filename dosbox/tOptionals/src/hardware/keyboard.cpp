@@ -386,13 +386,12 @@ void KEYBOARD_AddKey(KBD_KEYS keytype,bool pressed) {
 		 break;		 
 	// case KBD_audiomute :extend=true;ret=32;break;//0x20
 	// case KBD_volumedown:extend=true;ret=46;break;//0x2e
-	// case KBD_volumeup  :extend=true;ret=48;break;//0x30
-	
+	// case KBD_volumeup  :extend=true;ret=48;break;//0x30	
     default:
         LOG_MSG("Unsupported key press %lu", (unsigned long)keytype);
         return;
     }
-
+			   
 	/* Add the actual key in the keyboard queue */
 	if (pressed) {
 		if (keyb.repeat.key == keytype){
@@ -423,6 +422,7 @@ void KEYBOARD_AddKey(KBD_KEYS keytype,bool pressed) {
 		PC_SpeakerPatch=true;
 	}
 	
+	//LOG_MSG("Key press %lu", (unsigned long)keytype);	
 
 }
 

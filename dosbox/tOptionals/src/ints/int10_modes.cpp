@@ -366,6 +366,7 @@ VideoModeBlock ModeTableA_S3_Fixes[]={
 { 0x166  ,M_LIN8   ,320 ,480 ,40 ,30 ,8 ,16 ,1 ,0xA0000 ,0x10000,100 ,525 ,80 ,480 ,_VGA_PIXEL_DOUBLE },
 { 0x013  ,M_VGA    ,320 ,200 ,40 ,25 ,8 ,8  ,1 ,0xA0000 ,0x2000 ,100 ,449 ,40 ,400 ,0   },  // Not Used
 { 0x211  ,M_LIN16  ,320 ,480 ,80 ,30 ,8 ,16 ,1 ,0xA0000 ,0x10000,100 ,525 ,80 ,480 ,0	},	// <- 3 Skulls of the Toltecs Gold (Windows) 
+{ 0x110  ,M_LIN15  ,640 ,480 ,80 ,25 ,8 ,16 ,1 ,0xA0000 ,0x10000,100 ,525 ,160,480 ,0	},  // Alien Trilogy
 };
 
 VideoModeBlock ModeList_VGA_Text_200lines[]={
@@ -659,7 +660,14 @@ static bool SetCurMode(VideoModeBlock modeblock[],Bit16u mode) {
 					if ( ( ModeList_VGA[i].mode==0x211 ) && ( ModeList_VGA[i].type==M_LIN16 ) ){	
 						modeblock = ModeTableA_S3_Fixes; i = 3;						
 					}									
-				}				
+				}
+
+				if ( int10.bModePatch0x110 ){
+					
+					if ( ( ModeList_VGA[i].mode==0x110 ) && ( ModeList_VGA[i].type==M_LIN15 ) ){	
+						modeblock = ModeTableA_S3_Fixes; i = 4;						
+					}									
+				}
 			
 				if ( ( int10.bVesaPatch32bit ) || (int10.vesa_no24bpp) ){
 					

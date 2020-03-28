@@ -34,6 +34,7 @@
 #include "video.h"
 #include "keyboard.h"
 #include "joystick.h"
+#include "mouse.h"
 #include "support.h"
 #include "mapper.h"
 #include "setup.h"
@@ -2334,6 +2335,21 @@ public:
 	KBD_KEYS key;
 };
 
+class CMouseButtonEvent : public CTriggeredEvent {
+public:
+	CMouseButtonEvent(char const * const _entry,Bit8u _button) : CTriggeredEvent(_entry) {
+		button=_button;
+	}
+	void Active(bool yesno) {
+		if (yesno)
+			Mouse_ButtonPressed(button);
+		else
+			Mouse_ButtonReleased(button);
+	}
+	Bit8u button;
+};
+
+
 class CJAxisEvent : public CContinuousEvent {
 public:
 	CJAxisEvent(char const * const _entry,Bitu _stick,Bitu _axis,bool _positive,CJAxisEvent * _opposite_axis) : CContinuousEvent(_entry) {
@@ -2566,6 +2582,16 @@ static void DrawButtons(void) {
 	SDL_UpdateWindowSurface(mapper.window);
 }
 
+static CMouseButtonEvent * AddMouseButtonEvent(Bitu x,Bitu y,Bitu dx,Bitu dy,char const * const title,char const * const entry,Bit8u button) {
+	char buf[64];
+	strcpy(buf,"mouse_");
+	strcat(buf,entry);
+	CMouseButtonEvent * event=new CMouseButtonEvent(buf,button);
+	new CEventButton(x,y,dx,dy,title,event);
+	return event;
+}
+
+
 static CKeyEvent * AddKeyButtonEvent(Bitu x,Bitu y,Bitu dx,Bitu dy,char const * const title,char const * const entry,KBD_KEYS key) {
 	char buf[64];
 	strcpy(buf,"key_");
@@ -2748,6 +2774,16 @@ static void CreateLayout(void) {
 	AddKeyButtonEvent(PX(XO),PY(YO),BW+96,BH,"Media Vol. Mute","audiomute",KBD_audiomute);
 	AddKeyButtonEvent(PX(XO),PY(YO+1),BW+96,BH,"Media Volume -","volumedown",KBD_volumedown);
 	AddKeyButtonEvent(PX(XO),PY(YO+2),BW+96,BH,"Media Volume +","volumeup",KBD_volumeup);	
+#undef XO
+#undef YO
+#define XO 21
+#define YO 4
+	/* Mouse Buttons */
+
+	new CTextButton(PX(XO+0),PY(YO),BW+96,BH,"Mouse Button's");
+	AddMouseButtonEvent(PX(XO+0),PY(YO+1),BW+7,BH,"Left","left",SDL_BUTTON_LEFT);
+	AddMouseButtonEvent(PX(XO+1)+7,PY(YO+1),BW+18,BH," Mid","middle",SDL_BUTTON_MIDDLE);
+	AddMouseButtonEvent(PX(XO+2)+25,PY(YO+1),BW+15,BH,"Right","right",SDL_BUTTON_RIGHT);
 #undef XO
 #undef YO
 #define XO 5
@@ -3699,6 +3735,10 @@ static struct {
 	{"volumedown",SDL_SCANCODE_VOLUMEDOWN},	
 	{"volumeup",SDL_SCANCODE_VOLUMEUP},	
 	
+	{"mouse_left",SDL_BUTTON_LEFT},
+	{"mouse_middle",SDL_BUTTON_MIDDLE},
+	{"mouse_middle",SDL_BUTTON_RIGHT},	
+	
 	{0,0}
 };
 
@@ -4203,7 +4243,8 @@ void MAPPER_RunInternal() {
 #endif
 	if(mousetoggle) GFX_CaptureMouse();
 	SDL_ShowCursor(cursor);
-	GFX_ResetScreen();
+	//GFX_ResetScreen();
+	GFX_ResetVoodoo();
 }
 
 void MAPPER_Init(void) {
@@ -4214,6 +4255,7 @@ void MAPPER_Init(void) {
 	for (CButton_it but_it = buttons.begin();but_it!=buttons.end();but_it++) {
 		(*but_it)->BindColor();
 	}
+	
 	if (SDL_GetModState()&KMOD_CAPS) {
 		for (CBindList_it bit=caps_lock_event->bindlist.begin();bit!=caps_lock_event->bindlist.end();bit++) {
 			(*bit)->ActivateBind(32767,true,false);
@@ -4226,6 +4268,7 @@ void MAPPER_Init(void) {
 			(*bit)->DeActivateBind(false);
 		}
 	}
+	
 }
 //Somehow including them at the top conflicts with something in setup.h
 #ifdef SDL_VIDEO_DRIVER_X11

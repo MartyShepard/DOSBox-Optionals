@@ -1420,7 +1420,7 @@ void VGA_SetupDrawing(Bitu /*val*/) {
 	Bitu sync = vga.misc_output >> 6;
 	
 	#if defined(C_DEBUG)
-		LOG_MSG("VGA: Sync (Vga.Misc_output >> 6) = %d --- (File %s, Line %d)",sync,__FILE__,__LINE__);	
+		LOG(LOG_VGAMISC,LOG_NORMAL)("VGA: Sync (Vga.Misc_output >> 6) = %d --- (File %s, Line %d)",sync,__FILE__,__LINE__);	
 	#endif
 	
 	switch ( sync ) {
@@ -1493,11 +1493,11 @@ void VGA_SetupDrawing(Bitu /*val*/) {
 	Bitu pix_per_char = 8;
 
 if (int10.bExtraVGA_Debug){
-	LOG_MSG("=====================================================================");
-	LOG_MSG("VGA: Mode Internal Horizontal.dend (%d) x Vertical.dend (%d)",hdend,vdend);
-	LOG_MSG("VGA: Mode Internal Bits Per Pixel = %d",bpp);	
-	LOG_MSG("VGA: Mode Current Aspect Ratio    = %d",aspect_ratio);
-	LOG_MSG("=====================================================================\n");		
+	LOG(LOG_VGAMISC,LOG_NORMAL)("=====================================================================");
+	LOG(LOG_VGAMISC,LOG_NORMAL)("VGA: Mode Internal Horizontal.dend (%d) x Vertical.dend (%d)",hdend,vdend);
+	LOG(LOG_VGAMISC,LOG_NORMAL)("VGA: Mode Internal Bits Per Pixel = %d",bpp);	
+	LOG(LOG_VGAMISC,LOG_NORMAL)("VGA: Mode Current Aspect Ratio    = %d",aspect_ratio);
+	LOG(LOG_VGAMISC,LOG_NORMAL)("=====================================================================\n");		
 }
 	
 	switch (vga.mode) {
@@ -1527,7 +1527,7 @@ case M_VGA:
 		break;
 		
 	case M_LIN8:
-		if (int10.bExtraVGA_Debug){LOG_MSG("VGA: Mode Switched -> [ M_LIN8  ] --- ( File %s, Line %d)",__FILE__,__LINE__);}
+		if (int10.bExtraVGA_Debug){	LOG(LOG_VGAMISC,LOG_NORMAL)("VGA: Mode Switched -> [ M_LIN8  ] --- ( File %s, Line %d)",__FILE__,__LINE__);}
 		if (vga.crtc.mode_control & 0x8)
 			width >>=1;
 		else if (svgaCard == SVGA_S3Trio && !(vga.s3.reg_3a&0x10)) {
@@ -1537,26 +1537,35 @@ case M_VGA:
 		// fall-through
 	case M_LIN24:	
 	case M_LIN32:
-		if (int10.bExtraVGA_Debug){LOG_MSG("VGA: Mode Switched -> [ M_LIN32 ] --- ( File %s, Line %d)",__FILE__,__LINE__);}
+		if (int10.bExtraVGA_Debug){	LOG(LOG_VGAMISC,LOG_NORMAL)("VGA: Mode Switched -> [ M_LIN32 ] --- ( File %s, Line %d)",__FILE__,__LINE__);}
 		width<<=3;
-		if (vga.crtc.mode_control & 0x8)
- 			doublewidth = true;
+		if (vga.crtc.mode_control & 0x8) {
+  			doublewidth = true;
+			if (vga.mode == M_LIN32) {
+				// vesa modes 10f/190/191/192
+				aspect_ratio *= 2.0;
+			}
+		}
 		/* Use HW mouse cursor drawer if enabled */
 		VGA_ActivateHardwareCursor();
 		break;
 	case M_LIN15:
-		if (int10.bExtraVGA_Debug){LOG_MSG("VGA: Mode Switched -> [ M_LIN15 ] --- ( File %s, Line %d)",__FILE__,__LINE__);}																	/* <-- Custom S3 VGA */		
+		if (int10.bExtraVGA_Debug){	LOG(LOG_VGAMISC,LOG_NORMAL)("VGA: Mode Switched -> [ M_LIN15 ] --- ( File %s, Line %d)",__FILE__,__LINE__);}																	/* <-- Custom S3 VGA */		
  	case M_LIN16:
-		if (int10.bExtraVGA_Debug){LOG_MSG("VGA: Mode Switched -> [ M_LIN16 ] --- ( File %s, Line %d)",__FILE__,__LINE__);}		
+		if (int10.bExtraVGA_Debug){	LOG(LOG_VGAMISC,LOG_NORMAL)("VGA: Mode Switched -> [ M_LIN16 ] --- ( File %s, Line %d)",__FILE__,__LINE__);}		
 		// 15/16 bpp modes double the horizontal values
 		width<<=2;
 		if ((vga.crtc.mode_control & 0x8) || (svgaCard == SVGA_S3Trio && (vga.s3.pll.cmd & 0x10)))
 			doublewidth = true;
+		else {
+			// vesa modes 165/175
+			aspect_ratio /= 2.0;
+		}		
 		/* Use HW mouse cursor drawer if enabled */
 		VGA_ActivateHardwareCursor();
 		break;
 	case M_LIN4:
-		if (int10.bExtraVGA_Debug){LOG_MSG("VGA: Mode Switched -> [ M_LIN4  ] --- ( File %s, Line %d)",__FILE__,__LINE__);}		
+		if (int10.bExtraVGA_Debug){	LOG(LOG_VGAMISC,LOG_NORMAL)("VGA: Mode Switched -> [ M_LIN4  ] --- ( File %s, Line %d)",__FILE__,__LINE__);}		
 		doublewidth=(vga.seq.clocking_mode & 0x8) > 0;						/* <-- Custom S3 VGA Removed*/
 		//if (vga.crtc.mode_control & 0x8)										/* <-- Custom S3 VGA */
  		//	doublewidth = true;													/* <-- Custom S3 VGA */
@@ -1567,7 +1576,7 @@ case M_VGA:
 		vga.draw.linear_mask = (vga.vmemwrap<<1) - 1;
 		break;
 	case M_EGA:
-		if (int10.bExtraVGA_Debug){LOG_MSG("VGA: Mode Switched -> [ M_EGA   ] --- ( File %s, Line %d)",__FILE__,__LINE__);}	
+		if (int10.bExtraVGA_Debug){	LOG(LOG_VGAMISC,LOG_NORMAL)("VGA: Mode Switched -> [ M_EGA   ] --- ( File %s, Line %d)",__FILE__,__LINE__);}	
 		doublewidth=(vga.seq.clocking_mode & 0x8) > 0;
 		vga.draw.blocks = width;
 		width<<=3;
@@ -1581,7 +1590,7 @@ case M_VGA:
 		vga.draw.linear_mask = (vga.vmemwrap<<1) - 1;
 		break;
 	case M_CGA16:
-		if (int10.bExtraVGA_Debug){LOG_MSG("VGA: Mode Switched -> [ M_CGA16   ] --- ( File %s, Line %d)",__FILE__,__LINE__);}	
+		if (int10.bExtraVGA_Debug){	LOG(LOG_VGAMISC,LOG_NORMAL)("VGA: Mode Switched -> [ M_CGA16   ] --- ( File %s, Line %d)",__FILE__,__LINE__);}	
 		aspect_ratio=1.2;
 		doubleheight=true;
 		vga.draw.blocks=width*2;
@@ -1589,14 +1598,14 @@ case M_VGA:
 		VGA_DrawLine=VGA_Draw_CGA16_Line;
 		break;
 	case M_CGA4:
-		if (int10.bExtraVGA_Debug){LOG_MSG("VGA: Mode Switched -> [ M_CGA4    ] --- ( File %s, Line %d)",__FILE__,__LINE__);}
+		if (int10.bExtraVGA_Debug){	LOG(LOG_VGAMISC,LOG_NORMAL)("VGA: Mode Switched -> [ M_CGA4    ] --- ( File %s, Line %d)",__FILE__,__LINE__);}
 		doublewidth=true;
 		vga.draw.blocks=width*2;
 		width<<=3;
 		VGA_DrawLine=VGA_Draw_2BPP_Line;
 		break;
 	case M_CGA2:
-		if (int10.bExtraVGA_Debug){LOG_MSG("VGA: Mode Switched -> [ M_CGA2    ] --- ( File %s, Line %d)",__FILE__,__LINE__);}	
+		if (int10.bExtraVGA_Debug){	LOG(LOG_VGAMISC,LOG_NORMAL)("VGA: Mode Switched -> [ M_CGA2    ] --- ( File %s, Line %d)",__FILE__,__LINE__);}	
 		doubleheight=true;
 		vga.draw.blocks=2*width;
 		width<<=3;
@@ -1604,7 +1613,7 @@ case M_VGA:
 		break;
 	case M_TEXT:
 	{
-		if (int10.bExtraVGA_Debug){LOG_MSG("VGA: Mode Switched -> [ M_TEXT    ] --- ( File %s, Line %d)",__FILE__,__LINE__);}	
+		if (int10.bExtraVGA_Debug){	LOG(LOG_VGAMISC,LOG_NORMAL)("VGA: Mode Switched -> [ M_TEXT    ] --- ( File %s, Line %d)",__FILE__,__LINE__);}	
 		
 		vga.draw.blocks = width;
 		doublewidth=(vga.seq.clocking_mode & 0x8) > 0;
@@ -1632,14 +1641,14 @@ case M_VGA:
 		break;
 	}
 	case M_HERC_GFX:
-		if (int10.bExtraVGA_Debug){LOG_MSG("VGA: Mode Switched -> [ M_HERC_GFX ] --- ( File %s, Line %d)",__FILE__,__LINE__);}		
+		if (int10.bExtraVGA_Debug){	LOG(LOG_VGAMISC,LOG_NORMAL)("VGA: Mode Switched -> [ M_HERC_GFX ] --- ( File %s, Line %d)",__FILE__,__LINE__);}		
 		vga.draw.blocks=width*2;
 		width*=16;
 		aspect_ratio=((double)width/(double)height)*(3.0/4.0);
 		VGA_DrawLine=VGA_Draw_1BPP_Line;
 		break;
 	case M_TANDY2:
-		if (int10.bExtraVGA_Debug){LOG_MSG("VGA: Mode Switched -> [ M_TANDY2   ] --- ( File %s, Line %d)",__FILE__,__LINE__);}
+		if (int10.bExtraVGA_Debug){	LOG(LOG_VGAMISC,LOG_NORMAL)("VGA: Mode Switched -> [ M_TANDY2   ] --- ( File %s, Line %d)",__FILE__,__LINE__);}
 		aspect_ratio=1.2;
 		doubleheight=true;
 		if (machine==MCH_PCJR) doublewidth=(vga.tandy.gfx_control & 0x8)==0x00;
@@ -1649,7 +1658,7 @@ case M_VGA:
 		VGA_DrawLine=VGA_Draw_1BPP_Line;
 		break;
 	case M_TANDY4:
-		if (int10.bExtraVGA_Debug){LOG_MSG("VGA: Mode Switched -> [ M_TANDY4   ] --- ( File %s, Line %d)",__FILE__,__LINE__);}
+		if (int10.bExtraVGA_Debug){	LOG(LOG_VGAMISC,LOG_NORMAL)("VGA: Mode Switched -> [ M_TANDY4   ] --- ( File %s, Line %d)",__FILE__,__LINE__);}
 		aspect_ratio=1.2;
 		doubleheight=true;
 		if (machine==MCH_TANDY) doublewidth=(vga.tandy.mode_control & 0x10)==0;
@@ -1662,7 +1671,7 @@ case M_VGA:
 		else VGA_DrawLine=VGA_Draw_2BPP_Line;
 		break;
 	case M_TANDY16:
-		if (int10.bExtraVGA_Debug){LOG_MSG("VGA: Mode Switched -> [ M_TANDY16  ] --- ( File %s, Line %d)",__FILE__,__LINE__);}
+		if (int10.bExtraVGA_Debug){	LOG(LOG_VGAMISC,LOG_NORMAL)("VGA: Mode Switched -> [ M_TANDY16  ] --- ( File %s, Line %d)",__FILE__,__LINE__);}
 		aspect_ratio=1.2;
 		doubleheight=true;
 		vga.draw.blocks=width*2;
@@ -1683,7 +1692,7 @@ case M_VGA:
 		}
 		break;
 	case M_TANDY_TEXT:
-		if (int10.bExtraVGA_Debug){LOG_MSG("VGA: Mode Switched -> [M_TANDY_TEXT] --- ( File %s, Line %d)",__FILE__,__LINE__);}	
+		if (int10.bExtraVGA_Debug){	LOG(LOG_VGAMISC,LOG_NORMAL)("VGA: Mode Switched -> [M_TANDY_TEXT] --- ( File %s, Line %d)",__FILE__,__LINE__);}	
 		doublewidth=(vga.tandy.mode_control & 0x1)==0;
 		aspect_ratio=1.2;
 		doubleheight=true;
@@ -1692,14 +1701,14 @@ case M_VGA:
 		VGA_DrawLine=VGA_TEXT_Draw_Line;
 		break;
 	case M_HERC_TEXT:
-		if (int10.bExtraVGA_Debug){LOG_MSG("VGA: Mode Switched -> [M_HERC_TEXT ] --- ( File %s, Line %d)",__FILE__,__LINE__);}
+		if (int10.bExtraVGA_Debug){	LOG(LOG_VGAMISC,LOG_NORMAL)("VGA: Mode Switched -> [M_HERC_TEXT ] --- ( File %s, Line %d)",__FILE__,__LINE__);}
 		aspect_ratio=((double)480)/((double)350);
 		vga.draw.blocks=width;
 		width<<=3;
 		VGA_DrawLine=VGA_TEXT_Herc_Draw_Line;
 		break;
 	default:
-		if (int10.bExtraVGA_Debug){LOG_MSG("VGA: Mode Switched -> [UNK %d      ] --- ( File %s, Line %d)",__FILE__,__LINE__);}
+		if (int10.bExtraVGA_Debug){	LOG(LOG_VGAMISC,LOG_NORMAL)("VGA: Mode Switched -> [UNK %d      ] --- ( File %s, Line %d)",__FILE__,__LINE__);}
 		#if defined(C_DEBUG)
 			LOG(LOG_VGA,LOG_ERROR)("Unhandled VGA mode %d while checking for resolution",vga.mode);
 		#endif
@@ -1733,11 +1742,11 @@ case M_VGA:
 	vga.changes.frame = 0;
 	vga.changes.writeMask = 1;
 #endif
-    /* 
-	   Cheap hack to just make all > 640x480 modes have 4:3 aspect ratio
+	/*
++	   Cheap hack to just make all > 640x480 modes have square pixels
 	*/
 	if ( width >= 640 && height >= 480 ) {
-		aspect_ratio = ((float)width / (float)height) * ( 3.0 / 4.0);
+		aspect_ratio = 1.0;//((float)width / (float)height) * ( 3.0 / 4.0);
 	}
 
 	//LOG_MSG("ht %d vt %d ratio %f", htotal, vtotal, aspect_ratio );	
@@ -1756,8 +1765,8 @@ case M_VGA:
 
 #if defined(C_DEBUG)
 	LOG(LOG_VGA,LOG_NORMAL)("\n\n");
-	LOG_MSG("h total %2.5f (%3.2fkHz) blank(%02.5f/%02.5f) retrace(%02.5f/%02.5f)",	vga.draw.delay.htotal,(1.0/vga.draw.delay.htotal),vga.draw.delay.hblkstart,vga.draw.delay.hblkend,vga.draw.delay.hrstart,vga.draw.delay.hrend);
-	LOG_MSG("v total %2.5f (%3.2fHz) blank(%02.5f/%02.5f) retrace(%02.5f/%02.5f)",	vga.draw.delay.vtotal,(1000.0/vga.draw.delay.vtotal),vga.draw.delay.vblkstart,vga.draw.delay.vblkend,vga.draw.delay.vrstart,vga.draw.delay.vrend);
+	LOG(LOG_VGAMISC,LOG_NORMAL)("h total %2.5f (%3.2fkHz) blank(%02.5f/%02.5f) retrace(%02.5f/%02.5f)",	vga.draw.delay.htotal,(1.0/vga.draw.delay.htotal),vga.draw.delay.hblkstart,vga.draw.delay.hblkend,vga.draw.delay.hrstart,vga.draw.delay.hrend);
+	LOG(LOG_VGAMISC,LOG_NORMAL)("v total %2.5f (%3.2fHz) blank(%02.5f/%02.5f) retrace(%02.5f/%02.5f)",	vga.draw.delay.vtotal,(1000.0/vga.draw.delay.vtotal),vga.draw.delay.vblkstart,vga.draw.delay.vblkend,vga.draw.delay.vrstart,vga.draw.delay.vrend);
 	LOG(LOG_VGA,LOG_NORMAL)("File %s --- Line %d\n\n",__FILE__,__LINE__);
 #endif
 

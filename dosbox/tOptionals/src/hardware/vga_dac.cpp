@@ -20,6 +20,7 @@
 #include "inout.h"
 #include "render.h"
 #include "vga.h"
+#include "mem.h"
 
 /*
 3C6h (R/W):  PEL Mask

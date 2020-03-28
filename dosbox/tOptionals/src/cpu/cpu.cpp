@@ -2459,16 +2459,13 @@ public:
 						}
 					}
 				}
-			} else if(type =="i80386DX/25") {								
-				CPU_CycleMax=5592;
-				
 			}else if(type =="fixed") {
 				cmd.FindCommand(1,str);
 				int rmdval=0;
 				std::istringstream stream(str);
 				stream >> rmdval;
 				CPU_CycleMax=(Bit32s)rmdval;
-							
+														
 			} else if(type =="i8088_477") {
 				CPU_CycleMax=341;	
 				
@@ -2493,6 +2490,9 @@ public:
 			} else if(type =="i286_25") {
 				CPU_CycleMax=5240;		
 
+			} else if(type =="i80386DX/25") {								
+				CPU_CycleMax=5592;	
+				
 			} else if(type =="i386dx_25") {
 				CPU_CycleMax=7785;
 

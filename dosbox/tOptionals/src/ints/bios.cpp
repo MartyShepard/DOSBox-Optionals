@@ -1120,6 +1120,7 @@ void BIOS_ZeroExtendedSize(bool in) {
 	if(other_memsystems < 0) other_memsystems=0;
 }
 
+
 void BIOS_SetupKeyboard(void);
 void BIOS_SetupDisks(void);
 

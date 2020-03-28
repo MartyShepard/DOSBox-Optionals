@@ -247,7 +247,7 @@ static Bitu IRQ1_Handler(void) {
 	flags2&=~(0x40+0x20);//remove numlock/capslock pressed (hack for sdl only reporting states)
 #endif
 	if (DOS_LayoutKey(scancode,flags1,flags2,flags3)) return CBRET_NONE;
-//LOG_MSG("key input %d %d %d %d",scancode,flags1,flags2,flags3);
+	//LOG_MSG("key input %d %d %d %d",scancode,flags1,flags2,flags3);
 	switch (scancode) {
 	/* First the hard ones  */
 	case 0xfa:	/* ack. Do nothing for now */
@@ -491,7 +491,7 @@ static bool IsEnhancedKey(Bit16u &key) {
 	}
 	/* convert key if necessary (extended keys) */
 	if ((key>>8) && ((key&0xff)==0xe0))  {
-		LOG_MSG("TEST File %s Line %d",__FILE__,__LINE__);
+		//LOG_MSG("TEST File %s Line %d",__FILE__,__LINE__);
 		key&=0xff00;
 	}
 	return false;

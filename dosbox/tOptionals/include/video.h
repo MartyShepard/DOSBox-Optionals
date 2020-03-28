@@ -65,6 +65,7 @@ Bitu GFX_SetSize(Bitu width,Bitu height,Bitu flags,double scalex,double scaley,G
 void GFX_TearDown(void);						   
 
 void GFX_ResetScreen(void);
+void GFX_ResetVoodoo(void);
 void GFX_Start(void);
 void GFX_Stop(void);
 void GFX_SwitchFullScreen(void);

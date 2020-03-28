@@ -28,6 +28,7 @@
 
 #include "voodoo_emu.h"
 #include "voodoo_opengl.h"
+#include "sdl_timer.h"
 
 #if C_OPENGL
 
@@ -92,6 +93,7 @@ bool nScreenSetup = false;
 extern void GFX_CaptureMouse(void);
 extern void GFX_CaptureMouse_Mousecap_on(void);
 extern bool mouselocked;
+extern int nCurrentDisplay;
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct SDL_Block {
@@ -2533,6 +2535,8 @@ void voodoo_ogl_set_glViewport(void) {
 				
 		//if (GFX_LazyFullscreenRequested()){}
 	
+
+	
 		if ( nScreenSetup  == true){
 			
 			return;
@@ -2545,7 +2549,7 @@ void voodoo_ogl_set_glViewport(void) {
 				- Miss Calculate on Lower Screens
 				*/
 				SDL_DisplayMode displayMode;
-				SDL_GetDesktopDisplayMode(nCurrentDisplay, &displayMode);
+				SDL_GetDesktopDisplayMode(SDL_GetWindowDisplayIndex(sdl.surface), &displayMode);
 											
 				adjust_x = (displayMode.w - (GLsizei)sdl.pciFSW) /2;
 				adjust_y = (displayMode.h - (GLsizei)sdl.pciFSH) /2;						
@@ -2622,43 +2626,43 @@ void vPCI_SetOpenGL_Hints (void){
 		if (sdl.opengl.glL_Smoth_flag) {			
 				glEnable(GL_LINE_SMOOTH);
 				glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
-				LOG_MSG("[       GL_LINE_SMOOTH     : GL_NICEST     ]");	
+				LOG(LOG_VOODOO,LOG_WARN)("[       GL_LINE_SMOOTH     : GL_NICEST      ]");	
 		}
 		
 		if (sdl.opengl.glP_Smoth_flag) {			
 				glEnable(GL_POINT_SMOOTH);
 				glHint(GL_POINT_SMOOTH_HINT, GL_NICEST);	
-				LOG_MSG("[       GL_POINT_SMOOTH    : GL_NICEST     ]");					
+				LOG(LOG_VOODOO,LOG_WARN)("[       GL_POINT_SMOOTH    : GL_NICEST      ]");					
 		}
 		
 		if (sdl.opengl.glG_Smoth_flag) {
 				glEnable(GL_POLYGON_SMOOTH);
 				glHint(GL_POLYGON_SMOOTH_HINT, GL_NICEST);	
-				LOG_MSG("[       GL_POLYGON_SMOOTH  : GL_NICEST     ]");				
+				LOG(LOG_VOODOO,LOG_WARN)("[       GL_POLYGON_SMOOTH  : GL_NICEST      ]");				
 		}
 		
 		
 		if (sdl.opengl.gl_GLFog__flag) {
 				glEnable(GL_FOG);		
 				glHint(GL_FOG_HINT, GL_NICEST);	
-				LOG_MSG("[       GL_FOG_HINT        : GL_NICEST     ]");	
+				LOG(LOG_VOODOO,LOG_WARN)("[       GL_FOG_HINT        : GL_NICEST      ]");	
 		}
 		
 		if (sdl.opengl.glPersCor_flag) {
 				glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
-				LOG_MSG("[       GL_PERSPECTIVE_COR.: GL_NICEST     ]");				
+				LOG(LOG_VOODOO,LOG_WARN)("[       GL_PERSPECTIVE_COR.: GL_NICEST      ]");				
 		}
 		
 		if (sdl.opengl.glGMipMap_flag) {
 				glHint(GL_GENERATE_MIPMAP_HINT, GL_NICEST);	
-				LOG_MSG("[       GL_GENERATE_MIPMAP : GL_FASTEST    ]");			
+				LOG(LOG_VOODOO,LOG_WARN)("[       GL_GENERATE_MIPMAP : GL_FASTEST     ]");			
 		}	
 		
 		if (sdl.opengl.glBlendFc_flag) {
 				glEnable(GL_BLEND);
 				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-				LOG_MSG("[       GLBlend Function   : %d            ]");	
-				LOG_MSG("[       GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA]");			
+				LOG(LOG_VOODOO,LOG_WARN)("[       GLBlend Function   : %d             ]");	
+				LOG(LOG_VOODOO,LOG_WARN)("[       GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA ]");			
 		}			
 		
 		/* TODO
@@ -2679,22 +2683,23 @@ void vPCI_SetOpenGL_Hints (void){
 
 void vPCI_Set2DScreen (void){
 			
+	
 		// we're doing nothing 3d, so the Z-buffer is currently not interesting
-		glDisable(GL_DEPTH_TEST);
+		glDisable(GL_DEPTH_TEST);		
 		glDisable(GL_STENCIL_TEST);			
-		voodoo_ogl_set_GLShadeModel();			
 		
+		voodoo_ogl_set_GLShadeModel();					
 		voodoo_ogl_set_glViewport();
 
 		glEnable(GL_DEPTH_TEST);
-		//glDepthFunc(GL_LESS);	
-		glDepthFunc(GL_LEQUAL); 		
+		
+		glDepthFunc(GL_LEQUAL); //glDepthFunc(GL_LESS);		
 
 		
 		glMatrixMode( GL_MODELVIEW );
 		glLoadIdentity();		
 		
-		voodoo_ogl_set_window(v); /////////	
+		voodoo_ogl_set_window(v);
 
 		glTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
     
@@ -2721,6 +2726,7 @@ void vPCI_SDL_Free_VSurface(void){
 
 void vPCI_Get_Configuration(void){
 	
+	
 	Section_prop *section = static_cast<Section_prop *>(control->GetSection("pci"));
 	Section_prop *sectsdl = static_cast<Section_prop *>(control->GetSection("sdl"));	
 
@@ -2733,7 +2739,7 @@ void vPCI_Get_Configuration(void){
 		
 	UseOwnWindowResolution  = sectsdl->Get_bool("VoodooUseOwnWindowRes");
 	UseOwnFullScResolution  = sectsdl->Get_bool("VoodooUseOwnFullScRes");	
-	//sdl.displaynumber 	    = sectsdl->Get_int("display");	
+	sdl.displaynumber 	    = SDL_GetWindowDisplayIndex(sdl.surface); //sectsdl->Get_int("display");	
 		
 	sdl.opengl.sfiltering   =section->Get_string("Voodoo_Filter");
 	sdl.opengl.sglshademdl  =section->Get_string("Voodoo_GLShade");	
@@ -2760,14 +2766,17 @@ void vPCI_Get_Configuration(void){
 				sdl.pciH = (GLdouble)v->fbi.height;
 		}else if (strcmp(vresolution,"desktop") == 0) { //desktop = 0x0
 				
-				SDL_DisplayMode displayMode;
-				SDL_GetDesktopDisplayMode(nCurrentDisplay, &displayMode);										
-				sdl.pciW = displayMode.w;
-				sdl.pciH = displayMode.h;				
+				SDL_Rect rect;
+				SDL_GetDisplayBounds (nCurrentDisplay, &rect);				
+				sdl.pciFSW = rect.w;
+				sdl.pciFSH = rect.h;
+				
 				
 		}else if (strcmp(vresolution,"0x0") == 0) { 
-				sdl.pciW = (GLdouble)v->fbi.width;				
-				sdl.pciH = (GLdouble)v->fbi.height;	
+				SDL_Rect rect;
+				SDL_GetDisplayBounds (nCurrentDisplay, &rect);				
+				sdl.pciFSW = rect.w;
+				sdl.pciFSH = rect.h;
 		
 		}else {
 			
@@ -2795,25 +2804,25 @@ void vPCI_Get_Configuration(void){
 		safe_strncpy( res,vresolution, sizeof( res ));
 		vresolution = lowcase (res);//so x and X are allowed
 		if (strcmp(vresolution,"original") == 0) {
+			
 				sdl.pciFSW = (GLdouble)v->fbi.width;
 				sdl.pciFSH = (GLdouble)v->fbi.height;
+				
 		}else if (strcmp(vresolution,"desktop") == 0) { //desktop = 0x0
 				sdl.full_fixed = true;
 				
-				SDL_DisplayMode displayMode;
-				SDL_GetDesktopDisplayMode(nCurrentDisplay, &displayMode);										
-				sdl.pciFSW = displayMode.w;
-				sdl.pciFSH = displayMode.h;
+				SDL_Rect rect;
+				SDL_GetDisplayBounds (nCurrentDisplay, &rect);				
+				sdl.pciFSW = rect.w;
+				sdl.pciFSH = rect.h;
 				
 		}else if (strcmp(vresolution,"0x0") == 0) { //desktop = 0x0		
 				sdl.full_fixed = true;
-				//sdl.pciFSW = (GLdouble)v->fbi.width;				
-				//sdl.pciFSH = (GLdouble)v->fbi.height;	
 				
-				SDL_DisplayMode displayMode;
-				SDL_GetDesktopDisplayMode(nCurrentDisplay, &displayMode);										
-				sdl.pciFSW = displayMode.w;
-				sdl.pciFSH = displayMode.h;
+				SDL_Rect rect;
+				SDL_GetDisplayBounds (nCurrentDisplay, &rect);				
+				sdl.pciFSW = rect.w;
+				sdl.pciFSH = rect.h;
 				
 		}else{
 				char* height = const_cast<char*>(strchr(vresolution,'x'));
@@ -2955,9 +2964,9 @@ void vPCI_Reset_GLVideoMode(void){
 
 	VOGL_Reset();
 
-	GFX_TearDown();
+	//GFX_TearDown();
 
-	full_sdl_restart = true;	// make dependent on surface=opengl
+	full_sdl_restart = true;	// make dependent on surface=opengl	
 }
 
 
@@ -3095,7 +3104,7 @@ void vOGL_Set_PontSize(void){
 
 			glPointSize( (float)sdl.opengl.gl_PointSize_num );			
 			
-			LOG_MSG("VOODOO: sdl.opengl.gl_PointSize_num %f ",(float)sdl.opengl.gl_PointSize_num);
+			LOG(LOG_VOODOO,LOG_WARN)("VOODOO: sdl.opengl.gl_PointSize_num %f ",(float)sdl.opengl.gl_PointSize_num);
 		}
 };
 
@@ -3212,11 +3221,19 @@ void vOGL_OGL_AspectRatio(void){
 							{
 							  aRatio = aRatio -  888;
 							}
-							break;
+							break;						
+							case 960:
+								if ( h == 1440 ){
+									aRatio = aRatio -  796;								
+								}
+								else
+								{
+									aRatio = aRatio -  788;
+								}
+							break;								
 							case 640:	
 							case 512:							
-							case 856:							
-							case 960:
+							case 856:								
 							default:
 							{
 								if ( h == 1440 ){
@@ -3318,11 +3335,33 @@ void vOGL_OGL_AspectRatio(void){
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 void vPCI_SDL_Init_OpenGLCX(void){
 
+	/*
+	SDL_Event vEvent;
+	while (SDL_PollEvent(&vEvent)) {
+		switch (vEvent.type) {	
+			
+			case SDL_WINDOWEVENT:
+			{
+				switch (vEvent.window.event) {
+					
+					case SDL_WINDOWEVENT_MOVED:
+					{
+						LOG(LOG_VOODOO,LOG_WARN)("VOODOO : Display Use  : %d",SDL_GetWindowDisplayIndex(sdl.surface));
+						nCurrentDisplay   = SDL_GetWindowDisplayIndex(sdl.surface);
+						//continue;
+					}
+				}
+			}		
+		}
+	}
+	*/
+	
 	if (GFX_LazyFullscreenRequested()){
 		//LOG_MSG("GFX_LazyFullscreenRequested");
 		//GFX_SwitchFullscreenNoReset();
 	}
-	
+
+	LOG(LOG_VOODOO,LOG_WARN)("VOODOO : Display Use  : %d",nCurrentDisplay);		
 
 	vPCI_SDL_SetVideoFlags();
 
@@ -3340,7 +3379,7 @@ void vPCI_SDL_Init_OpenGLCX(void){
 		sdl.surface = sdl.Dosbox_Surface;	
 					
 		SDL_GetWindowPosition(sdl.surface, &sdl.posX_Old, &sdl.posY_Old);
-		sdl.desktop.Index = SDL_GetWindowDisplayIndex(sdl.surface);						
+		sdl.desktop.Index = nCurrentDisplay;//SDL_GetWindowDisplayIndex(sdl.surface);						
 					
 
 		if (sdl.desktop.Index == 0){
@@ -3358,11 +3397,11 @@ void vPCI_SDL_Init_OpenGLCX(void){
 			//vPCI_SDL_Free_VSurface();
 		#if !SDL_VERSION_ATLEAST(2, 0, 0)
 			if (sdl.ScrOpenGL_Flags & SDL_FULLSCREEN) {
-				SDL_Delay(25);
+				//SDL_Delay(25);
 			}		
 		#else
 			if (sdl.ScrOpenGL_Flags & SDL_WINDOW_FULLSCREEN || sdl.ScrOpenGL_Flags & SDL_WINDOW_FULLSCREEN_DESKTOP) {
-				SDL_Delay(25);
+				//SDL_Delay(25);
 			}
 		#endif
 
@@ -3411,60 +3450,60 @@ void vPCI_SDL_Init_OpenGLCX(void){
 
 	bool few_colors = false;
 
-	LOG_MSG("VOODOO: Resolution & OpenGL Enabled Features");
-	LOG_MSG("[SDL Get OpenGL Atributtes and Hints       ]");	
+	LOG(LOG_VOODOO,LOG_WARN)("VOODOO: Resolution & OpenGL Enabled Features ]");
+	LOG(LOG_VOODOO,LOG_WARN)("[SDL Get OpenGL Atributtes and Hints         ]");	
 
     SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &value); 
-    LOG_MSG("[       MAJOR_VERSION      : %d             ]",value);
+    LOG(LOG_VOODOO,LOG_WARN)("[       MAJOR_VERSION      : %d              ]",value);
 	
     SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &value); 
-    LOG_MSG("[       MINOR_VERSION      : %d             ]",value);
+    LOG(LOG_VOODOO,LOG_WARN)("[       MINOR_VERSION      : %d              ]",value);
 	
     SDL_GL_GetAttribute(SDL_GL_CONTEXT_RELEASE_BEHAVIOR, &value); 
     //LOG_MSG("[       RELEASE_BEHAVIOR   : %d             ]",value);	
 	vPCI_SetOpenGL_Hints();
 		
     SDL_GL_GetAttribute(SDL_GL_RED_SIZE, &value);
-    LOG_MSG("[       SDL_GL_RED_SIZE    : %d             ]",value);		
+    LOG(LOG_VOODOO,LOG_WARN)("[       SDL_GL_RED_SIZE    : %d              ]",value);		
 	if (value < 8){few_colors = true;}
 	
 	SDL_GL_GetAttribute(SDL_GL_GREEN_SIZE, &value);
-	LOG_MSG("[       SDL_GL_GREEN_SIZE  : %d             ]",value);	
+	LOG(LOG_VOODOO,LOG_WARN)("[       SDL_GL_GREEN_SIZE  : %d              ]",value);	
 	if (value < 8){few_colors = true;}
 
 	SDL_GL_GetAttribute(SDL_GL_BLUE_SIZE, &value);
-	LOG_MSG("[       SDL_GL_BLUE_SIZE   : %d             ]",value);	
+	LOG(LOG_VOODOO,LOG_WARN)("[       SDL_GL_BLUE_SIZE   : %d              ]",value);	
 	if (value < 8){few_colors = true;}
 	
-	if (few_colors){LOG_MSG("[ERROR: Mode with insufficient Color Depth  ]");}
+	if (few_colors){LOG(LOG_VOODOO,LOG_WARN)("[ERROR: Mode with insufficient Color Depth   ]");}
 
 	
 	SDL_GL_GetAttribute(SDL_GL_DEPTH_SIZE, &value);
-	LOG_MSG("[       SDL_GL_DEPTH_SIZE  : %d            ]",value);	
-		if (value < 24) {LOG_MSG("[ERROR: Depth Buffer with insufficient Reso.]");}
+	LOG(LOG_VOODOO,LOG_WARN)("[       SDL_GL_DEPTH_SIZE  : %d             ]",value);	
+		if (value < 24) {LOG(LOG_VOODOO,LOG_WARN)("[ERROR: Depth Buffer with insufficient Reso. ]");}
 
 	SDL_GL_GetAttribute(SDL_GL_STENCIL_SIZE, &value);
-	LOG_MSG("[       SDL_GL_STENCIL_SIZE: %d             ]",value);	
+	LOG(LOG_VOODOO,LOG_WARN)("[       SDL_GL_STENCIL_SIZE: %d              ]",value);	
 		
 	SDL_GL_GetAttribute(SDL_GL_ALPHA_SIZE, &value);
-	LOG_MSG("[       SDL_GL_ALPHA_SIZE  : %d             ]",value);	
+	LOG(LOG_VOODOO,LOG_WARN)("[       SDL_GL_ALPHA_SIZE  : %d              ]",value);	
 	if (value < 1) {has_alpha = false;}
 
 	SDL_GL_GetAttribute(SDL_GL_DOUBLEBUFFER, &value);
-	LOG_MSG("[       SDL_GL_DOUBLEBUFFER: %d             ]",value);
+	LOG(LOG_VOODOO,LOG_WARN)("[       SDL_GL_DOUBLEBUFFER: %d              ]",value);
 
 	
 	SDL_GL_GetAttribute(SDL_GL_ACCELERATED_VISUAL, &value);
-	LOG_MSG("[       SDL_GL_ACCELERATED : %d             ]",value);	
+	LOG(LOG_VOODOO,LOG_WARN)("[       SDL_GL_ACCELERATED : %d              ]",value);	
 
 	SDL_GL_GetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, &value);
-	LOG_MSG("[       SDL_GL_FRAMEBUFFER : %d             ]",value);		
+	LOG(LOG_VOODOO,LOG_WARN)("[       SDL_GL_FRAMEBUFFER : %d              ]",value);		
 		
 	SDL_GL_GetAttribute(SDL_GL_MULTISAMPLESAMPLES, &value);
-	LOG_MSG("[       MULTISAMPLE SAMPLES: %d             ]",value);	
+	LOG(LOG_VOODOO,LOG_WARN)("[       MULTISAMPLE SAMPLES: %d              ]",value);	
 	
 	SDL_GL_GetAttribute(SDL_GL_MULTISAMPLEBUFFERS, &value);
-	LOG_MSG("[       MULTISAMPLE BUFFERS: %d             ]",value);			
+	LOG(LOG_VOODOO,LOG_WARN)("[       MULTISAMPLE BUFFERS: %d              ]",value);			
 	
 	
 	
@@ -3479,8 +3518,8 @@ void vPCI_SDL_Init_OpenGLCX(void){
 	} else if (depth_csize == 16) {
 	} else if (depth_csize < 16) {
 	}
-	LOG_MSG("[       GL_DEPTH_BITS      : %dBit          ]",depth_csize);
-	LOG_MSG("[===========================================]\n\n");	
+	LOG(LOG_VOODOO,LOG_WARN)("[       GL_DEPTH_BITS      : %dBit          ]",depth_csize);
+	LOG(LOG_VOODOO,LOG_WARN)("[===========================================]\n\n");	
 };
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
@@ -3498,7 +3537,7 @@ void voodoo_ogl_update_dimensions(void) {
 void vPCI_get_DosboxVideo(void){
 		sdl.dosboxScreenId = GFX_GetSDLVideo();
 		sdl.Dosbox_Surface = SDL_GetWindowFromID(sdl.dosboxScreenId);
-		nCurrentDisplay    = SDL_GetWindowDisplayIndex(sdl.Dosbox_Surface);
+		//nCurrentDisplay    = SDL_GetWindowDisplayIndex(sdl.Dosbox_Surface);
 }		
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
@@ -3537,6 +3576,8 @@ void vPCI_force_to_OpenGL(void){
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 bool voodoo_ogl_init(voodoo_state *v) {
 
+
+		
 	Cache.Line.Frnt.Y = -1;
 	Cache.Line.Frnt.W = -1;
 	Cache.Line.Frnt.L = -1;
@@ -3559,29 +3600,29 @@ bool voodoo_ogl_init(voodoo_state *v) {
 	sdl.posX = 0;
 	sdl.posY = 0;
 	
-	const char *strRenderHint;
-	
 	vPCI_Get_Configuration();
 	// GET DOSBOX SCREEN
 	#if SDL_VERSION_ATLEAST(2, 0, 0)
 
 		if (!sdl.OpenGLDesktopFullScreen){
 			GFX_ResetScreen();
-		}		
+		}					
 		vPCI_check_OpenGLIII();				
 		vPCI_get_DosboxVideo();						
-		vPCI_force_to_OpenGL();
+		vPCI_force_to_OpenGL();		
 	#endif	
 	
 	extern void CPU_Core_Dyn_X86_SetFPUMode(bool dh_fpu);
 //	CPU_Core_Dyn_X86_SetFPUMode(false);
 
+
 	extern void CPU_Core_Dyn_X86_Cache_Reset(void);
 //	CPU_Core_Dyn_X86_Cache_Reset();
-	vPCI_Reset_GLVideoMode();	
+	vPCI_Reset_GLVideoMode();
+
 	vPCI_Set_GL_Attributes();
 	vPCI_SDL_Init_OpenGLCX();
-
+		
 	if (!VOGL_Initialize()) {		
 			VOGL_Reset();		
 	//	// reset video mode etc.
@@ -3599,8 +3640,6 @@ bool voodoo_ogl_init(voodoo_state *v) {
 	vOGL_OGL_AspectRatio();
 	vOGL_Set_PontSize();
 		
-	strRenderHint = SDL_GetHint(SDL_HINT_RENDER_DRIVER);
-		
 	if (!sdl.fullscreen){
 	LOG_MSG("VOODOO: Resolution & OpenGL Enabled Features\n"
 			"        Window Mode       \n"	
@@ -3614,7 +3653,7 @@ bool voodoo_ogl_init(voodoo_state *v) {
 			"        OGL Point Filter: %f\n"		
 			"        OGL Zoom Width  : %d\n"
 			"        OGL Zoom Height : %d\n"			
-			"        OGL Enabled     : %s\n",sdl.pciW, sdl.pciH, v->fbi.width, v->fbi.height ,nCurrentDisplay,strRenderHint,sdl.opengl.sfiltering, (float)sdl.opengl.gl_PointSize_num, (int)sdl.opengl.glZoomFaktor_W,(int)sdl.opengl.glZoomFaktor_H,features.c_str());
+			"        OGL Enabled     : %s\n",sdl.pciW, sdl.pciH, v->fbi.width, v->fbi.height ,nCurrentDisplay,sdl.dosbox.texture,sdl.opengl.sfiltering, (float)sdl.opengl.gl_PointSize_num, (int)sdl.opengl.glZoomFaktor_W,(int)sdl.opengl.glZoomFaktor_H,features.c_str());
 	}else{
 	LOG_MSG("VOODOO: Resolution & OpenGL Enabled Features\n"
 			"        Fullscreen        \n"
@@ -3628,9 +3667,10 @@ bool voodoo_ogl_init(voodoo_state *v) {
 			"        OGL Point Filter: %f\n"		
 			"        OGL Zoom Width  : %d\n"
 			"        OGL Zoom Height : %d\n"			
-			"        OGL Enabled     : %s\n",sdl.pciFSW, sdl.pciFSH, v->fbi.width, v->fbi.height ,nCurrentDisplay,strRenderHint,sdl.opengl.sfiltering, (float)sdl.opengl.gl_PointSize_num,(int)sdl.opengl.glZoomFaktor_W,(int)sdl.opengl.glZoomFaktor_H, features.c_str());		
+			"        OGL Enabled     : %s\n",sdl.pciFSW, sdl.pciFSH, v->fbi.width, v->fbi.height ,nCurrentDisplay,sdl.dosbox.texture,sdl.opengl.sfiltering, (float)sdl.opengl.gl_PointSize_num,(int)sdl.opengl.glZoomFaktor_W,(int)sdl.opengl.glZoomFaktor_H, features.c_str());		
 	}
-;	
+	
+
 	/* TDOD
 	- Full/Window Switch
 	*/
@@ -3639,9 +3679,8 @@ bool voodoo_ogl_init(voodoo_state *v) {
 	if (mouselocked){
 	    GFX_CaptureMouse_Mousecap_on();
 	}	   
-		
-	bVoodooInUse = true;
-	glEnd();
+			
+
 	return true;
 }
 
@@ -3699,16 +3738,18 @@ void voodoo_ogl_leave(bool leavemode) {
 	cached_line_back_y=-1;
 
 	if (leavemode) {
-		LOG_MSG("VOODOO: OpenGL Quit");		
+		glEnd();
 		GFX_SwitchLazyFullscreen(false);
 		
 		/* Try to set and use the Current Desktop Index, Set this back thought
 		   the DOSBOx.h varibale to SDLMain. The Rest is done by GFX_Restoremode
 		*/
-		nCurrentDisplay = SDL_GetWindowDisplayIndex(sdl.surface);		
+		//nCurrentDisplay = SDL_GetWindowDisplayIndex(sdl.surface);		
 		
 		SDL_SetWindowPosition(sdl.surface,sdl.posX_Old, sdl.posY_Old);				
 		GFX_RestoreMode();
+		bVoodooOpen = false;
+		LOG_MSG("VOODOO: OpenGL Full Quit and Release");
 	}
 }
 

@@ -36,6 +36,8 @@
 #include "drives.h"
 #include "support.h"
 #include "setup.h"
+#include "shell.h"
+#include "..\hardware\chd\chd.h"
 
 #if !defined(WIN32)
 #include <libgen.h>
@@ -53,6 +55,9 @@ using namespace std;
 
 #define MAX_LINE_LENGTH 512
 #define MAX_FILENAME_LENGTH 256
+
+static char  empty_char = 0;
+static char* empty_strg = &empty_char;
 
 #ifdef DEBUG
 char* get_time() {
@@ -261,13 +266,21 @@ void CDROM_Interface_Image::InitNewMedia()
 bool CDROM_Interface_Image::SetDevice(char* path, int forceCD)
 {
 	if (LoadCueSheet(path)) return true;
+	if (LoadCHDFile(path)) return true;	
 	if (LoadIsoFile(path)) return true;
+	
 	
 	// print error message on dosbox console
 	char buf[MAX_LINE_LENGTH];
-	snprintf(buf, MAX_LINE_LENGTH, "Could not load image file: %s\n", path);
+	snprintf(buf, MAX_LINE_LENGTH, "\nCould not load image file:\n\r%s\n\r\n", path);
 	Bit16u size = (Bit16u)strlen(buf);
 	DOS_WriteFile(STDOUT, (Bit8u*)buf, &size);
+	
+	// Add a Pause
+	Bit8u  c;
+	Bit16u n = 1;
+	DOS_ReadFile(STDIN, &c, &n);
+	if (c==0) DOS_ReadFile(STDIN, &c, &n); // read extended key	
 	return false;
 }
 
@@ -715,6 +728,311 @@ void CDROM_Interface_Image::CDAudioCallBack(Bitu len)
 	}
 }
 
+//////////////////////////////////////////////////////////////////////////////
+
+typedef struct
+{
+   Bit8u ctl_addr;
+   Bit32u fad_start;
+   Bit32u fad_end;
+   Bit32u file_offset;
+   Bit32u sector_size;
+   FILE *fp;
+   int file_size;
+   int file_id;
+   int interleaved_sub;
+   Bit32u frames;
+   Bit32u extraframes;
+   Bit32u pregap;
+   Bit32u postgap;
+   Bit32u physframeofs;
+   Bit32u chdframeofs;
+   Bit32u logframeofs;
+   int isZip;
+   char* filename;
+} track_info_struct;
+
+typedef struct
+{
+   Bit32u fad_start;
+   Bit32u fad_end;
+   track_info_struct *track;
+   int track_num;
+} session_info_struct;
+
+typedef struct
+{
+   int session_num;
+   //JZFile *zip;
+   //JZEndRecord* endRecord;
+   session_info_struct *session;
+} disc_info_struct;
+
+static disc_info_struct disc;
+
+//////////////////////////////////////////////////////////////////////////////
+
+
+#define CD_MAX_SECTOR_DATA      (2352)
+#define CD_MAX_SUBCODE_DATA     (96)
+#define CD_FRAME_SIZE           (CD_MAX_SECTOR_DATA + CD_MAX_SUBCODE_DATA)
+#define CD_MAX_TRACKS           (99)    /* AFAIK the theoretical limit */
+#define CD_TRACK_PADDING 4
+
+typedef struct ChdInfo_ {
+  chd_file *chd;
+  core_file * image_file;
+  const chd_header * header;
+  char * hunk_buffer;
+  int current_hunk_id;
+} ChdInfo;
+
+ChdInfo * pChdInfo = NULL;
+
+bool CDROM_Interface_Image::LoadCHDFile(char* chd_filename)
+{
+	
+  LOG_MSG("CHD %s", chd_filename);
+
+  tracks.clear();  
+  Track track = {0, 0, 0, 0, 0, 0, false, NULL};
+  bool derror;
+  track.file = new BinaryFile((const char*)chd_filename, derror);
+  track.number = 1;
+  
+   if (derror) {
+		delete track.file;
+		track.file = NULL;
+		return false;
+	}
+	
+ 
+ // const char* = chd_filename;
+  int trak_number;
+  char track_type[64];
+  char track_subtype[64];
+  int frame = 0;
+  int pregap = 0;
+  char pg_type[64];
+  char pg_sub_type[64];
+  int postgap = 0;
+
+  int meta_outlen = 512 * 1024;
+  Bit8u * buf = (Bit8u *)malloc(meta_outlen);
+  Bit32u resultlen;
+  Bit32u resulttag;
+  Bit8u resultflags;
+
+  if (pChdInfo != NULL) {
+    free(pChdInfo);
+  }
+
+  pChdInfo = (ChdInfo *)malloc(sizeof(ChdInfo));
+  memset(pChdInfo, 0, sizeof(ChdInfo));
+
+  track_info_struct trk[100];
+  memset(trk, 0, sizeof(trk));
+
+  int num_tracks = 0;
+
+  chd_error error = chd_open(chd_filename , CHD_OPEN_READ, NULL, &pChdInfo->chd);
+  if (error != CHDERR_NONE) {
+    return false;
+  }
+
+  pChdInfo->header = chd_get_header(pChdInfo->chd);
+
+  trk[num_tracks].fad_start = frame + pregap + 150;
+
+  LOG_MSG("CHD CDROM IMAGE INFO");
+  
+  while ( chd_get_metadata(pChdInfo->chd, 0, num_tracks, buf, meta_outlen, &resultlen, &resulttag, &resultflags) == CHDERR_NONE )  {
+
+    LOG_MSG("%s", buf);
+    switch (resulttag) {
+    case CDROM_TRACK_METADATA_TAG:
+      sscanf((const char*)buf, CDROM_TRACK_METADATA_FORMAT, &trak_number, track_type, track_subtype, &frame);
+      pregap = 0;
+      postgap = 0;
+      sprintf(pg_type, "NONE");
+      break;
+    case CDROM_TRACK_METADATA2_TAG:
+      sscanf((const char*)buf, CDROM_TRACK_METADATA2_FORMAT, &trak_number, track_type, track_subtype, &frame, &pregap, pg_type, pg_sub_type, &postgap);
+      break;
+    default:
+      return false;
+    }
+
+    // trk[num_tracks].pregap = pregap;
+    // trk[num_tracks].postgap = postgap;
+
+    // trk[num_tracks].frames = frame;
+    // int padded = (frame + CD_TRACK_PADDING - 1) / CD_TRACK_PADDING;
+    // trk[num_tracks].extraframes = padded * CD_TRACK_PADDING - frame;
+
+    if (!strcmp(track_type, "MODE1"))
+    {
+      track.attr = 0x41;
+      track.sectorSize= 2048;
+	  track.mode2 = false;
+    }
+    else if (!strcmp(track_type, "MODE1/2048"))
+    {
+      track.attr = 0x41;
+      track.sectorSize= 2048;
+	  track.mode2 = false;
+    }
+    else if (!strcmp(track_type, "MODE1_RAW"))
+    {
+      track.attr= 0x41;
+      track.sectorSize = 2352;
+	  track.mode2 = true;
+    }
+    else if (!strcmp(track_type, "MODE1/2352"))
+    {
+      track.attr = 0x41;
+      track.sectorSize = 2352;
+	  track.mode2 = true;
+    }
+    else if (!strcmp(track_type, "MODE2"))
+    {
+      track.attr= 0x41;
+      track.sectorSize = 2336;
+	  track.mode2 = true;
+    }
+    else if (!strcmp(track_type, "MODE2/2336"))
+    {
+      track.attr= 0x41;
+      track.sectorSize = 2336;
+	  track.mode2 = true;
+    }
+    else if (!strcmp(track_type, "MODE2_FORM1"))
+    {
+      track.attr = 0x41;
+      track.sectorSize= 2048;
+	  track.mode2 = true;
+    }
+    else if (!strcmp(track_type, "MODE2/2048"))
+    {
+	  track.attr= 0x41;
+      track.sectorSize= 2048;
+	  track.mode2 = true;
+    }
+    else if (!strcmp(track_type, "MODE2_FORM2"))
+    {
+      track.attr = 0x41;
+      track.sectorSize= 2324;
+	  track.mode2 = true;
+    }
+    else if (!strcmp(track_type, "MODE2/2324"))
+    {
+      track.attr = 0x41;
+      track.sectorSize= 2324;
+	  track.mode2 = true;
+    }
+    else if (!strcmp(track_type, "MODE2_FORM_MIX"))
+    {
+      track.attr = 0x41;
+      track.sectorSize= 2336;
+	  track.mode2 = true;
+    }
+    else if (!strcmp(track_type, "MODE2/2336"))
+    {
+      track.attr = 0x41;
+      track.sectorSize = 2336;
+	  track.mode2 = true;
+    }
+    else if (!strcmp(track_type, "MODE2_RAW"))
+    {
+      track.attr= 0x41;
+      track.sectorSize = 2352;
+	  track.mode2 = true;
+    }
+    else if (!strcmp(track_type, "MODE2/2352"))
+    {
+      track.attr = 0x41;
+      track.sectorSize = 2352;
+	  track.mode2 = true;
+    }
+    else if (!strcmp(track_type, "AUDIO"))
+    {
+      track.attr= 0x01;
+      track.sectorSize = 2352;
+	  track.mode2 = true;
+      //trk[num_tracks].pregap = 0;
+    }
+
+    //trk[num_tracks].fad_start = trk[num_tracks].fad_start + pregap;
+    //trk[num_tracks].fad_end = trk[num_tracks].fad_start + (frame - 1) + postgap;
+    //frame = trk[num_tracks].fad_end+1;
+    num_tracks++;
+    //trk[num_tracks].fad_start = frame;
+  }
+  free(buf);
+
+  // trk[num_tracks].file_offset = 0;
+  // trk[num_tracks].fad_start = 0xFFFFFFFF;
+
+  // Bit32u chdofs = 0;
+  // Bit32u physofs = 0;
+  // Bit32u logofs = 150;
+  // int i;
+  // for (i = 0; i < num_tracks; i++)
+  // {
+    // trk[i].fad_start = logofs + trk[i].pregap;
+
+    // trk[i].physframeofs = physofs;
+    // trk[i].chdframeofs = chdofs;
+    // trk[i].logframeofs = logofs;
+
+    // //logofs += trk[i].pregap;
+    // //logofs += trk[i].postgap;
+    // logofs += trk[i].frames;
+    // trk[i].fad_end = logofs;
+
+    // physofs += trk[i].frames;
+
+    // chdofs += trk[i].frames;
+    // chdofs += trk[i].extraframes;
+  // }
+  // trk[i].logframeofs = logofs;
+  // trk[i].physframeofs = physofs;
+  // trk[i].chdframeofs = chdofs;
+
+  // //trk[num_tracks - 1].fad_end = (pChdInfo->header->logicalbytes - trk[num_tracks - 1].file_offset) / trk[num_tracks - 1].sector_size;
+
+  // disc.session_num = 1;
+  // disc.session =(session_info_struct*)malloc(sizeof(session_info_struct) * disc.session_num);
+  // if (disc.session == NULL)
+  // {
+    // //YabSetError(YAB_ERR_MEMORYALLOC, NULL);
+    // return false;
+  // }
+  // disc.session[0].fad_start = 150;
+  // disc.session[0].fad_end = trk[num_tracks - 1].fad_end;
+  // disc.session[0].track_num = num_tracks;
+  // disc.session[0].track = (track_info_struct*)malloc(sizeof(track_info_struct) * disc.session[0].track_num);
+  // if (disc.session[0].track == NULL)
+  // {
+    // //YabSetError(YAB_ERR_MEMORYALLOC, NULL);
+    // free(disc.session);
+    // disc.session = NULL;
+    // return false;
+  // }
+
+  // memcpy(disc.session[0].track, trk, num_tracks * sizeof(track_info_struct));
+
+  // pChdInfo->hunk_buffer = (char*)malloc(pChdInfo->header->hunkbytes);
+  // chd_read(pChdInfo->chd, 0, pChdInfo->hunk_buffer);
+  // pChdInfo->current_hunk_id = 0;
+
+  LOG_MSG("CHD LOAD ......");
+  return true;
+}
+
+
+
+
 bool CDROM_Interface_Image::LoadIsoFile(char* filename)
 {
 	tracks.clear();
@@ -745,8 +1063,8 @@ bool CDROM_Interface_Image::LoadIsoFile(char* filename)
 		track.sectorSize = RAW_SECTOR_SIZE;
 		track.mode2 = true;		
 	} else {
-        delete track.file;
-        track.file = NULL;
+		delete track.file;
+		track.file = NULL;
 		return false;
 	}
 	track.length = track.file->getLength() / track.sectorSize;
