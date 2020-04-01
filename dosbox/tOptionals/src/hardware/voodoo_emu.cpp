@@ -585,6 +585,7 @@ int Get_DosboxVideo(void){
  *************************************/
 
  /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+
 int pciW=0;				
 int pciH=0;	
 int pciFSH = 0;
@@ -611,35 +612,36 @@ void vGet_Configuration(void){
 		vresolution=section->Get_string("voodoo_Window");
 	}
 
-	
-	if(vresolution && *vresolution) {
-		char res[100];
-		safe_strncpy( res,vresolution, sizeof( res ));
-		vresolution = lowcase (res);//so x and X are allowed
-		if(strcmp(vresolution,"original") == 0) {
-				pciW = (GLdouble)v->fbi.width;				
-				pciH = (GLdouble)v->fbi.height;
-		}else if (strcmp(vresolution,"desktop") == 0) { //desktop = 0x0
-				
-				SDL_DisplayMode displayMode;
-				SDL_GetDesktopDisplayMode(displaynumber, &displayMode);										
-				pciW = displayMode.w;
-				pciH = displayMode.h;				
-				
-		}else if (strcmp(vresolution,"0x0") == 0) { 
-				pciW = (GLdouble)v->fbi.width;				
-				pciH = (GLdouble)v->fbi.height;	
-		
-		}else {
+
+		if(vresolution && *vresolution) {
+			char res[100];
+			safe_strncpy( res,vresolution, sizeof( res ));
+			vresolution = lowcase (res);//so x and X are allowed
+			if(strcmp(vresolution,"original") == 0) {
+					pciW = (GLdouble)v->fbi.width;				
+					pciH = (GLdouble)v->fbi.height;
+			}else if (strcmp(vresolution,"desktop") == 0) { //desktop = 0x0
+					
+					SDL_DisplayMode displayMode;
+					SDL_GetDesktopDisplayMode(displaynumber, &displayMode);										
+					pciW = displayMode.w;
+					pciH = displayMode.h;				
+					
+			}else if (strcmp(vresolution,"0x0") == 0) { 
+					pciW = (GLdouble)v->fbi.width;				
+					pciH = (GLdouble)v->fbi.height;	
 			
-			char* height = const_cast<char*>(strchr(vresolution,'x'));
-			if(height && *height) {
-				*height = 0;
-				pciH = (Bit16u)atoi(height+1);
-				pciW = (Bit16u)atoi(res);
+			}else {
+				
+				char* height = const_cast<char*>(strchr(vresolution,'x'));
+				if(height && *height) {
+					*height = 0;
+					pciH = (Bit16u)atoi(height+1);
+					pciW = (Bit16u)atoi(res);
+				}
 			}
 		}
-	}
+
 	
 	vresolution="";
 	// Voodoo Use the same Resolution Output how Dosbox	
@@ -649,39 +651,51 @@ void vGet_Configuration(void){
 		vresolution=section->Get_string("voodoo_Fullscreen");
 	}
 	
-	if(vresolution && *vresolution) {
-		char res[100];
-		safe_strncpy( res,vresolution, sizeof( res ));
-		vresolution = lowcase (res);//so x and X are allowed
-		if (strcmp(vresolution,"original") == 0) {
-				pciFSW = (GLdouble)v->fbi.width;
-				pciFSH = (GLdouble)v->fbi.height;
-		}else if (strcmp(vresolution,"desktop") == 0) { //desktop = 0x0
-			
-				SDL_DisplayMode displayMode;
-				SDL_GetDesktopDisplayMode(displaynumber, &displayMode);
-				pciFSW = displayMode.w;
-				pciFSH = displayMode.h;
-				
-		}else if (strcmp(vresolution,"0x0") == 0) { //desktop = 0x0		
 
-				//pciFSW = (GLdouble)v->fbi.width;				
-				//pciFSH = (GLdouble)v->fbi.height;	
+		if(vresolution && *vresolution) {
+			char res[100];
+			safe_strncpy( res,vresolution, sizeof( res ));
+			vresolution = lowcase (res);//so x and X are allowed
+			if (strcmp(vresolution,"original") == 0) {
+					pciFSW = (GLdouble)v->fbi.width;
+					pciFSH = (GLdouble)v->fbi.height;
+			}else if (strcmp(vresolution,"desktop") == 0) { //desktop = 0x0
 				
-				SDL_DisplayMode displayMode;
-				SDL_GetDesktopDisplayMode(displaynumber, &displayMode);
-				pciFSW = displayMode.w;
-				pciFSH = displayMode.h;
-				
-		}else{
-				char* height = const_cast<char*>(strchr(vresolution,'x'));
-				if(height && *height) {
-					*height = 0;
-					pciFSH = (Bit16u)atoi(height+1);
-					pciFSW = (Bit16u)atoi(res);
-				}
+					SDL_DisplayMode displayMode;
+					SDL_GetDesktopDisplayMode(displaynumber, &displayMode);
+					pciFSW = displayMode.w;
+					pciFSH = displayMode.h;
+					
+			}else if (strcmp(vresolution,"0x0") == 0) { //desktop = 0x0		
+
+					//pciFSW = (GLdouble)v->fbi.width;				
+					//pciFSH = (GLdouble)v->fbi.height;	
+					
+					SDL_DisplayMode displayMode;
+					SDL_GetDesktopDisplayMode(displaynumber, &displayMode);
+					pciFSW = displayMode.w;
+					pciFSH = displayMode.h;
+					
+			}else{
+					char* height = const_cast<char*>(strchr(vresolution,'x'));
+					if(height && *height) {
+						*height = 0;
+						pciFSH = (Bit16u)atoi(height+1);
+						pciFSW = (Bit16u)atoi(res);
+					}
+			}
 		}
-	}
+
+		if ( extVoodoo.bForceFullSnUpdate == true ){		
+			 pciFSW = extVoodoo.pciFSW;
+			 pciFSH = extVoodoo.pciFSH;	
+		}
+		
+		if ( extVoodoo.bForceWindowUpdate == true ){		
+			 pciW = extVoodoo.pciW;
+			 pciH = extVoodoo.pciH;		 
+		}
+	
 	LOG(LOG_VOODOO,LOG_WARN)("Voodoo Emu: Display Index %d", displaynumber);
 }
 	
@@ -3305,7 +3319,9 @@ UINT32 lfb_r(UINT32 offset)
 
 	/* compute X,Y */
 	x = (offset << 1) & 0x3fe;
-	y = (offset >> 9) & 0x7ff;//& 0x3ff;
+	y = (offset >> 9) & 0x7ff;//& 0x7ff;//& 0x3ff;
+	//LOG(LOG_VOODOO,LOG_WARN)("%d", y);
+	//LOG_MSG("compute X,Y = %d,%d offset %X",x,y,offset >> 9);
 
 
 	/* select the target buffer */
@@ -3337,11 +3353,17 @@ UINT32 lfb_r(UINT32 offset)
 
 	/* determine the screen Y */
 	scry = y;
-	if (LFBMODE_Y_ORIGIN(v->reg[lfbMode].u))
+	
+	
+	
+	if (LFBMODE_Y_ORIGIN(v->reg[lfbMode].u)){
 		scry = ((int)v->fbi.yorigin - y);// & 0x3ff;
+		LOG_MSG("(int)v->fbi.yorigin - y %d", scry);
+	}
 
-	if (v->ogl && v->active) {	
-		data = voodoo_ogl_read_pixel(x, scry+1);
+	if (v->ogl && v->active) {		
+		
+		data = voodoo_ogl_read_pixel(x, scry+1);		
 		//return data;
 	} else {
 		/* advance pointers to the proper row */

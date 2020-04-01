@@ -139,7 +139,21 @@ void DriveManager::InitializeDrive(int drive) {
 	if (driveInfo.disks.size() > 0) {
 		driveInfo.currentDisk = 0;
 		DOS_Drive* disk = driveInfo.disks[driveInfo.currentDisk];
+		int currentDisk = driveInfos[drive].currentDisk;
 		Drives[currentDrive] = disk;
+		
+		/*
+			On Initialize Show the Label
+		*/
+		strcpy(sDriveLabel,Drives[drive]->GetLabel());
+		
+		if ( strlen( sDriveLabel ) == 0 ){
+			strcpy(sDriveLabel,"NO_NAME");
+		}
+			
+		sprintf(sDriveNotify,"Mount Drive %c: [%s] (%d of %d is now Active)", 'A'+drive,sDriveLabel,currentDisk+1, (int)driveInfos[currentDrive].disks.size());
+		LOG_MSG(sDriveNotify);	
+		
 		if (driveInfo.disks.size() > 1) disk->Activate();
 	}
 }
@@ -194,6 +208,9 @@ void DriveManager::CycleDisks(int drive, bool notify) {
 		//LOG_MSG("%s", Drives[drive]->GetLabel());
 		if (notify){		
 			
+			/*
+				On Initialize Show the Label
+			*/			
 			strcpy(sDriveLabel,Drives[drive]->GetLabel());
 			
 			if ( strlen( sDriveLabel ) == 0 ){

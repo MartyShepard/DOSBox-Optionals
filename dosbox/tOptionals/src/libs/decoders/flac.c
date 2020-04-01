@@ -12,12 +12,12 @@
  *
  *  This file is part of the SDL Sound Library.
  *
- *  This SDL_sound Ogg Opus decoder backend is free software: you can redistribute
+ *  This SDL_sound FLAC decoder backend is free software: you can redistribute
  *  it and/or modify it under the terms of the GNU General Public License as
  *  published by the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
  *
- *  This  SDL_sound Ogg Opus decoder backend is distributed in the hope that it
+ *  This SDL_sound FLAC decoder backend is distributed in the hope that it
  *  will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
  *  of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
@@ -31,20 +31,20 @@
 #  include <config.h>
 #endif
 
+#include <math.h> /* for llroundf */
+
 #include "SDL_sound.h"
 #define __SDL_SOUND_INTERNAL__
 #include "SDL_sound_internal.h"
 
 #define DR_FLAC_IMPLEMENTATION
-// #define DR_FLAC_NO_SIMD 1 /* temporary work-around for https://github.com/mackron/dr_libs/issues/63 */
 #define DR_FLAC_NO_STDIO 1
 #define DR_FLAC_NO_WIN32_IO 1
-#define DR_FLAC_NO_CRC 1
+#define DRFLAC_FREE(p)                    SDL_free((p))
 #define DRFLAC_MALLOC(sz) SDL_malloc((sz))
 #define DRFLAC_REALLOC(p, sz) SDL_realloc((p), (sz))
-#define DRFLAC_FREE(p) SDL_free((p))
+#define DRFLAC_ZERO_MEMORY(p, sz)         SDL_memset((p), 0, (sz))
 #define DRFLAC_COPY_MEMORY(dst, src, sz) SDL_memcpy((dst), (src), (sz))
-#define DRFLAC_ZERO_MEMORY(p, sz) SDL_memset((p), 0, (sz))
 #include "dr_flac.h"
 
 static size_t flac_read(void* pUserData, void* pBufferOut, size_t bytesToRead)
@@ -58,16 +58,12 @@ static size_t flac_read(void* pUserData, void* pBufferOut, size_t bytesToRead)
     while (retval < bytesToRead)
     {
         const size_t rc = SDL_RWread(rwops, ptr, 1, bytesToRead);
-        if (rc == 0)
-        {
+        if (rc == 0) {
             sample->flags |= SOUND_SAMPLEFLAG_EOF;
             break;
         } /* if */
-        else
-        {
             retval += rc;
             ptr += rc;
-        } /* else */
     } /* while */
 
     return retval;
@@ -98,8 +94,7 @@ static int FLAC_open(Sound_Sample *sample, const char *ext)
     Sound_SampleInternal *internal = (Sound_SampleInternal *) sample->opaque;
     drflac *dr = drflac_open(flac_read, flac_seek, sample, NULL);
 
-    if (!dr)
-    {
+    if (!dr) {
         BAIL_IF_MACRO(sample->flags & SOUND_SAMPLEFLAG_ERROR, ERR_IO_ERROR, 0);
         BAIL_MACRO("FLAC: Not a FLAC stream.", 0);
     } /* if */
@@ -112,12 +107,12 @@ static int FLAC_open(Sound_Sample *sample, const char *ext)
     sample->actual.format = AUDIO_S16SYS; /* returns native byte-order based on architecture */
 
     const Uint64 frames = (Uint64) dr->totalPCMFrameCount;
-    if (frames == 0)
+    if (frames == 0) {
         internal->total_time = -1;
-    else
-    {
+    }
+    else {
         const Uint32 rate = (Uint32) dr->sampleRate;
-        internal->total_time = (frames / rate) * 1000;
+        internal->total_time = ( (Sint32)frames / rate) * 1000;
         internal->total_time += ((frames % rate) * 1000) / rate;
     } /* else */
 
@@ -136,14 +131,14 @@ static void FLAC_close(Sound_Sample *sample)
 } /* FLAC_close */
 
 
-static Uint32 FLAC_read(Sound_Sample *sample)
+static Uint32 FLAC_read(Sound_Sample *sample, void* buffer, Uint32 desired_frames)
 {
     Sound_SampleInternal *internal = (Sound_SampleInternal *) sample->opaque;
     drflac *dr = (drflac *) internal->decoder_private;
-    const drflac_uint64 rc = drflac_read_pcm_frames_s16(dr,
-                                                        internal->buffer_size / (dr->channels * sizeof(drflac_int16)),
-                                                        (drflac_int16 *) internal->buffer);
-    return rc * dr->channels * sizeof (drflac_int16);
+    const drflac_uint64 decoded_frames = drflac_read_pcm_frames_s16(dr,
+                                                                    desired_frames,
+                                                                    (drflac_int16 *) buffer);
+    return (Uint32) decoded_frames;
 } /* FLAC_read */
 
 
@@ -159,7 +154,7 @@ static int FLAC_seek(Sound_Sample *sample, Uint32 ms)
     Sound_SampleInternal *internal = (Sound_SampleInternal *) sample->opaque;
     drflac *dr = (drflac *) internal->decoder_private;
     const float frames_per_ms = ((float) sample->actual.rate) / 1000.0f;
-    const drflac_uint64 frame_offset = (drflac_uint64) (frames_per_ms * ((float) ms));
+    const drflac_uint64 frame_offset = llroundf(frames_per_ms * ms);
     return (drflac_seek_to_pcm_frame(dr, frame_offset) == DRFLAC_TRUE);
 } /* FLAC_seek */
 

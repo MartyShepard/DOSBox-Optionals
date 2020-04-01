@@ -1107,7 +1107,27 @@ void DOSBOX_Init(void) {
 	Pbool->Set_help(        "================================================================================================\n"
 							"Set this to False Fix F1'97 Massive Grafic Glitch\n"
 							"Shader: The FBZCOLORPATH in the switch FBZCP_CC_ASELECT will be not used (default true)");												
+	
+	Pbool = secprop->Add_bool("LFB_ScreenFixFrnt",Property::Changeable::Always,false);		
+	Pbool->Set_help(        "================================================================================================\n"
+							"Set this to true will be Fix the LFB Front Buffer Static Draw Screen\n"
+							"This is a Temporary Fix and will not work on all Resolutions except eq 1280x960. (default false)\n"
+							"Games:\n"
+							"-> Road To India (Movie Stutter and Zoom Mismatch)");												
 
+	Pbool = secprop->Add_bool("LFB_ScreenFixBack",Property::Changeable::Always,false);		
+	Pbool->Set_help(        "================================================================================================\n"
+							"Set this to true will be Fix the LFB Back Buffer Static Draw Screen\n"
+							"This is a Temporary Fix and will not work on all Resolutions except eq 1280x960. (default false)\n"
+							"Games:\n"
+							"->Prince Of Perisa 3D\n"							
+							"-> Tomb Raider\n"							
+							"-> Warhammer - Dark Omen");								
+							
+	Pbool = secprop->Add_bool("LFB_LogRegisterNr",Property::Changeable::Always,false);		
+	Pbool->Set_help(        "================================================================================================\n"
+							"Set this to true will be Logging the Frame Buffer Mode and Register Nr. (default false)");
+							
 #endif
 
 

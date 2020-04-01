@@ -42,6 +42,8 @@ void DOSBOX_SetNormalLoop();
 
 void DOSBOX_Init(void);
 
+void Set_Window_HMenu(void);
+
 class Config;
 extern Config * control;
 
@@ -62,14 +64,34 @@ enum SVGACards {
 	SVGA_ParadisePVGA1A
 }; 
 
+
 extern SVGACards svgaCard;
 extern MachineType machine;
+
 extern bool SDLNetInited;
 extern bool mono_cga;
 extern bool CPU_FastForward;
+
 extern int nCurrentDisplay;
+
 extern bool bVoodooInUse;
 extern bool bVoodooOpen;
+extern bool bVoodooUpdateWinRes;
+
+/* Vooodoo Structure to Syncronize mit SDL Main */
+struct ExtVoodooMaschine{
+	int  pciH;
+	int  pciW;
+	int  pciFSH;
+	int  pciFSW;
+	int  GL_filtering;
+	int  gl_wrap_s;		
+	int  gl_wrap_t;
+	bool bLFBFixBack;
+	bool bLFBFixFrnt;	
+	bool bForceWindowUpdate;
+	bool bForceFullSnUpdate;	
+};
 
 extern void Restart(bool pressed);
 

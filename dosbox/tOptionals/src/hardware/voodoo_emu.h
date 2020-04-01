@@ -24,9 +24,10 @@
 
 #include "dosbox.h"
 
+#include "SDL.h"
+
 #include "voodoo_types.h"
 #include "voodoo_data.h"
-
 
 extern voodoo_state *v;
 
@@ -53,8 +54,94 @@ extern bool Voodoo_GetRetrace();
 extern double Voodoo_GetVRetracePosition();
 extern double Voodoo_GetHRetracePosition();
 
-
 extern void CPU_Core_Dyn_X86_SaveDHFPUState(void);
 extern void CPU_Core_Dyn_X86_RestoreDHFPUState(void);
+
+extern ExtVoodooMaschine extVoodoo;
+
+struct SDL_Block_Voodoo {
+	SDL_Window   *surface;
+	SDL_Window   *Dosbox_Surface;
+	
+	struct {
+		SDL_GLContext GLContext;
+		int 	minFilter;
+
+		const char*	sglshademdl;	
+		const char*	sfiltering;	
+		const char* sgl_wrap_s;	
+		const char* sgl_wrap_t;
+
+		int	  GL_filtering;		
+		int	  GL_ShadeModel;		
+		int   n_ClipLowYHigh;
+		int   glZoomFaktor_W;
+		int   glZoomFaktor_H;	
+		int   gl_Major_Version;
+		int   gl_Minor_Version;	
+		int   gl_wrap_s;		
+		int   gl_wrap_t;
+		int   nLFBMode;		
+		
+		bool  compatibleFlag;
+		bool  glScissor_flag;
+		bool  glP_Smoth_flag;
+		bool  glL_Smoth_flag;
+		bool  glBlendFc_flag;
+		bool  gl_GLFog__flag;				
+		bool  glGMipMap_flag;
+		bool  glPersCor_flag;
+		bool  glG_Smoth_flag;	
+		bool  a_ClipLowYHigh;
+		bool  gl_QuadsDraw;
+		bool  voodoo_aspect;
+		bool  sh_FbzcpCca_Sw2;		
+		bool  gl_PointSize_use;
+		bool  bLFBFixBack;
+		bool  bLFBFixFrnt;
+		bool  bLFBDebugLg;
+		float gl_PointSize_num;
+		float Anisotropic_Level;		
+		float gl_ortho_zNear;
+		float gl_ortho_zFar;
+	
+		void *framebuf;
+	}opengl;
+	
+	Uint32 ScreenType;
+	Uint32 sdl_WindowFlags;
+	Uint32 sdl_FullS_Flags;
+	Uint32 ScrOpenGL_Flags;
+	SDL_PixelFormat *pixelFormat;
+	
+	bool OpenGLDesktopFullScreen;
+	bool fullscreen;
+	bool full_fixed;
+			
+	struct {
+		bool fullscreen_desktop;		
+		int wTBH;
+		int Index;		
+	}desktop;
+	
+	int pciW;
+	int pciH;
+	int pciFSW;
+	int pciFSH;	
+	int posX;
+	int posY;
+	int posX_Old;
+	int posY_Old;	
+	int windowstaskbaradjust;
+	int displaynumber;
+	
+	struct {
+		const char* output;
+		const char* texture;
+	}dosbox;	
+	
+	Uint32 dosboxScreenId;	
+};
+static SDL_Block_Voodoo sdlVoodoo;
 
 #endif

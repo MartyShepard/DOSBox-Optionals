@@ -66,7 +66,7 @@ const char *gDosboxBuildSVN    = VERSION;
 const char *gDosboxRevision    = DOSBOXREVISION;
 const char *gDosboxBuildDate   = __DATE__ " " __TIME__;
 const char *gDosboxFullVersion = "DOSBox " VERSION " " DOSBOXREVISION " Build on (" __DATE__ " " __TIME__ ")";
-const char *gDosboxCopyright   = "\tCopyright 2002-2019 DOSBox Team";
+const char *gDosboxCopyright   = "\tCopyright 2002-2020 DOSBox Team";
 const char *gDosboxTeamText    = "\tDOSBox is written by the DOSBox Team (See AUTHORS file))\n\tDOSBox comes with ABSOLUTELY NO WARRANTY. This is free\n\tsoftware and you are welcome to redistribute,  it under\n\tcertain conditions.\n\tThis is a DOSBox Fork from the Original DOSBox 0.74 " VERSION " " DOSBOXSVERSION "\n\n\tGreetings, credits & thanks:\n\tDOSBox Team, dungan, NY00123, tauro, bloodbat, Yesterplay80\n\tnukeykt, VileRancour, D_Skywalk, Vasyl Tsvirkunov, Moe, kekko\n\tTaeWoong Yoo, krcroft\n\n\t\tGreetings to the CGBoard & Vogons Board";
 const char *gDOSBoxFeatures    = ""											
 #if C_TARGETCPU == X86

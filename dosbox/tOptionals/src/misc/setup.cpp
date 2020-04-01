@@ -911,6 +911,98 @@ bool Config::PrintConfig(char const * const configfilename) const {
 }
 
 
+
+inline bool ExistsConfigFile (const std::string& name) {
+  struct stat buffer;   
+  return (stat (name.c_str(), &buffer) == 0); 
+}
+
+std::string sCurrentWorkingPath()
+{
+	char current[MAX_PATH+1];
+	GetCurrentDirectory(sizeof(current), current);
+	return current;
+}
+
+/*
+	Get Dosbox.conf file from the Current Path.
+	We don't using Windows Appdata Path and let the
+	Config in the current directory (oldtimes).
+*/
+std::string getDosboxConfig()
+{
+	std::string aDirectory;
+	std::string bDirectory;	
+	std::string sConfigFile;
+	
+	aDirectory = sCurrentWorkingPath() + "\\";		
+	Cross::GetPlatformConfigName(sConfigFile);
+				 		
+	aDirectory += sConfigFile;	
+		/*
+			Get Dosbox.conf from Current .\
+		*/
+	if ( ExistsConfigFile(aDirectory.c_str())){
+		return aDirectory;				
+		
+	}else{		
+		/*
+			Get Dosbox.conf from Current .\DATA\
+		*/			
+		bDirectory = sCurrentWorkingPath() + "\\DATA\\";			
+		bDirectory += sConfigFile;
+			
+		if ( ExistsConfigFile(bDirectory.c_str())){
+			return bDirectory;	
+			
+		}else{
+		
+			LOG_MSG("CONFIG: Could'nt save value to:\n"
+					"        %s\n"
+					"        %s\n",aDirectory.c_str(), bDirectory.c_str() );				
+		}	
+	}		
+}
+
+/*
+	Save the Resolution to the Dosbox.conf on the Fly
+*/
+bool Config::SaveConfig_ResX( int w, int h, bool bWindowed ) {
+
+	std::string sConfigFile = getDosboxConfig();
+	std::string sWidth  	= std::to_string(w);
+	std::string sHeight 	= std::to_string(h);
+	
+	std::string sResolution;	
+	sResolution += " "+sWidth + "x" + sHeight;
+	
+	if ( bWindowed == true ){
+		WritePrivateProfileString("sdl","windowresolution",sResolution.c_str(),sConfigFile.c_str());
+	
+		LOG_MSG("CONFIG: Saved Resolution Value (Window %s) to:\n"
+				"        %s\n",sResolution.c_str(), sConfigFile.c_str());		
+	}else{
+		WritePrivateProfileString("sdl","fullresolution"  ,sResolution.c_str(),sConfigFile.c_str());
+		
+		LOG_MSG("CONFIG: Saved Resolution Value (FullScreen %s) to:\n"
+				"        %s\n",sResolution.c_str(), sConfigFile.c_str());	
+	}
+	return true;
+}
+
+/*
+	Save the bool values to the Dosbox.conf on the Fly
+*/
+bool Config::SaveConfig_Bool( std::string sSection, std::string sProperty, bool b ){
+	return true;
+}
+/*
+	Save integer values to the Dosbox.conf on the Fly
+*/
+bool Config::SaveConfig_Intg( std::string sSection, std::string sProperty,  int i ){
+	return true;
+}
+
 Section_prop* Config::AddSection_prop(char const * const _name,void (*_initfunction)(Section*),bool canchange) {
 	Section_prop* blah = new Section_prop(_name);
 	blah->AddInitFunction(_initfunction,canchange);

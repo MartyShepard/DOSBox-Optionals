@@ -59,8 +59,9 @@
 #include "cross.h"
 #include "control.h"
 #include "joystick.h"
-#include "version.h"
 #include "bios_disk.h"
+#include "version.h"
+
 
 #define MAPPERFILE "KeyMap.map"
 //#define MAPPERFILE "MAPPER-SDL2-" VERSION ".map"
@@ -276,42 +277,43 @@ static SDL_Block sdl;
 
 /* Added from DOSBox-X /////////////////////////////////////////////////////*/
 #if C_OPENGL
-const std::string vertex_shader_default_src =
-	"#version 330 core\n"
-	"\n"
-	"layout(location = 0) in vec4 position;\n"
-	"layout(location = 1) in vec2 textureCoord;\n"
-	"\n"
-	"out vec2 texCoord;\n"
-	"\n"
-	"void main()\n"
-	"{\n"
-	"	gl_Position = position;\n"
-	"	texCoord = textureCoord;\n"
-	"}\n";
+	const std::string vertex_shader_default_src =
+		"#version 330 core\n"
+		"\n"
+		"layout(location = 0) in vec4 position;\n"
+		"layout(location = 1) in vec2 textureCoord;\n"
+		"\n"
+		"out vec2 texCoord;\n"
+		"\n"
+		"void main()\n"
+		"{\n"
+		"	gl_Position = position;\n"
+		"	texCoord = textureCoord;\n"
+		"}\n";
 
-const std::string fragment_shader_default_src =
-	"#version 330 core\n"
-	"\n"
-	"in vec2 texCoord;\n"
-	"uniform sampler2D decal;\n"
-	"\n"
-	"out vec4 color;"
-	"\n"
-	"void main()\n"
-	"{\n"
-	"	color = texture(decal, texCoord);\n"
-	"}\n";
+	const std::string fragment_shader_default_src =
+		"#version 330 core\n"
+		"\n"
+		"in vec2 texCoord;\n"
+		"uniform sampler2D decal;\n"
+		"\n"
+		"out vec4 color;"
+		"\n"
+		"void main()\n"
+		"{\n"
+		"	color = texture(decal, texCoord);\n"
+		"}\n";
 
-	const GLuint POSITION_LOCATION = 0;
-	const GLuint TEXTURE_LOCATION = 1;
+		const GLuint POSITION_LOCATION 	= 0;
+		const GLuint TEXTURE_LOCATION 	= 1;
 #endif
 
 static int SDL_Init_Wrapper(void)
 {
-	int result = ( SDL_Init( SDL_INIT_AUDIO|SDL_INIT_VIDEO|SDL_INIT_TIMER
-		|SDL_INIT_NOPARACHUTE
-	));
+	int result = ( SDL_Init( SDL_INIT_AUDIO|
+							 SDL_INIT_VIDEO|
+							 SDL_INIT_TIMER|
+							 SDL_INIT_NOPARACHUTE));
 	return result;
 }
 
@@ -321,31 +323,66 @@ static void SDL_Quit_Wrapper(void)
 }
 
 /* Multimonitor Setup Varibales */
-int nCurrentDisplay;
-bool bVoodooInUse;
-bool bVoodooOpen;
+	int 	nCurrentDisplay;
+	bool 	bVoodooInUse;
+	bool 	bVoodooOpen;
+	
+	ExtVoodooMaschine extVoodoo;
 
-extern const char* RunningProgram;
-extern bool CPU_CycleAutoAdjust;
-extern bool CPU_FastForward;
-extern const char* GFX_Type;
-extern char sDriveLabel[256];
+	extern const char* RunningProgram;
+	extern const char* GFX_Type;
+	
+	extern bool CPU_CycleAutoAdjust;
+	extern bool CPU_FastForward;
 
-extern void MAPPER_RunEvent(Bitu /*val*/);
+	extern char sDriveLabel[256];
+
+	extern void MAPPER_RunEvent(Bitu /*val*/);
 
 
-//Globals for keyboard initialisation
-bool startup_state_numlock=true;
-bool startup_state_capslock=false;
+/*	Globals for keyboard initialisation */
+	bool startup_state_numlock	= true;
+	bool startup_state_capslock	= false;
 
-const char* strPriority;
+	const char* strPriority;
+	
+	/*
+		Init the HWND Value for the DOSbox Icon (Left top) 
+	*/
+	HWND DosboxHwndIcon = NULL;
+
+/* Icon Menu ------------------------------------------------------------------------------------------- */
+#include "IconMenu\icon_menu.h"
+	void Set_Window_HMenu(void){					
+		/*
+			Do the Proc Install once a Programm Start
+		*/
+		if (DosboxHwndIcon == NULL){
+			SDL_SysWMinfo wminfo;
+			SDL_VERSION(&wminfo.version);
+			
+			if (SDL_GetWindowWMInfo(sdl.window, &wminfo) == 1) {
+				
+				/*	Getting the current HWND				*/
+				HWND DosboxHwndIcon = wminfo.info.win.window;
+				
+				/*	Execute LRESULT CALLBACK				*/			
+				#include "IconMenu\icon_menu_appends.h"	
+				
+				/*	Install the Procdure					*/			
+				SysMenuExtendWndProcInstall(DosboxHwndIcon);
+			}		
+		}
+	};
+/* ----------------------------------------------------------------------------------------------------- */
+
 
 void GFX_SetTitle(Bit32s cycles,int frameskip,bool paused){
 	char strWinTitle  [256];	
 	char title        [200]={0};
 	char strDriveLabel[256]="";
 	
-	static Bit32s internal_cycles=0;
+	static Bit32s internal_cycles	=0;
 	static Bit32s internal_frameskip=0;
 	
 	extern Bit32s MixerVolDownUpKeysL;
@@ -354,201 +391,97 @@ void GFX_SetTitle(Bit32s cycles,int frameskip,bool paused){
 	extern bool ticksLocked;
 
 	bool showFrameSkip = false;										// Kann Später noch in die Config
-	
-	
-
-		if(strcmp(GFX_Type, (const char*)"hercules") == 0){
-			strcpy(strWinTitle,"Hercules");
-		}
-		if(strcmp(GFX_Type, (const char*)"cga") == 0){
-			strcpy(strWinTitle,"CGA");
-		}
-		if(strcmp(GFX_Type, (const char*)"cga_mono") == 0){
-			strcpy(strWinTitle,"CGA Mono");
-		}		
-		if(strcmp(GFX_Type, (const char*)"tandy") == 0){
-			strcpy(strWinTitle,"Tandy");			
-		}		
-		if(strcmp(GFX_Type, (const char*)"pcjr") == 0){
-			strcpy(strWinTitle,"PCJr");			
-		}
-		if(strcmp(GFX_Type, (const char*)"ega") == 0){
-			strcpy(strWinTitle,"EGA");			
-		}
-		if(strcmp(GFX_Type, (const char*)"svga_s3") == 0){
-			strcpy(strWinTitle,"S3 Trio");			
-		}
-		if(strcmp(GFX_Type, (const char*)"vesa_nolfb") == 0){			
-			strcpy(strWinTitle,"S3 Trio - NoLFB");			
-		}
-		if(strcmp(GFX_Type, (const char*)"vesa_oldvbe") == 0){		
-			strcpy(strWinTitle,"S3 Trio - Old VBE");			
-		}
-		if(strcmp(GFX_Type, (const char*)"svga_et4000") == 0){			
-			strcpy(strWinTitle,"Tseng ET4000");			
-		}
-		if(strcmp(GFX_Type, (const char*)"svga_et3000") == 0){		
-			strcpy(strWinTitle,"Tseng ET3000");			
-		}	
-		if(strcmp(GFX_Type, (const char*)"svga_paradise") == 0){	
-			strcpy(strWinTitle,"Paradise");			
-		}
-		if(strcmp(GFX_Type, (const char*)"vgaonly") == 0){		
-			strcpy(strWinTitle,"VGA");			
-		}
-			
-		//if(strcmp(sDriveLabel, strDriveLabel) == 0){
-			if (strlen(sDriveLabel) != 0){			
-				sprintf(strDriveLabel," (Drive Mount: %s), ",sDriveLabel);
-			}
-		//}
 		
-	if(cycles != -1){
-		internal_cycles = cycles;
-	}
+		if(strcmp(GFX_Type, (const char*)"hercules"	 	) == 0){ strcpy(strWinTitle,"Hercules"			);}
+		if(strcmp(GFX_Type, (const char*)"cga"		 	) == 0){ strcpy(strWinTitle,"CGA"				);}
+		if(strcmp(GFX_Type, (const char*)"cga_mono"	 	) == 0){ strcpy(strWinTitle,"CGA Mono"			);}		
+		if(strcmp(GFX_Type, (const char*)"tandy"	 	) == 0){ strcpy(strWinTitle,"Tandy"				);}		
+		if(strcmp(GFX_Type, (const char*)"pcjr"		 	) == 0){ strcpy(strWinTitle,"PCJr"				);}
+		if(strcmp(GFX_Type, (const char*)"ega"		 	) == 0){ strcpy(strWinTitle,"EGA"				);}
+		if(strcmp(GFX_Type, (const char*)"svga_s3"	 	) == 0){ strcpy(strWinTitle,"S3 Trio"			);}
+		if(strcmp(GFX_Type, (const char*)"vesa_nolfb"	) == 0){ strcpy(strWinTitle,"S3 Trio - NoLFB"	);}
+		if(strcmp(GFX_Type, (const char*)"vesa_oldvbe"	) == 0){ strcpy(strWinTitle,"S3 Trio - Old VBE"	);}
+		if(strcmp(GFX_Type, (const char*)"svga_et4000"	) == 0){ strcpy(strWinTitle,"Tseng ET4000"		);}
+		if(strcmp(GFX_Type, (const char*)"svga_et3000"	) == 0){ strcpy(strWinTitle,"Tseng ET3000"		);}	
+		if(strcmp(GFX_Type, (const char*)"svga_paradise") == 0){ strcpy(strWinTitle,"Paradise"			);}
+		if(strcmp(GFX_Type, (const char*)"vgaonly"		) == 0){ strcpy(strWinTitle,"VGA"				);}
+
+		if (strlen(sDriveLabel) != 0){
+			sprintf(strDriveLabel," (Drive Mount: %s), ",sDriveLabel);
+		}
+
+		
+		if(cycles 	 != -1){ internal_cycles 	= cycles	;}
+		if(frameskip != -1){ internal_frameskip = frameskip	;}
 	
-	if(frameskip != -1){
-		internal_frameskip = frameskip;
-	}
 	
 	if (ticksLocked) {		
-		sprintf(title,"DOSBox %s %s, Cpu Cycles: Max Unlocked, [ Volume %2d%  (Ctrl+Alt+F9/10) ], [ %s ], %s (Program: %4s)",VERSION,DOSBOXREVISION,MixerVolDownUpKeysR,strPriority,strDriveLabel,RunningProgram);			
+		sprintf(title,"DOSBox %s %s, Cpu Cycles: Max Unlocked, [ Volume %2d%  (Ctrl+Alt+F9/10) ], [ %s ], %s (Program: %4s)",
+				VERSION,DOSBOXREVISION,MixerVolDownUpKeysR,strPriority,strDriveLabel,RunningProgram);			
 		
 	} else if(CPU_CycleAutoAdjust && internal_cycles <= 99) {	
 	
-		sprintf(title,"DOSBox %s %s, CPU Cycles: %3d Percent, %s,[ Volume %2d%  (Ctrl+Alt+F9/10) ], [ %s ], %s (Program: %4s)",VERSION,DOSBOXREVISION,internal_cycles,strWinTitle,MixerVolDownUpKeysR,strPriority,strDriveLabel,RunningProgram);
+		sprintf(title,"DOSBox %s %s, CPU Cycles: %3d Percent, %s,[ Volume %2d%  (Ctrl+Alt+F9/10) ], [ %s ], %s (Program: %4s)",
+				VERSION,DOSBOXREVISION,internal_cycles,strWinTitle,MixerVolDownUpKeysR,strPriority,strDriveLabel,RunningProgram);
 	} else if(CPU_CycleAutoAdjust && internal_cycles >= 100) {	
 	
-		sprintf(title,"DOSBox %s %s, CPU Cycles: %3d Max, %s, [ Volume %2d%  (Ctrl+Alt+F9/10) ], [ %s ], %s (Program: %4s)",VERSION,DOSBOXREVISION,internal_cycles,strWinTitle,MixerVolDownUpKeysR,strPriority,strDriveLabel,RunningProgram);	
+		sprintf(title,"DOSBox %s %s, CPU Cycles: %3d Max, %s, [ Volume %2d%  (Ctrl+Alt+F9/10) ], [ %s ], %s (Program: %4s)",
+				VERSION,DOSBOXREVISION,internal_cycles,strWinTitle,MixerVolDownUpKeysR,strPriority,strDriveLabel,RunningProgram);	
 	} else {
 			
 		strcpy(strWinTitle,"DOSBox %s %s, CPU Cycles: %3d");
 		
 		switch(internal_cycles){
-			case 341:
-				strcat(strWinTitle, " (CPU 8088/4.77mhz");
-				break;
-			case 460:
-				strcat(strWinTitle, " (CPU 8088/7.16mhz");
-				break;
-			case 618:
-				strcat(strWinTitle, " (CPU 8088/9.54mhz");
-				break;	
-			case 1778:
-				strcat(strWinTitle, " (CPU 286/10mhz");
-				break;
-			case 2616:
-				strcat(strWinTitle, " (CPU 286/12mhz");
-				break;
-			case 3000:
-				strcat(strWinTitle, " (Dosbox Default");				
-				break;	
-			case 3360:
-				strcat(strWinTitle, " (CPU 286/16mhz");
-				break;	
-			case 4440:
-				strcat(strWinTitle, " (CPU 286/20mhz");
-				break;
-			case 5240:
-				strcat(strWinTitle, " (CPU 286/25mhz");
-				break;		
-			case 7785:
-				strcat(strWinTitle, " (CPU 386DX/25mhz");
-				break;
-			case 9349:
-				strcat(strWinTitle, " (CPU 386DX/33mhz");
-				break;
-			case 9384:
-				strcat(strWinTitle, " (CPU 386DX/40mhz");
-				break;	
-			case 9870:
-				strcat(strWinTitle, " (CPU 486SX/25mhz");
-				break;
-			case 13350:
-				strcat(strWinTitle, " (CPU 486DX/33mhz");
-				break;	
-			case 13461:
-				strcat(strWinTitle, " (CPU 486SX/33mhz");
-				break;
-			case 16100:
-				strcat(strWinTitle, " (CPU 486SX/40mhz");
-				break;	
-			case 20100:
-				strcat(strWinTitle, " (CPU 486DX/50mhz");
-				break;
-			case 27182:
-				strcat(strWinTitle, " (CPU 486DX-2/66mhz");
-				break;
-			case 32501:
-				strcat(strWinTitle, " (CPU 486DX-2/80mhz");
-				break;
-			case 40042:
-				strcat(strWinTitle, " (CPU 486DX-2/100mhz");
-				break;
-			case 50821:
-				strcat(strWinTitle, " (CPU 486DX-4/100mhz");
-				break;
-			case 60174:
-				strcat(strWinTitle, " (CPU 486DX-4/120mhz");
-				break;	
-			case 51330:
-				strcat(strWinTitle, " (CPU Pentium/60 [~66mhz]");
-				break;
-			case 69159:
-				strcat(strWinTitle, " (CPU Pentium/75 [~90mhz]");
-				break;
-			case 77500:
-				strcat(strWinTitle, " (CPU Pentium/100mhz");
-				break;					
-			default:
-				strcat(strWinTitle, " (Not Adjusted");			
-				break;
+			case 341:	strcat(strWinTitle, " (CPU 8088/4.77mhz"		);	break;
+			case 460:	strcat(strWinTitle, " (CPU 8088/7.16mhz"		);	break;
+			case 618:	strcat(strWinTitle, " (CPU 8088/9.54mhz"		);	break;	
+			case 1778:	strcat(strWinTitle, " (CPU 286/10mhz"			);	break;
+			case 2616:	strcat(strWinTitle, " (CPU 286/12mhz"			);	break;
+			case 3000:	strcat(strWinTitle, " (Default Cycles"			);	break;	
+			case 3360:	strcat(strWinTitle, " (CPU 286/16mhz"			);	break;	
+			case 4440:	strcat(strWinTitle, " (CPU 286/20mhz"			);	break;
+			case 5240:	strcat(strWinTitle, " (CPU 286/25mhz"			);	break;		
+			case 7785:	strcat(strWinTitle, " (CPU 386DX/25mhz"			);	break;
+			case 9349:	strcat(strWinTitle, " (CPU 386DX/33mhz"			);	break;
+			case 9384:	strcat(strWinTitle, " (CPU 386DX/40mhz"			);	break;	
+			case 9870:	strcat(strWinTitle, " (CPU 486SX/25mhz"			);	break;
+			case 13350:	strcat(strWinTitle, " (CPU 486DX/33mhz"			);	break;	
+			case 13461:	strcat(strWinTitle, " (CPU 486SX/33mhz"			);	break;
+			case 16100:	strcat(strWinTitle, " (CPU 486SX/40mhz"			);	break;	
+			case 20100:	strcat(strWinTitle, " (CPU 486DX/50mhz"			);	break;
+			case 27182:	strcat(strWinTitle, " (CPU 486DX-2/66mhz"		);	break;
+			case 32501:	strcat(strWinTitle, " (CPU 486DX-2/80mhz"		);	break;
+			case 40042:	strcat(strWinTitle, " (CPU 486DX-2/100mhz"		);	break;
+			case 50821:	strcat(strWinTitle, " (CPU 486DX-4/100mhz"		);	break;
+			case 60174:	strcat(strWinTitle, " (CPU 486DX-4/120mhz"		);	break;	
+			case 51330:	strcat(strWinTitle, " (CPU Pentium/60 [~66mhz]"	);	break;
+			case 69159:	strcat(strWinTitle, " (CPU Pentium/75 [~90mhz]"	);	break;
+			case 77500:	strcat(strWinTitle, " (CPU Pentium/100mhz"		);	break;					
+			default:	strcat(strWinTitle, " (Not Adjusted"			);	break;
 		}
 	
 		
-		if(strcmp(GFX_Type, (const char*)"hercules") == 0){
-			strcat(strWinTitle,"/ Hercules)");
-		}
-		if(strcmp(GFX_Type, (const char*)"cga") == 0){
-			strcat(strWinTitle,"/ CGA)");
-		}
-		if(strcmp(GFX_Type, (const char*)"cga_mono") == 0){
-			strcat(strWinTitle,"/ CGA Mono)");
-		}		
-		if(strcmp(GFX_Type, (const char*)"tandy") == 0){
-			strcat(strWinTitle,"/ Tandy)");			
-		}		
-		if(strcmp(GFX_Type, (const char*)"pcjr") == 0){
-			strcat(strWinTitle,"/ PCJr)");			
-		}
-		if(strcmp(GFX_Type, (const char*)"ega") == 0){
-			strcat(strWinTitle,"/ EGA)");			
-		}
-		if(strcmp(GFX_Type, (const char*)"svga_s3") == 0){
-			strcat(strWinTitle,"/ S3 Trio)");			
-		}
-		if(strcmp(GFX_Type, (const char*)"vesa_nolfb") == 0){			
-			strcat(strWinTitle,"/ S3 Trio - Vesa 2.0 Patch)");			
-		}
-		if(strcmp(GFX_Type, (const char*)"vesa_oldvbe") == 0){		
-			strcat(strWinTitle,"/ S3 Trio - Old VBE)");			
-		}
-		if(strcmp(GFX_Type, (const char*)"svga_et4000") == 0){			
-			strcat(strWinTitle,"/ Tseng ET4000)");			
-		}
-		if(strcmp(GFX_Type, (const char*)"svga_et3000") == 0){		
-			strcat(strWinTitle,"/ Tseng ET3000)");			
-		}	
-		if(strcmp(GFX_Type, (const char*)"svga_paradise") == 0){	
-			strcat(strWinTitle,"/ Paradise)");			
-		}
-		if(strcmp(GFX_Type, (const char*)"vgaonly") == 0){		
-			strcat(strWinTitle,"/ VGA)");			
-		}
+		if(strcmp(GFX_Type, (const char*)"hercules"		) == 0){ strcat(strWinTitle,"/ Hercules)"					);}
+		if(strcmp(GFX_Type, (const char*)"cga"			) == 0){ strcat(strWinTitle,"/ CGA)"						);}
+		if(strcmp(GFX_Type, (const char*)"cga_mono"		) == 0){ strcat(strWinTitle,"/ CGA Mono)"					);}		
+		if(strcmp(GFX_Type, (const char*)"tandy"		) == 0){ strcat(strWinTitle,"/ Tandy)"						);}		
+		if(strcmp(GFX_Type, (const char*)"pcjr"			) == 0){ strcat(strWinTitle,"/ PCJr)"						);}
+		if(strcmp(GFX_Type, (const char*)"ega"			) == 0){ strcat(strWinTitle,"/ EGA)"						);}
+		if(strcmp(GFX_Type, (const char*)"svga_s3"		) == 0){ strcat(strWinTitle,"/ S3 Trio)"					);}
+		if(strcmp(GFX_Type, (const char*)"vesa_nolfb"	) == 0){ strcat(strWinTitle,"/ S3 Trio - Vesa 2.0 Patch)"	);}
+		if(strcmp(GFX_Type, (const char*)"vesa_oldvbe"	) == 0){ strcat(strWinTitle,"/ S3 Trio - Old VBE)"			);}
+		if(strcmp(GFX_Type, (const char*)"svga_et4000"	) == 0){ strcat(strWinTitle,"/ Tseng ET4000)"				);}
+		if(strcmp(GFX_Type, (const char*)"svga_et3000"	) == 0){ strcat(strWinTitle,"/ Tseng ET3000)"				);}	
+		if(strcmp(GFX_Type, (const char*)"svga_paradise") == 0){ strcat(strWinTitle,"/ Paradise)"					);}
+		if(strcmp(GFX_Type, (const char*)"vgaonly"		) == 0){ strcat(strWinTitle,"/ VGA)"						);}
 			
 		strcat(strWinTitle,", [ Volume %2d% (Ctrl+Alt+F9/10) ], [ %s ], %s (Program: %4s)");		
 																																						 
-		sprintf(title,strWinTitle,VERSION,DOSBOXREVISION,internal_cycles,MixerVolDownUpKeysR,strPriority,strDriveLabel,RunningProgram);		
+		sprintf(title			,
+				strWinTitle		,
+				VERSION			,
+				DOSBOXREVISION	,
+				internal_cycles	,MixerVolDownUpKeysR,strPriority,strDriveLabel,RunningProgram);		
 	}
 		
 	if(paused){
@@ -570,10 +503,6 @@ void GFX_SetTitle(Bit32s cycles,int frameskip,bool paused){
 		
 	SDL_SetWindowTitle(sdl.window,title); // VERSION is gone...
 }
-
-#if defined(WIN32)
-	static void SysMenuExtendWndProcInstall(HWND hwndSubject);
-#endif	
 
 static unsigned char logo[32*32*4]= {
 #include "dosbox_logo.h"
@@ -787,8 +716,7 @@ void GFX_ResetVoodooDisplayMove(void){
 	if ( bVoodooOpen == true){	
 		voodoo_leave();								
 		voodoo_activate();		
-	}
-	
+	}	
 }
 
 void GFX_ResetVoodoo(void){
@@ -799,6 +727,7 @@ void GFX_ResetVoodoo(void){
 	} else {
 		GFX_ResetScreen();
 	}
+	GFX_CaptureMouse();
 	
 }
 void GFX_ForceFullscreenExit(void) {
@@ -808,12 +737,37 @@ void GFX_ForceFullscreenExit(void) {
 	} else {
 		sdl.desktop.fullscreen=false;
 		GFX_ResetScreen();
-		LOG(LOG_MISC,LOG_WARN)("SDL : Update Screen \n(File %s:, Line: %d)\n\n",__FILE__,__LINE__);
-		
+		LOG(LOG_MISC,LOG_WARN)("SDL : Update Screen \n(File %s:, Line: %d)\n\n",__FILE__,__LINE__);		
 	}
-
 }
 
+void GFX_UpdateResolution(int w, int h, bool windowed){
+				
+	if (windowed == true){
+				
+		if ( ( sdl.desktop.window.width != w ) || ( sdl.desktop.window.height != h ) ){		
+			extVoodoo.bForceWindowUpdate= true;		 	
+			sdl.desktop.window.width 	= w;
+			sdl.desktop.window.height 	= h;	
+			extVoodoo.pciW				= w;		
+			extVoodoo.pciH				= h;
+			GFX_ResetVoodoo();
+			control->SaveConfig_ResX(w,h,windowed);
+		}
+		
+	}else{	
+	
+		if ( ( sdl.desktop.full.width != w ) || ( sdl.desktop.full.height != h ) ){		
+			extVoodoo.bForceFullSnUpdate= true;	
+			sdl.desktop.full.width		= w;
+			sdl.desktop.full.height		= h;	
+			extVoodoo.pciFSW			= w;		
+			extVoodoo.pciFSH			= h;
+			control->SaveConfig_ResX(w,h,windowed);			
+		}		
+	}		
+}
+					
 static int int_log2 (int val) {
     int log = 0;
     while ((val >>= 1) != 0)
@@ -821,21 +775,6 @@ static int int_log2 (int val) {
     return log;
 }
 
-#ifdef WIN32
-#define WM_SC_SYSMENUABOUT      0x1110 // Arbitrary, needs to be < 0xF000
-#define WM_SC_SYSMENUFULLSCREEN (WM_SC_SYSMENUABOUT +1 )
-#define WM_SC_SYSMENURESTART (WM_SC_SYSMENUABOUT +2 )
-#define WM_SC_SYSMENUMAPPER  (WM_SC_SYSMENUABOUT +3 )
-#define WM_SC_SYSMENUJSTCKA  (WM_SC_SYSMENUABOUT +4 )
-#define WM_SC_SYSMENUJSTCKB  (WM_SC_SYSMENUABOUT +5 )
-#define WM_SC_SYSMENUJSTCKC  (WM_SC_SYSMENUABOUT +6 )
-#define WM_SC_SYSMENUJSTCKD  (WM_SC_SYSMENUABOUT +7 )
-#define WM_SC_SYSMENUJSTCKE  (WM_SC_SYSMENUABOUT +8 )
-#define WM_SC_SYSMENUJSTCKF  (WM_SC_SYSMENUABOUT +9 )
-#define WM_SC_SYSMENUCACHE   (WM_SC_SYSMENUABOUT +10 )
-#define WM_SC_SYSMENUCACHECD (WM_SC_SYSMENUABOUT +11 )
-#define WM_SC_SYSMENUWEBSITE (WM_SC_SYSMENUABOUT +12 )
-#endif
 
 /****** Block Key ***************************************************************************************************/
 #include <windows.h>
@@ -917,43 +856,7 @@ private:
 //DisableKeys DisableKeys;
 
 /****** Block Key ***************************************************************************************************/
-void Set_Window_HMenu(void){
-	
-		// Menu System -----------------------------------------------------------------------------------------	
-		SDL_SysWMinfo system_info;
-		SDL_VERSION(&system_info.version);
-		SDL_GetWindowWMInfo(sdl.window,&system_info);
-		HMENU hSysMenu = ::GetSystemMenu(system_info.info.win.window, FALSE);
-		
-		::AppendMenu(hSysMenu, MF_SEPARATOR, 0, "");
-		::AppendMenu(hSysMenu, MF_STRING, WM_SC_SYSMENUFULLSCREEN, "Maschine: Fullscreen\tALT+ENTER");
-		::AppendMenu(hSysMenu, MF_STRING, WM_SC_SYSMENURESTART   , "Maschine: Restart\tCTRL+ALT+HOME");
-		::AppendMenu(hSysMenu, MF_SEPARATOR, 0, "");		
-		
-		::AppendMenu(hSysMenu, MF_STRING, WM_SC_SYSMENUMAPPER   ,  "Start Key-Mapper\tCTRL+F1");		
-		::AppendMenu(hSysMenu, MF_SEPARATOR, 0, "");		
-		
-		::AppendMenu(hSysMenu, MF_STRING|MIIM_CHECKMARKS, WM_SC_SYSMENUJSTCKA    , "Joystick: None");
-		::AppendMenu(hSysMenu, MF_STRING|MIIM_CHECKMARKS, WM_SC_SYSMENUJSTCKB    , "Joystick: 2 Axis");
-		::AppendMenu(hSysMenu, MF_STRING|MIIM_CHECKMARKS, WM_SC_SYSMENUJSTCKC    , "Joystick: 4 Axis (1)");
-		::AppendMenu(hSysMenu, MF_STRING|MIIM_CHECKMARKS, WM_SC_SYSMENUJSTCKD    , "Joystick: 4 Axis (2)");
-		::AppendMenu(hSysMenu, MF_STRING|MIIM_CHECKMARKS, WM_SC_SYSMENUJSTCKE    , "Joystick: ThrustmasterFS");
-		::AppendMenu(hSysMenu, MF_STRING|MIIM_CHECKMARKS, WM_SC_SYSMENUJSTCKF    , "Joystick: CH Flightstick");		
-		::AppendMenu(hSysMenu, MF_SEPARATOR, 0, "");
-		
-		::AppendMenu(hSysMenu, MF_STRING, WM_SC_SYSMENUCACHE   , "Swap Next Disk\tCTRL+F4");		
-		::AppendMenu(hSysMenu, MF_STRING, WM_SC_SYSMENUCACHECD , "Swap Next CDRom\tCTRL+F3");			
-		::AppendMenu(hSysMenu, MF_SEPARATOR, 0, "");	
-		
-		::AppendMenu(hSysMenu, MF_STRING, WM_SC_SYSMENUWEBSITE   , "Website: DOSBox");		
-		::AppendMenu(hSysMenu, MF_SEPARATOR, 0, "");		
-		
-		::AppendMenu(hSysMenu, MF_STRING, WM_SC_SYSMENUABOUT     , "About DOSBox");
-		
-		SysMenuExtendWndProcInstall(system_info.info.win.window);
-			
-		//------------------------------------------------------------------------------------------------------
-};
+
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 void Center_SDL_SetWindowMode(int pciW, int pciH){
@@ -1935,19 +1838,15 @@ void GFX_SwitchFullScreen(void) {
 	
 	if (sdl.desktop.fullscreen) {		
 		if (!sdl.mouse.locked){
-			GFX_CaptureMouse();
-#if defined (WIN32)			
-			sticky_keys(false); //disable sticky keys in fullscreen mode
-#endif			
+			GFX_CaptureMouse();	
+			sticky_keys(false); //disable sticky keys in fullscreen mode			
 		}
 
 	} else {
-		if (autoclocked == 0){
+		if (autoclocked == 1){
 			GFX_CaptureMouse();			
 		} 
-#if defined (WIN32)
 		sticky_keys(true); //restore sticky keys to default state in windowed mode.
-#endif
 	}
 	
 		GFX_ResetVoodoo();
@@ -2218,6 +2117,11 @@ static void OutputString(Bitu x,Bitu y,const char * text,Bit32u color,Bit32u col
 extern void Restart(bool pressed);
 
 static void GUI_StartUp(Section * sec) {	
+	/*
+		Voodoo Struct Inits
+	*/
+	extVoodoo.GL_filtering = 999;	
+	
 	
 	sec->AddDestroyFunction(&GUI_ShutDown);
 	Section_prop * section=static_cast<Section_prop *>(sec);
@@ -3033,106 +2937,7 @@ void GFX_Events() {
 
 // Menu System -- COMMANDS ----------------------------------------------------------------------------------
 #if defined(WIN32)
-static WNDPROC fnSDLDefaultWndProc = NULL;
-static LRESULT CALLBACK SysMenuExtendWndProc(HWND hwnd, UINT uiMsg, WPARAM wparam, LPARAM lparam)
-{
-    if (uiMsg  == WM_SYSCOMMAND)
-    {
-        switch (wparam)
-        {
-            case WM_SC_SYSMENUABOUT:
-                {
-					::MessageBox(hwnd, (
-						"\tDOSBox " VERSION " " DOSBOXREVISION " Build on (" __DATE__ " " __TIME__ ")\r\r"
-					    "\tCopyright 2002-2019 DOSBox Team\r\r"
-						"\tDOSBox is written by the DOSBox Team (See AUTHORS file))\n\tDOSBox comes with ABSOLUTELY NO WARRANTY. This is free\n\tsoftware and you are welcome to redistribute,  it under\n\tcertain conditions.\n\tThis is a DOSBox Fork from the Original DOSBox 0.74 " VERSION " " DOSBOXSVERSION "\n\n\tGreetings, credits & thanks:\n\tDOSBox Team, dungan, NY00123, tauro, bloodbat, Yesterplay80\n\tnukeykt, VileRancour, D_Skywalk, Vasyl Tsvirkunov, Moe, kekko\n\tTaeWoong Yoo, krcroft\n\n\t\tGreetings to the CGBoard & Vogons Board\r"
-						), 
-						"About DOSBox", MB_OK);
-                }
-                return 0;
-															
-			case WM_SC_SYSMENUFULLSCREEN:
-				{
-					GFX_SwitchFullScreen();
-				}				
-				return 0;
-				
-			case WM_SC_SYSMENURESTART:				
-				{
-					Restart(true);	
-				}			
-				return 0;
-				
-			case WM_SC_SYSMENUMAPPER:
-				{				
-					MAPPER_RunEvent(0);
-				}			
-				return 0;
-				
-			case WM_SC_SYSMENUJSTCKA:
-				{				
-					 joytype = JOY_NONE;
-				}			
-				return 0;	
 
-			case WM_SC_SYSMENUJSTCKB:
-				{				
-					 joytype = JOY_2AXIS;
-				}			
-				return 0;					
-				
-			case WM_SC_SYSMENUJSTCKC:
-				{				
-					 joytype = JOY_4AXIS;
-				}			
-				return 0;	
-				
-			case WM_SC_SYSMENUJSTCKD:
-				{				
-					 joytype = JOY_4AXIS_2;
-				}			
-				return 0;	
-				
-			case WM_SC_SYSMENUJSTCKE:
-				{				
-					 joytype = JOY_FCS;
-				}			
-				return 0;	
-				
-			case WM_SC_SYSMENUJSTCKF:
-				{				
-					 joytype = JOY_CH;
-				}			
-				return 0;	
-				
- 			case WM_SC_SYSMENUWEBSITE:
-				{
-					ShellExecute(0, "open", "http://dosbox.com", "", NULL, SW_SHOWNORMAL);
-                }
-                return 0;
-				
-			case WM_SC_SYSMENUCACHE:
-				{				
-					 swapInNextDisk(true, true, false);
-				}			
-				return 0;	
-			case WM_SC_SYSMENUCACHECD:
-				{				
-					 swapInNextDisk(true, false, true);
-				}			
-				return 0;					
-								
-        }
-    }
-    return ::CallWindowProc(fnSDLDefaultWndProc, hwnd, uiMsg, wparam, lparam);
-}
-
-void SysMenuExtendWndProcInstall(HWND hwndSubject)
-{
-    if (fnSDLDefaultWndProc) __debugbreak();
-    fnSDLDefaultWndProc = (WNDPROC)::GetWindowLongPtr(hwndSubject, GWLP_WNDPROC);
-    ::SetWindowLongPtr(hwndSubject, GWLP_WNDPROC, (LONG_PTR)&SysMenuExtendWndProc);
-}
 // Menu System -- COMMANDS ----------------------------------------------------------------------------------
 #endif
 

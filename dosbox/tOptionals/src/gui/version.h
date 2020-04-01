@@ -28,6 +28,7 @@
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
+#define YEARBULD STR(YearBuild)
 #define RCVersion2 "0.74.3." STR(Revision)
 
 #define DOSBOXREVISION "r" STR(Revision) " (Optionals)"
