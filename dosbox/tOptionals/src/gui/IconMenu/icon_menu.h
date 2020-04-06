@@ -92,6 +92,13 @@
 #define ICNMNU_WWWVOGONS	(ICNMNU +65 )
 #define ICNMNU_WWWGITHUB	(ICNMNU +66 )
 #define ICNMNU_ABOUTOPTLS	(ICNMNU +67 )
+#define ICNMNU_INTERNALUI	(ICNMNU +68 )
+#define ICNMNU_PREFSEDIT	(ICNMNU +69 )
+#define ICNMNU_CAPSHOTSW 	(ICNMNU +70 )
+#define ICNMNU_CAPSHOTHWBMP (ICNMNU +71 )
+#define ICNMNU_CAPSHOTHWPNG (ICNMNU +72 )
+#define ICNMNU_FULDESKTOP 	(ICNMNU +73 )
+#define ICNMNU_WINDESKTOP 	(ICNMNU +74 )
 
 static WNDPROC oldproc = NULL;
 static LRESULT CALLBACK SysMenuExtendWndProc(HWND hwnd, UINT uiMsg, WPARAM wparam, LPARAM lparam)
@@ -142,6 +149,7 @@ static LRESULT CALLBACK SysMenuExtendWndProc(HWND hwnd, UINT uiMsg, WPARAM wpara
 				case ICNMNU_WIN2560X1600:	{ GFX_UpdateResolution(2560,1600,true);	}return 0;
 				case ICNMNU_WIN3840X2160:	{ GFX_UpdateResolution(3840,2160,true);	}return 0;
 				case ICNMNU_WIN7680X4320:	{ GFX_UpdateResolution(7680,4320,true);	}return 0;	
+				case ICNMNU_WINDESKTOP	:	{ GFX_UpdateResolution(0,0		,true);	}return 0;					
 				case ICNMNU_FUL640X480	:	{ GFX_UpdateResolution(640, 480, false);}return 0;
 				case ICNMNU_FUL800X600	:	{ GFX_UpdateResolution(800, 600, false);}return 0;
 				case ICNMNU_FUL1024X768 :	{ GFX_UpdateResolution(1024,768, false);}return 0;
@@ -168,6 +176,7 @@ static LRESULT CALLBACK SysMenuExtendWndProc(HWND hwnd, UINT uiMsg, WPARAM wpara
 				case ICNMNU_FUL2560X1600:	{ GFX_UpdateResolution(2560,1600,false);}return 0;
 				case ICNMNU_FUL3840X2160:	{ GFX_UpdateResolution(3840,2160,false);}return 0;
 				case ICNMNU_FUL7680X4320:	{ GFX_UpdateResolution(7680,4320,false);}return 0;
+				case ICNMNU_FULDESKTOP	:	{ GFX_UpdateResolution(0,0		,false);}return 0;				
 				case ICNMNU_VD_FILT_NONE:	{ extVoodoo.GL_filtering = 0; GFX_ResetVoodoo();}return 0;
 				case ICNMNU_VD_FLT_POINT:	{ extVoodoo.GL_filtering = 1; GFX_ResetVoodoo();}return 0;
 				case ICNMNU_VD_FLT_BILINEAR:{ extVoodoo.GL_filtering = 2; GFX_ResetVoodoo();}return 0;
@@ -177,7 +186,22 @@ static LRESULT CALLBACK SysMenuExtendWndProc(HWND hwnd, UINT uiMsg, WPARAM wpara
 				case ICNMNU_RESTART		   :{ Restart(true);						}return 0;
 				case ICNMNU_DISKCACHE	   :{ swapInNextDisk(true, true, false);	}return 0;			
 				case ICNMNU_CDROMSWAP	   :{ swapInNextDisk(true, false, true);	}return 0;
-				
+				//case ICNMNU_INTERNALUI	:{ UI_Run(true);						}return 0;	
+				case ICNMNU_CAPSHOTSW  :
+					{ 
+						CAPTURE_ScreenShotEvent(true); 								
+					}return 0;		
+				case ICNMNU_CAPSHOTHWBMP:
+					{ 		
+						CaptureOGLScreenShot(0, 0, sdl.desktop.window.width, sdl.desktop.window.height, ".bmp");
+						
+					}return 0;	
+				case ICNMNU_CAPSHOTHWPNG:
+					{ 		
+						CaptureOGLScreenShot(0, 0, sdl.desktop.window.width, sdl.desktop.window.height, ".png");
+						
+					}return 0;					
+				case ICNMNU_PREFSEDIT	   :{ PrefsEditDirect(hwnd, "notepad.exe");	}return 0;				
 				case ICNMNU_WWWDOSBOX	   :
 					{ 
 						ShellExecute(0, "open", "http://dosbox.com", "", NULL, SW_SHOWNORMAL);

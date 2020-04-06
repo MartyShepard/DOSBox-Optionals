@@ -912,7 +912,7 @@ bool Config::PrintConfig(char const * const configfilename) const {
 
 
 
-inline bool ExistsConfigFile (const std::string& name) {
+inline bool FileExists (const std::string& name) {
   struct stat buffer;   
   return (stat (name.c_str(), &buffer) == 0); 
 }
@@ -942,7 +942,7 @@ std::string getDosboxConfig()
 		/*
 			Get Dosbox.conf from Current .\
 		*/
-	if ( ExistsConfigFile(aDirectory.c_str())){
+	if ( FileExists(aDirectory.c_str())){
 		return aDirectory;				
 		
 	}else{		
@@ -952,7 +952,7 @@ std::string getDosboxConfig()
 		bDirectory = sCurrentWorkingPath() + "\\DATA\\";			
 		bDirectory += sConfigFile;
 			
-		if ( ExistsConfigFile(bDirectory.c_str())){
+		if ( FileExists(bDirectory.c_str())){
 			return bDirectory;	
 			
 		}else{
@@ -974,10 +974,16 @@ bool Config::SaveConfig_ResX( int w, int h, bool bWindowed ) {
 	std::string sHeight 	= std::to_string(h);
 	
 	std::string sResolution;	
-	sResolution += " "+sWidth + "x" + sHeight;
+	
+	if (w == 0 && h == 0){
+		sResolution += " desktop";
+	}else{			
+		sResolution += " "+sWidth + "x" + sHeight;
+	}
 	
 	if ( bWindowed == true ){
-		WritePrivateProfileString("sdl","windowresolution",sResolution.c_str(),sConfigFile.c_str());
+
+		WritePrivateProfileString("sdl","windowresolution",sResolution.c_str(),sConfigFile.c_str());			
 	
 		LOG_MSG("CONFIG: Saved Resolution Value (Window %s) to:\n"
 				"        %s\n",sResolution.c_str(), sConfigFile.c_str());		

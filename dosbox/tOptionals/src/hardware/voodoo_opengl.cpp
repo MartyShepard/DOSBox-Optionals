@@ -223,6 +223,9 @@ void _check_gl_error(const char *file, int line) {
         }
 }
 /* ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+
+
+
 static void ogl_get_depth(voodoo_state* VV, INT32 ITERZ, INT64 ITERW, INT32 *depthval, INT32 *out_wfloat)
 {
 	
@@ -2326,7 +2329,11 @@ UINT32 voodoo_ogl_read_pixel(GLint x, GLint y) {
 		
 			switch(LFBReg){
 				case 0:
-				case 64:	/* Warhammer - Dark Omen, Tomb Raider 	*/
+				case 64:	/* 
+								Revenant				
+								Tomb Raider 1 (DOS) 				
+								Warhammer - Dark Omen
+							*/
 				case 80:	/* Flying Saucer 						*/	
 				case 82:	/* Freespace 2 							*/					
 				case 336:	/* Incubation 							*/					

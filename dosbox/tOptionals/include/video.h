@@ -86,7 +86,7 @@ void GFX_UpdateSDLCaptureState(void);
 	On the Fly Resoloutio change
 */
 void GFX_UpdateResolution(int w, int h, bool windowed);	
-	
+void CaptureOGLScreenShot(int x, int y, int w, int h, const char* format);	
 int  GFX_GetSDLVideo(void);
 
 #if defined (WIN32)

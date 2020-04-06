@@ -397,4 +397,10 @@ public:
 	/* Returns true if succesful.*/
 	virtual bool Change_Config(Section* /*newconfig*/) {return false;} ;
 };
+
 #endif
+
+/*
+	Little Helper
+*/
+	std::string sCurrentWorkingPath();

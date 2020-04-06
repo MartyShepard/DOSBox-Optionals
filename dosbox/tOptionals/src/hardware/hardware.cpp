@@ -29,6 +29,14 @@
 #include "pic.h"
 #include "render.h"
 #include "cross.h"
+#include "video.h"
+
+#include "SDL.h"
+#include "SDL2\SDL_opengl.h"
+#include "..\misc\savepng.h"
+
+
+
 
 #if (C_SSHOT)
 #include <png.h>
@@ -500,6 +508,197 @@ FILE * OpenCaptureFile(const char * type,const char * ext) {
 	return handle;
 }
 
+/* ------------------------------------------------------------------------------------ */
+
+/*
+	Save Screenshot in Hardware Mode,
+	thnkns to Stack Overflow because Mirror Solution
+*/
+
+#define SDL_LOCKIFMUST(s) (SDL_MUSTLOCK(s) ? SDL_LockSurface(s) : 0)
+#define SDL_UNLOCKIFMUST(s) { if(SDL_MUSTLOCK(s)) SDL_UnlockSurface(s); }
+		
+inline bool FileExists (const std::string& name) {
+  struct stat buffer;   
+  return (stat (name.c_str(), &buffer) == 0); 
+}
+
+std::string GetCaptureFileName(const char * type,const char * ext) {
+	
+	std::string sReturn	= "";
+	
+	if(capturedir.empty()) {
+		LOG_MSG("Please specify a capture directory");
+		return sReturn;
+	}
+
+	Bitu last		=0;
+	char file_start[16];
+	
+	dir_information * dir;
+	/* Find a filename to open */
+	
+	dir = open_directory(capturedir.c_str());
+	if (!dir) {
+		//Try creating it first
+		Cross::CreateDir(capturedir);
+		dir=open_directory(capturedir.c_str());
+		if(!dir) {
+		
+			LOG_MSG("Can't open dir %s for capturing %s",capturedir.c_str(),type);
+			return sReturn;
+		}
+	}
+	
+	strcpy(file_start,RunningProgram);
+	lowcase(file_start);
+	strcat(file_start,"_");
+	
+	bool is_directory;
+	char tempname[CROSS_LEN];
+	bool testRead = read_directory_first(dir, tempname, is_directory );
+	
+	for ( ; testRead; testRead = read_directory_next(dir, tempname, is_directory) ) {
+		char * test=strstr(tempname,ext);
+		if (!test || strlen(test)!=strlen(ext)) 
+			continue;
+		*test=0;
+		if (strncasecmp(tempname,file_start,strlen(file_start))!=0) continue;
+		Bitu num=atoi(&tempname[strlen(file_start)]);
+		if (num>=last) last=num+1;
+	}
+	
+	close_directory( dir );
+	char file_name[CROSS_LEN];
+	sprintf(file_name,"%s%c%s%03" sBitfs(u) "%s",capturedir.c_str(),CROSS_FILESPLIT,file_start,last,ext);
+	
+	if ( !FileExists(file_name) ){
+		LOG_MSG("Capturing %s to %s",type,file_name);	
+	} else {
+		LOG_MSG("Failed to open %s for capturing %s",file_name,type);
+		return sReturn;
+	}	
+	return sReturn = file_name;	
+}
+	
+int invert_surface_vertical(SDL_Surface *surface)
+{
+    Uint8 *t;
+    register Uint8 *a, *b;
+    Uint8 *last;
+    register Uint16 pitch;
+
+    if( SDL_LOCKIFMUST(surface) < 0 )
+        return -2;
+
+    /* do nothing unless at least two lines */
+    if(surface->h < 2) {
+        SDL_UNLOCKIFMUST(surface);
+        return 0;
+    }
+
+    /* get a place to store a line */
+    pitch = surface->pitch;
+    t = (Uint8*)malloc(pitch);
+
+    if(t == NULL) {
+        SDL_UNLOCKIFMUST(surface);
+        return -2;
+    }
+
+    /* get first line; it's about to be trampled */
+    memcpy(t,surface->pixels,pitch);
+
+    /* now, shuffle the rest so it's almost correct */
+    a = (Uint8*)surface->pixels;
+    last = a + pitch * (surface->h - 1);
+    b = last;
+
+    while(a < b) {
+        memcpy(a,b,pitch);
+        a += pitch;
+        memcpy(b,a,pitch);
+        b -= pitch;
+    }
+
+    /* in this shuffled state, the bottom slice is too far down */
+    memmove( b, b+pitch, last-b );
+
+    /* now we can put back that first row--in the last place */
+    memcpy(last,t,pitch);
+
+    /* everything is in the right place; close up. */
+    free(t);
+    SDL_UNLOCKIFMUST(surface);
+
+    return 0;
+}
+
+
+
+void CaptureOGLScreenShot(int x, int y, int w, int h, const char* format)
+{
+		/*
+			Uint32 ScreenId;
+			SDL_Renderer* 	CopyFromRenderer;
+			SDL_Window*  	CopyFromWindow;	
+			SDL_Surface* 	CopyFromSurface;
+	
+			ScreenId 		= GFX_GetSDLVideo(); 
+			CopyFromWindow	= SDL_GetWindowFromID(ScreenId);
+			CopyFromRenderer= SDL_GetRenderer(CopyFromWindow);
+		*/
+	
+	#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+		Uint32 rmask = 0xff000000;
+		Uint32 gmask = 0x00ff0000;
+		Uint32 bmask = 0x0000ff00;
+		Uint32 amask = 0x000000ff;  
+	#else
+		Uint32 rmask = 0x000000ff;
+		Uint32 gmask = 0x0000ff00;
+		Uint32 bmask = 0x00ff0000;
+		Uint32 amask = 0xff000000;
+	#endif
+	
+    unsigned char * pixels = new unsigned char[w*h*4]; // 4 bytes for RGBA
+	glReadPixels(x,y,w,h, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+
+	/*
+	SDL_Surface* SDL_CreateRGBSurfaceFrom(void* pixels, int width, int height,int depth,int pitch,
+									  Uint32 Rmask, 
+									  Uint32 Gmask,
+                                      Uint32 Bmask,
+                                      Uint32 Amask)
+
+	*/
+		
+    SDL_Surface * OpengGLScreenShot = SDL_CreateRGBSurfaceFrom(pixels, w, h, 32, w*4,rmask, gmask, bmask, amask);
+	invert_surface_vertical(OpengGLScreenShot);
+	
+	std::string filename;
+	
+	filename = GetCaptureFileName("Screenshot",format);
+	
+	if (filename.length() != 0) {	
+		/*
+			Yep, save shots as lame BMP
+		*/
+		if (strcmp(format,".png") == 0 ){
+			SDL_SavePNG(OpengGLScreenShot,filename.c_str());
+		}
+		if (strcmp(format,".bmp") == 0 ){
+			SDL_SaveBMP(OpengGLScreenShot,filename.c_str());
+		}		
+	}
+    SDL_FreeSurface(OpengGLScreenShot);
+	delete [] pixels;
+		
+	
+	
+}
+/* ------------------------------------------------------------------------------------ */
+
 #if (C_SRECORD)
 static void CAPTURE_VideoEvent(bool pressed) {
 	if (!pressed)
@@ -846,7 +1045,7 @@ skip_video:
 
 
 #if (C_SSHOT)
-static void CAPTURE_ScreenShotEvent(bool pressed) {
+extern void CAPTURE_ScreenShotEvent(bool pressed) {
 	if (!pressed)
 		return;
 	CaptureState |= CAPTURE_IMAGE;

@@ -55,9 +55,9 @@ static bool swapping_requested;
 void CMOS_SetRegister(Bitu regNr, Bit8u val); //For setting equipment word
 
 /* 2 floppys and 2 harddrives, max */
-imageDisk *imageDiskList[MAX_DISK_IMAGES];
-imageDisk *diskSwap[MAX_SWAPPABLE_DISKS];
-Bit32s swapPosition;
+imageDisk 	*imageDiskList[MAX_DISK_IMAGES];
+imageDisk 	*diskSwap[MAX_SWAPPABLE_DISKS];
+Bit32s 		swapPosition;
 
 void updateDPT(void) {
 	Bit32u tmpheads, tmpcyl, tmpsect, tmpsize;
@@ -99,10 +99,10 @@ void incrementFDD(void) {
 }
 
 void swapInDisks(void) {
-	bool allNull = true;
-	Bit32s diskcount = 0;
-	Bit32s swapPos = swapPosition;
-	Bit32s i;
+	bool allNull 		= true;
+	Bit32s diskcount 	= 0;
+	Bit32s swapPos		= swapPosition;
+	Bit32s 				i;
 
 	/* Check to make sure that  there is at least one setup image */
 	for(i=0;i<MAX_SWAPPABLE_DISKS;i++) {
@@ -122,7 +122,7 @@ void swapInDisks(void) {
 			imageDiskList[diskcount] = diskSwap[swapPos];
 			diskcount++;
 		}
-		swapPos++;
+        swapPos++;
 		if(swapPos>=MAX_SWAPPABLE_DISKS) swapPos=0;
 	}
 }
@@ -141,35 +141,41 @@ void swapInNextDisk(bool pressed, bool FLOPPY, bool CDROM) {
 	if (!pressed)
 		return;
 	
-	if ( (FLOPPY == true ) || (CDROM == false) ) {
+	if ( (FLOPPY == true ) && (CDROM == false) ) {
 		DriveStr = 0;
 		DriveEnd = 2;
-		DriveManager::CycleAllDisks();
 		
+		swapPosition++;
+		
+		if(diskSwap[swapPosition] == NULL){
+			swapPosition = 0;
+		}
+		
+		swapInDisks();
+		swapping_requested = true;
+
+		DriveManager::CycleAllDisks();		
 		/* Hack/feature: rescan all disks as well */
-		LOG_MSG("Diskcaching Reset: Mounted Floppy Drives.");		
+		LOG_MSG("\nDiskcaching Reset: Mounted Floppy Drives.");		
 	}
 		
-	if ( (FLOPPY == false) || (CDROM == true ) )  {
+	if ( (FLOPPY == false) && (CDROM == true ) )  {
 		DriveStr = 2;
 		DriveEnd = DOS_DRIVES;		
 		DriveManager::CycleAllCDs();
 		
-		LOG_MSG("Diskcaching Reset: Mounted CD-ROM Drives.");			
+		LOG_MSG("\nDiskcaching Reset: Mounted CD-ROM Drives.");			
 	}		
 		
 
 	for(Bitu i=DriveStr;i<DriveEnd;i++) {
 		/* if (Drives[i]) Drives[i]->EmptyCache();*/
-		if (Drives[i]) {
+		if (Drives[i] != NULL) {
 			Drives[i]->EmptyCache();
 			Drives[i]->MediaChange();
 		}		
 	}
-	swapPosition++;
-	if(diskSwap[swapPosition] == NULL) swapPosition = 0;
-	swapInDisks();
-	swapping_requested = true;
+	
 }
 
 

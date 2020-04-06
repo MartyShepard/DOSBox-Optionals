@@ -73,7 +73,7 @@
 /* #undef C_HAVE_MPROTECT */
 
 /* Define to 1 to enable heavy debugging, also have to enable C_DEBUG */
-#define C_HEAVY_DEBUG 1
+/* #undef C_HEAVY_DEBUG */
 
 /* Define to 1 to enable IPX over Internet networking, requires SDL_net */
 #define C_IPX 1

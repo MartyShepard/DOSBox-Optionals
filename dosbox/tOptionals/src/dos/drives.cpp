@@ -28,6 +28,10 @@
 
 char sDriveNotify[4096];
 char sDriveLabel[4096];
+char sDskNameA[DOS_NAMELENGTH_ASCII];
+char sDskNameB[DOS_NAMELENGTH_ASCII];
+char sDskNameZ[DOS_NAMELENGTH_ASCII];
+
 
 extern void GFX_SetTitle(Bit32s cycles,int frameskip,bool paused);
 
@@ -133,7 +137,95 @@ void DriveManager::AppendDisk(int drive, DOS_Drive* disk) {
 	driveInfos[drive].disks.push_back(disk);
 }
 
+void DriveManager__NotifyShowLabel(DOS_Drive* Floppy, int Laufwerk, int Pos, int Max ){
+				
+	/*
+		On Initialize Show the Label
+	*/		
+	Drives[Laufwerk] = Floppy;
+			
+	switch(Laufwerk)
+	{
+		case 0:
+		{
+			strcpy(sDskNameA, "");					
+			if ( strlen( Drives[0]->GetInfo() ) != 0 ){
+				LOG_MSG(">>>>>>>>>>>> %s",Drives[0]->GetInfo() );
+				if ( strlen( Drives[0]->GetLabel() ) == 0 ){
+					sprintf(sDskNameA, "%c:Blank",'A');
+					
+				} else { sprintf(sDskNameA, "%c:%s", 'A', Drives[0]->GetLabel());}						 
+			}				
+		}
+		break;
+		case 1:
+		{
+			strcpy(sDskNameB, "");					
+			if ( strlen( Drives[1]->GetInfo() ) != 0 ){
+				
+				if ( strlen( Drives[1]->GetLabel() ) == 0 ){
+					sprintf(sDskNameB, "%c:Blank",'B');
+					
+				} else {sprintf(sDskNameB, "%c:%s",'B', Drives[1]->GetLabel());}						 
+			}				
+		}
+		break;
+		default:
+		{
+			if (Laufwerk != 2){
+				/*
+					Nicht Lauferk C:\
+				*/
+				strcpy(sDskNameZ, "");					
+				if ( strlen( Drives[Laufwerk]->GetInfo() ) != 0 ){
+					
+					if ( strlen( Drives[Laufwerk]->GetLabel() ) == 0 ){
+						sprintf(sDskNameZ, "%c:Blank",'A'+Laufwerk);
+						
+					} else {sprintf(sDskNameZ, "%c:%s",'A'+Laufwerk, Drives[Laufwerk]->GetLabel());}						 
+				}				
+			}					
+		}
+	}
+					
+	if (( strlen( sDskNameA ) != 0 ) &&  ( strlen( sDskNameB ) != 0 ) && ( strlen( sDskNameZ ) != 0 )) {				
+			sprintf(sDriveLabel, "[ %s / %s / %s ]",sDskNameA, sDskNameB, sDskNameZ);										
+	}
+	
+	else if (( strlen( sDskNameA ) != 0 ) &&  ( strlen( sDskNameB ) == 0 ) && ( strlen( sDskNameZ ) != 0 )) {				
+			sprintf(sDriveLabel, "[ %s / %s ]",sDskNameA, sDskNameZ);								
+	}	
+	
+	else if (( strlen( sDskNameA ) == 0 ) &&  ( strlen( sDskNameB ) != 0 ) && ( strlen( sDskNameZ ) != 0 )) {				
+			sprintf(sDriveLabel, "[ %s / %s ]",sDskNameB, sDskNameZ);								
+	}
+	
+	else if (( strlen( sDskNameA ) != 0 ) &&  ( strlen( sDskNameB ) != 0 ) && ( strlen( sDskNameZ ) == 0 )) {				
+			sprintf(sDriveLabel, "[ %s / %s ]",sDskNameA, sDskNameB);								
+	}
+	
+	else if (( strlen( sDskNameA ) == 0 ) &&  ( strlen( sDskNameB ) == 0 ) && ( strlen( sDskNameZ ) != 0 )) {				
+			sprintf(sDriveLabel, "[ %s ]",sDskNameZ);							
+	}
+	
+	else if (( strlen( sDskNameA ) == 0 ) &&  ( strlen( sDskNameB ) != 0 ) && ( strlen( sDskNameZ ) == 0 )) {				
+			sprintf(sDriveLabel, "[ %s ]",sDskNameB);							
+	}	
+	else if (( strlen( sDskNameA ) != 0 ) &&  ( strlen( sDskNameB ) == 0 ) && ( strlen( sDskNameZ ) == 0 )) {				
+			sprintf(sDriveLabel, "[ %s ]",sDskNameA);								
+	}		
+	sprintf(sDriveNotify,"Mount Drive %s (%d of %d is now Active)", sDriveLabel, Pos+1, Max);
+
+	/* Schreibe in die Log   */
+		LOG_MSG(sDriveNotify);			
+		
+	/* Aktualisiere das Window Title */
+		GFX_SetTitle(-1,-1,false);
+	
+}
+
 void DriveManager::InitializeDrive(int drive) {
+
 	currentDrive = drive;
 	DriveInfo& driveInfo = driveInfos[currentDrive];
 	if (driveInfo.disks.size() > 0) {
@@ -144,17 +236,11 @@ void DriveManager::InitializeDrive(int drive) {
 		
 		/*
 			On Initialize Show the Label
-		*/
-		strcpy(sDriveLabel,Drives[drive]->GetLabel());
-		
-		if ( strlen( sDriveLabel ) == 0 ){
-			strcpy(sDriveLabel,"NO_NAME");
+		*/			
+		if (driveInfo.disks.size() > 1){
+			disk->Activate();
+			DriveManager__NotifyShowLabel(disk, drive,currentDisk, driveInfo.disks.size() );
 		}
-			
-		sprintf(sDriveNotify,"Mount Drive %c: [%s] (%d of %d is now Active)", 'A'+drive,sDriveLabel,currentDisk+1, (int)driveInfos[currentDrive].disks.size());
-		LOG_MSG(sDriveNotify);	
-		
-		if (driveInfo.disks.size() > 1) disk->Activate();
 	}
 }
 
@@ -206,33 +292,12 @@ void DriveManager::CycleDisks(int drive, bool notify) {
 		newDisk->Activate();
 		Drives[drive] = newDisk;
 		//LOG_MSG("%s", Drives[drive]->GetLabel());
-		if (notify){		
-			
-			/*
-				On Initialize Show the Label
-			*/			
-			strcpy(sDriveLabel,Drives[drive]->GetLabel());
-			
-			if ( strlen( sDriveLabel ) == 0 ){
-				strcpy(sDriveLabel,"NO_NAME");
-			}
-						
-			sprintf(sDriveNotify,"Mount Drive %c: [%s] (%d of %d is now Active)", 'A'+drive,sDriveLabel,currentDisk+1, numDisks);
+		if (notify){
 
-			/* Schreibe in die Log   */
-			LOG_MSG(sDriveNotify);			
-						
-			/* Schreibe in die Shell
-			   Program* toShell;
-			   toShell->WriteOut("\n%s\r\nReturn ...",sDriveNotify,'A'+drive);	
-			   Lassen wa mal. bis ich ein sicheren Code gefunden habe.
-			*/
-			
-			/* Aktualisiere das Window Title */
-			GFX_SetTitle(-1,-1,false);
-			
+			DriveManager__NotifyShowLabel(newDisk, drive,currentDisk, numDisks );
 		}
 	}
+
 }
 
 void DriveManager::CycleAllDisks(void) {

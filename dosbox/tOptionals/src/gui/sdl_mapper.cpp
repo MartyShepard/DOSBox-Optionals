@@ -4199,6 +4199,7 @@ void MAPPER_RunInternal() {
 	/* Be sure that there is no update in progress */
 	GFX_EndUpdate( 0 );
 	mapper.window=GFX_SetSDLSurfaceWindow(800,600);
+	SDL_ShowWindow( mapper.window );
 	if (mapper.window == NULL) E_Exit("Could not initialize video mode for mapper: %s",SDL_GetError());
 	mapper.surface=SDL_GetWindowSurface(mapper.window);
 	if (mapper.surface == NULL) E_Exit("Could not initialize video mode for mapper: %s",SDL_GetError());
@@ -4216,6 +4217,7 @@ void MAPPER_RunInternal() {
 		last_clicked->BindColor();
 		last_clicked=NULL;
 	}
+	
 	/* Go in the event loop */
 	mapper.exit=false;	
 	mapper.redraw=true;

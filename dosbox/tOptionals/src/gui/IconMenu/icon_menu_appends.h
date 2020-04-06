@@ -84,9 +84,26 @@
 	::AppendMenu(hSysMenu	, MF_SEPARATOR			, 0, "");
 	
 	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_FULLSCREEN		, ("&FullScreen\tAlt+Enter"));
+	::AppendMenu(hSysMenu	, MF_SEPARATOR			, 0, "");	 	
+	
+	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_BINDMAPPER		, ("&Key && Joystick Mapper\tCtrl+F1"));	
+	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_PREFSEDIT		, ("Edit Preferences Direct"));		
 	::AppendMenu(hSysMenu	, MF_SEPARATOR			, 0, "");	
-
+	
+	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_DISKCACHE		, ("&Cache: Swap Next Floppy\tCtrl+F4"));		
+	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_CDROMSWAP		, ("&Cache: Swap Next Cd-Rom\tCtrl+F3"));	
+	
+	::AppendMenu(hSysMenu	, MF_SEPARATOR			, 0, "");		
+	//::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_INTERNALUI		, ("Internal Preferences"));	
+	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_CAPSHOTSW		, ("&Capture: Screenshot [SW]\tCtrl+F5"));	
+	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_CAPSHOTHWBMP	, ("&Capture: Screenshot [OpenGL] (BMP)"));
+	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_CAPSHOTHWPNG	, ("&Capture: Screenshot [OpenGL] (PNG)"));	
+	
+	::AppendMenu(hSysMenu	, MF_SEPARATOR			, 0, "");
+	
+	
 	::AppendMenu(hSysMenu	, MF_STRING|MF_POPUP	,(UINT_PTR)hSubWinRes	, ("Resolution: Window"));	
+		::AppendMenu(hSubWinRes	, MF_STRING			, ICNMNU_WINDESKTOP		, ("\tDesktop"		));		
 		::AppendMenu(hSubWinRes	, MF_STRING			, ICNMNU_WIN640X480		, ("\t 640x480"		));	
 		::AppendMenu(hSubWinRes	, MF_STRING			, ICNMNU_WIN800X600		, ("\t 800x600"		));			
 		::AppendMenu(hSubWinRes	, MF_STRING			, ICNMNU_WIN1024X768	, ("\t1024x768"		));
@@ -115,6 +132,7 @@
 		::AppendMenu(hSubWinRes	, MF_STRING			, ICNMNU_WIN7680X4320	, ("\t7680x4320"	));		
 
 	::AppendMenu(hSysMenu	, MF_STRING|MF_POPUP	,(UINT_PTR)hSubFllRes	, ("Resolution: FullScreen"));	
+		::AppendMenu(hSubFllRes	, MF_STRING			, ICNMNU_FULDESKTOP		, ("\tDesktop"		));		
 		::AppendMenu(hSubFllRes	, MF_STRING			, ICNMNU_FUL640X480		, ("\t 640x480"		));	
 		::AppendMenu(hSubFllRes	, MF_STRING			, ICNMNU_FUL800X600		, ("\t 800x600"		));			
 		::AppendMenu(hSubFllRes	, MF_STRING			, ICNMNU_FUL1024X768	, ("\t1024x768"		));
@@ -153,14 +171,7 @@
 		::AppendMenu(hvoodooflt	, MF_STRING			, ICNMNU_VD_FLT_TESTMODE, ("Debug Testmode"	));			
 		
 	::AppendMenu(hSysMenu	, MF_SEPARATOR			, 0, "");	 	
-	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_RESTART		, ("&Maschine: Restart\tCtrl+Alt+Home"));	
-	::AppendMenu(hSysMenu	, MF_SEPARATOR			, 0, "");	 	
-	
-	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_BINDMAPPER		, ("&Key & Joystick Mapper\tCtrl+F1"));	
-	::AppendMenu(hSysMenu	, MF_SEPARATOR			, 0, "");	
-	
-	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_DISKCACHE		, ("&Cache: Swap Next Floppy\tCtrl+F4"));		
-	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_CDROMSWAP		, ("&Cache: Swap Next Cd-Rom\tCtrl+F3"));		
+	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_RESTART		, ("&Maschine: Restart\tCtrl+Alt+Home"));		
 	
 	::AppendMenu(hSysMenu	, MF_SEPARATOR			, 0, "");		
 	::AppendMenu(hSysMenu	, MF_STRING|MF_POPUP	,(UINT_PTR)hfinternet	, ("In the Internet "));	

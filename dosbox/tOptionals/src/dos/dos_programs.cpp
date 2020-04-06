@@ -60,6 +60,11 @@
 Bitu DEBUG_EnableDebugger(void);
 #endif
 
+inline bool FileExists (const std::string& name) {
+  struct stat buffer;   
+  return (stat (name.c_str(), &buffer) == 0); 
+}
+
 class MOUSE : public Program {
 public:
 	void Run(void);
@@ -721,6 +726,7 @@ public:
 			printError();
 			return;
 		}
+		WriteOut(MSG_Get("PROGRAM_BOOT_START_DRIVE"));
 		while(i<cmd->GetCount()) {
 			if(cmd->FindCommand(i+1, temp_line)) {
 				if((temp_line == "-l") || (temp_line == "-L")) {
@@ -760,6 +766,8 @@ public:
 				}
 				
 				WriteOut(MSG_Get("PROGRAM_BOOT_IMAGE_OPEN"), temp_line.c_str());
+				swapInNextDisk(true, true, false);	
+							
 				Bit32u rombytesize;
 				FILE *usefile = getFSFile(temp_line.c_str(), &floppysize, &rombytesize);
 				if(usefile != NULL) {
@@ -781,9 +789,10 @@ public:
 			i++;
 		}
 
+			
 		swapPosition = 0;
 
-		swapInDisks();
+		swapInDisks();		
 
 		if(imageDiskList[drive-65]==NULL) {
 			WriteOut(MSG_Get("PROGRAM_BOOT_UNABLE"), drive);
@@ -1111,7 +1120,41 @@ static void BIOS_ProgramStart(Program * * make) {
 }
 
 /* DOSBox-MB IMGMAKE patch. ========================================================================= */
-const Bit8u freedos_mbr[] = {
+const Bit8u MBR_MSDOS622_DE[] = {
+    0xEB,0x3C,0x90,0x4D,0x53,0x44,0x4F,0x53,0x35,0x2E,0x30,0x00,0x02,0x01,0x01,0x00,
+    0x02,0x00,0x02,0x00,0x00,0xF8,0xA0,0x00,0x20,0x00,0x02,0x00,0x20,0x00,0x00,0x00,
+    0xE0,0x9F,0x00,0x00,0x80,0x00,0x29,0x12,0xF5,0x05,0x00,0x4B,0x45,0x49,0x4E,0x20,
+    0x4E,0x41,0x4D,0x45,0x20,0x20,0x46,0x41,0x54,0x31,0x36,0x20,0x20,0x20,0xFA,0x33,
+    0xC0,0x8E,0xD0,0xBC,0x00,0x7C,0x16,0x07,0xBB,0x78,0x00,0x36,0xC5,0x37,0x1E,0x56,
+    0x16,0x53,0xBF,0x3E,0x7C,0xB9,0x0B,0x00,0xFC,0xF3,0xA4,0x06,0x1F,0xC6,0x45,0xFE,
+    0x0F,0x8B,0x0E,0x18,0x7C,0x88,0x4D,0xF9,0x89,0x47,0x02,0xC7,0x07,0x3E,0x7C,0xFB,
+    0xCD,0x13,0x72,0x79,0x33,0xC0,0x39,0x06,0x13,0x7C,0x74,0x08,0x8B,0x0E,0x13,0x7C,
+    0x89,0x0E,0x20,0x7C,0xA0,0x10,0x7C,0xF7,0x26,0x16,0x7C,0x03,0x06,0x1C,0x7C,0x13,
+    0x16,0x1E,0x7C,0x03,0x06,0x0E,0x7C,0x83,0xD2,0x00,0xA3,0x50,0x7C,0x89,0x16,0x52,
+    0x7C,0xA3,0x49,0x7C,0x89,0x16,0x4B,0x7C,0xB8,0x20,0x00,0xF7,0x26,0x11,0x7C,0x8B,
+    0x1E,0x0B,0x7C,0x03,0xC3,0x48,0xF7,0xF3,0x01,0x06,0x49,0x7C,0x83,0x16,0x4B,0x7C,
+    0x00,0xBB,0x00,0x05,0x8B,0x16,0x52,0x7C,0xA1,0x50,0x7C,0xE8,0x92,0x00,0x72,0x1D,
+    0xB0,0x01,0xE8,0xAC,0x00,0x72,0x16,0x8B,0xFB,0xB9,0x0B,0x00,0xBE,0xE6,0x7D,0xF3,
+    0xA6,0x75,0x0A,0x8D,0x7F,0x20,0xB9,0x0B,0x00,0xF3,0xA6,0x74,0x18,0xBE,0x9E,0x7D,
+    0xE8,0x5F,0x00,0x33,0xC0,0xCD,0x16,0x5E,0x1F,0x8F,0x04,0x8F,0x44,0x02,0xCD,0x19,
+    0x58,0x58,0x58,0xEB,0xE8,0x8B,0x47,0x1A,0x48,0x48,0x8A,0x1E,0x0D,0x7C,0x32,0xFF,
+    0xF7,0xE3,0x03,0x06,0x49,0x7C,0x13,0x16,0x4B,0x7C,0xBB,0x00,0x07,0xB9,0x03,0x00,
+    0x50,0x52,0x51,0xE8,0x3A,0x00,0x72,0xD8,0xB0,0x01,0xE8,0x54,0x00,0x59,0x5A,0x58,
+    0x72,0xBB,0x05,0x01,0x00,0x83,0xD2,0x00,0x03,0x1E,0x0B,0x7C,0xE2,0xE2,0x8A,0x2E,
+    0x15,0x7C,0x8A,0x16,0x24,0x7C,0x8B,0x1E,0x49,0x7C,0xA1,0x4B,0x7C,0xEA,0x00,0x00,
+    0x70,0x00,0xAC,0x0A,0xC0,0x74,0x29,0xB4,0x0E,0xBB,0x07,0x00,0xCD,0x10,0xEB,0xF2,
+    0x3B,0x16,0x18,0x7C,0x73,0x19,0xF7,0x36,0x18,0x7C,0xFE,0xC2,0x88,0x16,0x4F,0x7C,
+    0x33,0xD2,0xF7,0x36,0x1A,0x7C,0x88,0x16,0x25,0x7C,0xA3,0x4D,0x7C,0xF8,0xC3,0xF9,
+    0xC3,0xB4,0x02,0x8B,0x16,0x4D,0x7C,0xB1,0x06,0xD2,0xE6,0x0A,0x36,0x4F,0x7C,0x8B,
+    0xCA,0x86,0xE9,0x8A,0x16,0x24,0x7C,0x8A,0x36,0x25,0x7C,0xCD,0x13,0xC3,0x0D,0x0A,
+    0x4E,0x6F,0x6E,0x2D,0x53,0x79,0x73,0x74,0x65,0x6D,0x20,0x64,0x69,0x73,0x6B,0x20,
+    0x6F,0x72,0x20,0x64,0x69,0x73,0x6B,0x20,0x65,0x72,0x72,0x6F,0x72,0x0D,0x0A,0x52,
+    0x65,0x70,0x6C,0x61,0x63,0x65,0x20,0x61,0x6E,0x64,0x20,0x70,0x72,0x65,0x73,0x73,
+    0x20,0x61,0x6E,0x79,0x20,0x6B,0x65,0x79,0x20,0x77,0x68,0x65,0x6E,0x20,0x72,0x65,
+    0x61,0x64,0x79,0x0D,0x0A,0x00,0x49,0x4F,0x20,0x20,0x20,0x20,0x20,0x20,0x53,0x59,
+    0x53,0x4D,0x53,0x44,0x4F,0x53,0x20,0x20,0x20,0x53,0x59,0x53,0x00,0x00,0x55,0xAA,	
+	};
+const Bit8u freedos_mbr[] = {	
 	0x33,0xC0,0x8E,0xC0,0x8E,0xD8,0x8E,0xD0,0xBC,0x00,0x7C,0xFC,0x8B,0xF4,0xBF,0x00,
 	0x06,0xB9,0x00,0x01,0xF2,0xA5,0xEA,0x67,0x06,0x00,0x00,0x8B,0xD5,0x58,0xA2,0x4F, // 10h
 	0x07,0x3C,0x35,0x74,0x23,0xB4,0x10,0xF6,0xE4,0x05,0xAE,0x04,0x8B,0xF0,0x80,0x7C, // 20h
@@ -1143,7 +1186,7 @@ const Bit8u freedos_mbr[] = {
 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
 	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
-	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x55,0xAA
+	0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x55,0xAA	
 	};
 	
 #ifdef WIN32
@@ -1316,6 +1359,7 @@ restart_int:
 		std::string filename;
 		std::string path = "";
 		std::string dpath;
+	
 
 		Bitu c, h, s, sectors;
 		Bit64u size = 0;
@@ -1514,22 +1558,34 @@ restart_int:
 			bootsect_pos = -1;
 		}
 
-		// temp_line is the filename
-		if (!(cmd->FindCommand(1, temp_line))) {
-			printHelp();
-			return;
+		bool ForceOverwrite = false;		
+		if ( cmd->FindExist("-force",true ) ) {		
+			ForceOverwrite = true;
 		}
-
-		// don't trash user's files
-		FILE* f = fopen(temp_line.c_str(),"r");
-		if(f) {
+		
+		/*	temp_line is the given filename		*/
+		if ( !( cmd->FindCommand(1, temp_line) ) ) {
+			/*
+				No given Filename, use default Dosbox Folder and create
+			*/
+			temp_line = sCurrentWorkingPath() + "\\DosboxHDD.IMG\0";
+		}
+	
+		FILE* f = fopen( temp_line.c_str(),"r" );
+		if (f && !ForceOverwrite){
 			fclose(f);
 			WriteOut(MSG_Get("PROGRAM_IMGMAKE_FILE_EXISTS"),temp_line.c_str());
 			return;
 		}
+		
+		/* Close file */
+		if ( ForceOverwrite ){
+			fclose(f);
+		}
 
-		WriteOut(MSG_Get("PROGRAM_IMGMAKE_PRINT_CHS"),c,h,s);
-		WriteOut("%s\r\n",temp_line.c_str());
+		WriteOut( MSG_Get("PROGRAM_IMGMAKE_PRINT_CHS"),c,h,s);
+		WriteOut( MSG_Get("PROGRAM_IMGMAKE_CREATED"  ),temp_line.c_str());
+		
 		LOG_MSG(MSG_Get("PROGRAM_IMGMAKE_PRINT_CHS"),c,h,s);
 
 		// do it again for fixed chs values
@@ -1557,6 +1613,7 @@ restart_int:
 			if(mediadesc == 0xF8) {
 				// is a harddisk: write MBR
 				memcpy(sbuf,freedos_mbr,512);
+				//memcpy(sbuf,MBR_MSDOS622_DE,512);
 				// active partition
 				sbuf[0x1be]=0x80;
 				// start head - head 0 has the partition table, head 1 first partition
@@ -2429,12 +2486,14 @@ public:
 						if (!DOS_MakeName(tmp, fullname, &dummy) || strncmp(Drives[dummy]->GetInfo(),"local directory",15)) {
 							WriteOut(MSG_Get("PROGRAM_IMGMOUNT_NON_LOCAL_DRIVE"));							
 							WriteOut("Image not Found\n [at Position %d] in %s\n", ImageCNT, homedir.c_str());
+							Beep(1568, 200);
 							return;
 						}
 
 						localDrive *ldp = dynamic_cast<localDrive*>(Drives[dummy]);
 						if (ldp==NULL) {
 							WriteOut(MSG_Get("PROGRAM_IMGMOUNT_FILE_NOT_FOUND"));
+							Beep(523,500);
 							return;
 						}
 						ldp->GetSystemFilename(tmp, fullname);
@@ -2442,6 +2501,7 @@ public:
 
 						if (stat(temp_line.c_str(),&test)) {
 							WriteOut(MSG_Get("PROGRAM_IMGMOUNT_FILE_NOT_FOUND"));
+							Beep(523,500);
 							return;
 						}
 					}
@@ -2813,6 +2873,7 @@ public:
 				}
 				DriveManager::InitializeDrive(drive - 'A');
 				
+				
 				// Set the correct media byte in the table 
 				mem_writeb(Real2Phys(dos.tables.mediaid) + (drive - 'A') * 9, mediaid);
 				
@@ -3148,10 +3209,11 @@ void DOS_SetupPrograms(void) {
 		"The syntax of this command is:\n\n"
 		"\033[34;1mBOOT [diskimg1.img diskimg2.img] [-l driveletter]\033[0m\n"
 		);
-	MSG_Add("PROGRAM_BOOT_UNABLE","Unable to boot off of drive %c\n");
-	MSG_Add("PROGRAM_BOOT_IMAGE_OPEN","Opening image file: %s\n");
-	MSG_Add("PROGRAM_BOOT_IMAGE_NOT_OPEN","Cannot open %s");
-	MSG_Add("PROGRAM_BOOT_BOOT","Booting from drive %c...\n");
+	MSG_Add("PROGRAM_BOOT_START_DRIVE", "\033[34;1mAuto Detecting Images... \033[0m\n" );		
+	MSG_Add("PROGRAM_BOOT_UNABLE","033[31;1mUnable to Boot off of Drive %c ...\033[0m\n");
+	MSG_Add("PROGRAM_BOOT_IMAGE_OPEN", "\033[34;1mAdded: \033[0m\033[37;1m%s\033[0m\n");	
+	MSG_Add("PROGRAM_BOOT_IMAGE_NOT_OPEN","\033[31;1m -- Can not Open --\033[0m\n");	
+	MSG_Add("PROGRAM_BOOT_BOOT","\n\033[37;1mBooting from Drive %c:...\033[0m\n");
 	MSG_Add("PROGRAM_BOOT_CART_WO_PCJR","PCjr cartridge found, but machine is not PCjr");
 	MSG_Add("PROGRAM_BOOT_CART_LIST_CMDS","Available PCjr cartridge commandos:%s");
 	MSG_Add("PROGRAM_BOOT_CART_NO_CMDS","No PCjr cartridge commandos found");
@@ -3194,7 +3256,7 @@ void DOS_SetupPrograms(void) {
 /* DOSBox-MB IMGMAKE patch. ========================================================================= */	
 	MSG_Add("PROGRAM_IMGMOUNT_SYNTAX",
 		    "\033[2J\033[32;1mCreates Floppy or Harddisk Images. Syntax:\033[0m\n"
-		    "IMGMAKE file [-t] [-size] [-chs] [-nofs] [-source] [-r retries] [-bat] [-txt]\n"
+		    "IMGMAKE [-t][-size][-chs][-nofs][-source][-r retries][-bat/-txt][-force][file]\n"
 		    "File       : Image file that is to be created  on the Host. [-t Image type].\n\n"
 		    "\033[33;1mFloppy Disk templates\033[0m\n"
 		    " fd_160: 160KB  fd_180: 180KB  fd_200 : 200KB  fd_320 : 320KB   fd_360 : 360KB\n"
@@ -3207,17 +3269,14 @@ void DOS_SetupPrograms(void) {
 		    " -chs     : Disk geometry in cylinders (1-1023), Heads( 1-255), Sectors (1-63).\n"
 		    " -nofs    : Add this parameter if a blank image should be created.\n"
 		    " -bat/-txt: Creates a Batch/Text file with the IMGMOUNT command for this image.\n"
-#ifdef WIN32
 		    " -source  : Drive letter. If specified the image is read from a floppy disk.\n"
-		    " -retries : How often to retry to read from a bad floppy disk (1-99).\n\n"
-#endif
+		    " -retries : How often to retry to read from a bad floppy disk (1-99).\n"
 		    " \033[33;1mExamples:\033[0m\n"
 		    "  \033[33mimgmake c:\\image.img -t fd_1440\033[0m          - create a 1.44MB floppy image\n"
 		    "  \033[33mimgmake c:\\image.img -t hd -size 100\033[0m     - create a 100MB hdd image\n"
+		    "  \033[33mimgmake c:\\image.img -t hd -size 10 -nofs\033[0m- create a 10MB hdd for MSDOS\n"				
 		    "  \033[33mimgmake c:\\image.img -t hd -chs 130,2,17\033[0m - create a special hd image\n"
-#ifdef WIN32
-		    "  \033[33mimgmake c:\\image.img -source a\033[0m           - read image from physical drive A"
-#endif
+		    "  \033[33mimgmake c:\\image.img -source a\033[0m           - read image from physical drive A"		
 		);
 #ifdef WIN32
 	MSG_Add("PROGRAM_IMGMAKE_FLREAD",
@@ -3225,11 +3284,22 @@ void DOS_SetupPrograms(void) {
 	MSG_Add("PROGRAM_IMGMAKE_FLREAD2",
 		"\xdb =good, \xb1 =good after retries, ! =CRC error, x =sector not found, ? =unknown\n\n");
 #endif
-	MSG_Add("PROGRAM_IMGMAKE_FILE_EXISTS","The file \"%s\" already exists.\n");
-	MSG_Add("PROGRAM_IMGMAKE_CANNOT_WRITE","The file \"%s\" cannot be opened for writing.\n");
-	MSG_Add("PROGRAM_IMGMAKE_NOT_ENOUGH_SPACE","Not enough space availible for the image file. Need %u bytes.\n");
-	MSG_Add("PROGRAM_IMGMAKE_PRINT_CHS","Creating an image file with %u cylinders, %u heads and %u sectors\n");
-	MSG_Add("PROGRAM_IMGMAKE_CANT_READ_FLOPPY","\n\nUnable to read floppy.");
+	MSG_Add("PROGRAM_IMGMAKE_FILE_EXISTS","\033[31;1mError creating the file:\033[0m\n"
+										  "\033[37;1m\"%s\"\033[0m\n"
+										  "\033[31;1malready exists. \033[36;1mHint: Use arg -force to Overwrite\033[0m\n"
+			);
+										  
+	MSG_Add("PROGRAM_IMGMAKE_CANNOT_WRITE","\033[31;1mThe file:\033[0m\n\033[37;1m\"%s\"\033[0m\n\033[31;1mcannot be opened for writing.\033[0m\n");
+	MSG_Add("PROGRAM_IMGMAKE_NOT_ENOUGH_SPACE",	"\033[31;1mNot enough space availible for the image file.\033[0m\n"
+												"\033[33;1mNeed %u bytes.\n\033[0m");
+			
+	MSG_Add("PROGRAM_IMGMAKE_PRINT_CHS",	"\033[32;1mCreate an Image:\033[0m\n"
+											"         \033[33;1m[C]ylinders: \033[36;1m%u\033[0m\n"
+											"         \033[33;1m[H]eads    : \033[36;1m%u\033[0m\n"
+											"         \033[33;1m[S]ectors  : \033[36;1m%u\033[0m\n"
+			);
+	MSG_Add("PROGRAM_IMGMAKE_CANT_READ_FLOPPY","\nUnable to read floppy.");
+	MSG_Add("PROGRAM_IMGMAKE_CREATED","\033[32;1mImage Created in:\n\033[37;1m\"%s\"\033[0m\n");	
 /* DOSBox-MB IMGMAKE patch. ========================================================================= */
 	
 
@@ -3248,9 +3318,17 @@ void DOS_SetupPrograms(void) {
 	MSG_Add("PROGRAM_KEYB_LAYOUTNOTFOUND","No layout in %s for codepage %i\n");
 	MSG_Add("PROGRAM_KEYB_INVCPFILE","None or invalid codepage file for layout %s\n\n");
 
-	/* Commands
+	/* 
+		Commands
 		\033[33; == TAB
-		\033[2J\033[32;1m -- TEXT GRÜN -- \033[0m
+		\033[31;1m -- TEXT HELL ROT		-- \033[0m		
+		\033[30;1m -- TEXT DUNKEl GRAU	-- \033[0m		
+		\033[32;1m -- TEXT GRÜN 		-- \033[0m	
+		\033[33;1m -- TEXT BRAUN 		-- \033[0m			
+		\033[34;1m -- DUNKEL BLAU		-- \033[0m
+		\033[35;1m -- ROSA				-- \033[0m		
+		\033[36;1m -- HELL BLAU			-- \033[0m
+		\033[37;1m -- WEISS				-- \033[0m		
 		\033[33m
 		\033[33;1m
 	*/

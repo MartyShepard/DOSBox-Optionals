@@ -489,7 +489,7 @@ void DOSBOX_Init(void) {
 	Pstring->Set_help(  "================================================================================================\n"
 	                    "The type of machine DOSBox tries to emulate.");				
 
-	Pstring = secprop->Add_path("captures",Property::Changeable::Always,"\\CAPTURE");
+	Pstring = secprop->Add_path("captures",Property::Changeable::Always,"CAPTURE");
 	Pstring->Set_help(  "================================================================================================\n"
 	                    "Directory where things like wave, midi, screenshot get captured.");
 

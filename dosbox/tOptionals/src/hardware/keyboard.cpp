@@ -218,11 +218,11 @@ static void write_p64(Bitu port,Bitu val,Bitu iolen) {
 			keyb.scheduled=true;
 			PIC_AddEvent(KEYBOARD_TransferBuffer,KEYDELAY);
 		}
-		LOG(LOG_KEYBOARD,LOG_NORMAL)("Activated");
+		//LOG(LOG_KEYBOARD,LOG_NORMAL)("Activated");
 		break;
 	case 0xad:		/* Deactivate keyboard */
 		keyb.active=false;
-		LOG(LOG_KEYBOARD,LOG_NORMAL)("De-Activated");
+		//LOG(LOG_KEYBOARD,LOG_NORMAL)("De-Activated");
 		break;
 	case 0xd0:		/* Outport on buffer */
 		KEYBOARD_SetPort60(MEM_A20_Enabled() ? 0x02 : 0);
@@ -231,7 +231,7 @@ static void write_p64(Bitu port,Bitu val,Bitu iolen) {
 		keyb.command=CMD_SETOUTPORT;
 		break;
 	default:
-		LOG(LOG_KEYBOARD,LOG_ERROR)("Port 64 write with val %d",val);
+		//LOG(LOG_KEYBOARD,LOG_ERROR)("Port 64 write with val %d",val);
 		break;
 	}
 }
