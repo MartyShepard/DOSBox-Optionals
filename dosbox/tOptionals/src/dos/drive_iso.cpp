@@ -328,6 +328,12 @@ bool isoDrive::Rename(char* /*oldname*/, char* /*newname*/) {
 	return false;
 }
 
+bool isoDrive::SetFileAttr(char * name,Bit16u attr) {
+    (void)name;
+    (void)attr;
+	return false;
+}
+
 bool isoDrive::GetFileAttr(char *name, Bit16u *attr) {
 	*attr = 0;
 	isoDirEntry de;

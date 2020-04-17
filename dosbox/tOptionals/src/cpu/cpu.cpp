@@ -765,7 +765,7 @@ do_interrupt:
 			}
 			return;
 		default:
-			E_Exit("Illegal descriptor type %" sBitfs(X) " for int %" sBitfs(X),gate.Type(),num);
+			LOG(LOG_CPU,LOG_NORMAL)("Illegal descriptor type %" sBitfs(X) " for int %" sBitfs(X),gate.Type(),num);
 		}
 	}
 	assert(1);

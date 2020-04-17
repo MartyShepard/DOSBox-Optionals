@@ -287,7 +287,7 @@ restart_opcode:
 				 * Illegal/Unhandled
 				*/
 				if (strcmp(tempcode,"63") != 0){
-					LOG(LOG_CPU,LOG_NORMAL)("Illegal/Unhandled opcode %s",tempcode);
+					LOG(LOG_CPU,LOG_NORMAL)("Illegal/Unhandled opcode (Prefetch Core) %s\n(File %s:, Line: %d)\n\n",tempcode,__FILE__,__LINE__);
 				}
 			}
 #endif

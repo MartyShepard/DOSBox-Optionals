@@ -408,26 +408,29 @@ static void DOSBOX_RealInit(Section * sec) {
 	machine = MCH_VGA;
 	int10.vesa_nolfb = false;
 	int10.vesa_oldvbe = false;
+	
 	/* Custom S3 VGA /////////////////////////////////////////////////////////////////////////////////////////////*/
 	int10.vesa_no24bpp = false;
 	/* Custom S3 VGA /////////////////////////////////////////////////////////////////////////////////////////////*/
-	if      (mtype == "cga")      { machine = MCH_CGA; mono_cga = false; }
-	else if (mtype == "cga_mono") { machine = MCH_CGA; mono_cga = true; }
-	else if (mtype == "tandy")    { machine = MCH_TANDY; }
-	else if (mtype == "pcjr")     { machine = MCH_PCJR; }
-	else if (mtype == "hercules") { machine = MCH_HERC; }
-	else if (mtype == "ega")      { machine = MCH_EGA; }
-//	else if (mtype == "vga")          { svgaCard = SVGA_S3Trio; }
-	else if (mtype == "svga_s3")       { svgaCard = SVGA_S3Trio; }
-	else if (mtype == "vesa_nolfb")   { svgaCard = SVGA_S3Trio; int10.vesa_nolfb = true;}
-	else if (mtype == "vesa_oldvbe")   { svgaCard = SVGA_S3Trio; int10.vesa_oldvbe = true;}
-	else if (mtype == "svga_et4000")   { svgaCard = SVGA_TsengET4K; }
-	else if (mtype == "svga_et3000")   { svgaCard = SVGA_TsengET3K; }
-//	else if (mtype == "vga_pvga1a")   { svgaCard = SVGA_ParadisePVGA1A; }
-	else if (mtype == "svga_paradise") { svgaCard = SVGA_ParadisePVGA1A; }
-	else if (mtype == "vgaonly")      { svgaCard = SVGA_None; }
+	
+	if      (mtype == "cga")      			{ machine 	= MCH_CGA; mono_cga = false;}
+	else if (mtype == "cga_mono") 			{ machine 	= MCH_CGA; mono_cga = true; }
+	else if (mtype == "tandy")    			{ machine 	= MCH_TANDY; 				}
+	else if (mtype == "pcjr")     			{ machine 	= MCH_PCJR; 				}
+	else if (mtype == "hercules") 			{ machine 	= MCH_HERC; 				}
+	else if (mtype == "ega")      			{ machine 	= MCH_EGA; 					}
+	else if (mtype == "vgaonly")      		{ svgaCard 	= SVGA_None; 				}
+	else if (mtype == "vga")      			{ svgaCard 	= SVGA_None; 				}		
+	else if (mtype == "svga")       		{ svgaCard 	= SVGA_S3Trio; 				}
+	else if (mtype == "svga_s3")    		{ svgaCard 	= SVGA_S3Trio; 				}
+	else if (mtype == "svga_et4000")		{ svgaCard 	= SVGA_TsengET4K; 			}
+	else if (mtype == "svga_et3000")		{ svgaCard 	= SVGA_TsengET3K; 			}
+	else if (mtype == "svga_paradise") 		{ svgaCard 	= SVGA_ParadisePVGA1A; 		}	
+	else if (mtype == "vesa_nolfb") 		{ svgaCard 	= SVGA_S3Trio; int10.vesa_nolfb = true;}
+	else if (mtype == "vesa_oldvbe")		{ svgaCard 	= SVGA_S3Trio; int10.vesa_oldvbe = true;}
+	
 	/* Custom S3 VGA /////////////////////////////////////////////////////////////////////////////////////////////*/
-	else if (mtype == "vesa_no24bpp") { svgaCard = SVGA_S3Trio; int10.vesa_no24bpp = true;}
+	else if (mtype == "vesa_no24bpp") 		{ svgaCard = SVGA_S3Trio; int10.vesa_no24bpp = true;}
 	else if (mtype == "vesa_nolfb_no24bpp") { svgaCard = SVGA_S3Trio; int10.vesa_nolfb = true; int10.vesa_no24bpp = true;}
 	else E_Exit("DOSBOX:Unknown machine type %s",mtype.c_str());
 	
@@ -464,7 +467,8 @@ void DOSBOX_Init(void) {
 	const char *ios[] = { "220", "240", "260", "280", "2a0", "2c0", "2e0", "300", 0 };
 	const char *irqssb[] = { "7", "5", "3", "9", "10", "11", "12", 0 };
 	const char *dmassb[] = { "1", "5", "0", "3", "6", "7", 0 };
-	const char *iosgus[] = { "240", "220", "260", "280", "2a0", "2c0", "2e0", "300", 0 };
+	const char *iosgus[] = { "210", "220", "230", "240", "250", "260", "280", "2a0", "2c0", "2e0", "300", 0 };
+	const char* pangus[] = { "old", "accurate", "default", 0 };
 	const char *irqsgus[] = { "5", "3", "7", "9", "10", "11", "12", 0 };
 	const char *dmasgus[] = { "3", "0", "1", "5", "6", "7", 0 };
 	const char *innoqal[] = { "0" , "1", "2", "3", 0};
@@ -1375,15 +1379,37 @@ void DOSBOX_Init(void) {
 	                        "Strength of the FM playback volume in percent, in relation to PCM playback volume Default is 150.\n"
 	                        "Possible Values: 1 to 1000 (0.01x to 10x)");
 	
+	
+	const char* gustypes[] = { "classic", "classic37", "max", "interwave", 0 };
+	
 	secprop=control->AddSection_prop("gus",&GUS_Init,true); //done
 	Pbool = secprop->Add_bool("gus",Property::Changeable::WhenIdle,false);
 	Pbool->Set_help(        "================================================================================================\n"
 	                        "Enable the Gravis Ultrasound emulation.");
+			
 
+	Pstring = secprop->Add_string("gustype",Property::Changeable::WhenIdle,"classic");
+	Pstring->Set_values(gustypes);	
+	Pstring->Set_help(       "================================================================================================\n"	
+							 "Type of Gravis Ultrasound to emulate.\n"
+							 "- classic\tOriginal Gravis Ultrasound chipset\n"
+							 "- classic37\tOriginal Gravis Ultrasound with ICS Mixer (rev 3.7)\n"
+							 "- max\t\tGravis Ultrasound MAX emulation (with CS4231 codec)\n"
+				             "- interwave\tGravis Ultrasound Plug & Play (interwave)");
+											
 	Pint = secprop->Add_int("gusrate",Property::Changeable::WhenIdle,44100);
 	Pint->Set_values(rates);
 	Pint->Set_help(         "================================================================================================\n"
 	                        "Sample rate of Ultrasound emulation.");
+							
+	Pbool = secprop->Add_bool("fixrate",Property::Changeable::WhenIdle,false);
+	Pbool->Set_help(         "================================================================================================\n"	
+						     "Fixed Render Rate:\n"
+							 "If set, Gravis Ultrasound audio output is rendered at a fixed sample rate specified by 'gusrate'.\n"
+							 "This can provide better quality than real hardware, if desired. Else, Gravis Ultrasound emulation\n"
+							 "will change the sample rate of it's output according to the number of active channels, just like\n"
+							 "real hardware. Note: Defaults to 'false', while mainline DOSBox SVN is currently hardcoded to render\n"
+							 "as if this setting is 'true'.");							
 
 	Phex = secprop->Add_hex("gusbase",Property::Changeable::WhenIdle,0x240);
 	Phex->Set_values(iosgus);
@@ -1400,6 +1426,105 @@ void DOSBOX_Init(void) {
 	Pint->Set_help(         "================================================================================================\n"
 	                        "The DMA channel of the Gravis Ultrasound.");
 
+	Pint = secprop->Add_int("MemorySize",Property::Changeable::WhenIdle,-1);
+	Pint->SetMinMax(-1,1024);
+	Pint->Set_help(         "================================================================================================\n"
+							"Amount of RAM on the Gravis Ultrasound in KB. Set to -1 for default.");
+	
+	Pbool = secprop->Add_bool("AutoAmp",Property::Changeable::WhenIdle,false);
+	Pint->Set_help(         "================================================================================================\n"	
+	                        "If set, GF1 output will reduce in volume automatically if the sum of all channels exceeds full\n"
+							"volume. If not set, then loud music will clip to full volume just as it would on real hardware.\n"
+                            "Enable this option for loud music if you want a more pleasing rendition without saturation and\n"
+							"distortion.");
+	
+
+    Pstring = secprop->Add_string("IRQ-Hack",Property::Changeable::WhenIdle,"none");
+	Pstring->Set_help(         "================================================================================================\n"		
+							   "Specify a hack related to the Gravis Ultrasound IRQ to avoid crashes in a handful of games and\n"
+							   "demos.\n"
+                               "    none         :Emulate IRQs normally\n"
+                               "    cs_equ_ds    :Do not fire IRQ unless two CPU segment registers match: CS == DS.\n"
+							   "                 (Read Dosbox-X Wiki or source code for details.)");					   
+			
+	Pbool = secprop->Add_bool("ForceMIRQ",Property::Changeable::WhenIdle,false);
+	Pbool->Set_help(         "================================================================================================\n"	
+                             "Force Master IRQ:\n"
+							 "Set this option if a DOS game or demo initializes the GUS but is unable to play any music. Some\n"
+							 "demos, especially where the programmers wrote their own tracker, forget to set master IRQ enable\n"
+							 "on the GUS, and then wonder why music isn't playing. prior to some GUS bugfixes they happend to\n"
+							 "work anyway because DOSBox also ignored Master IRQ enable. Can restore that buggy behavior here.\n"
+			                 "Usually the cause is buggy GUS support that resets the GUS but fails to set the Master IRQ\n"
+							 "enable bit. DOS games & demos that need this:\n"
+							 "- Juice: by Psychic Link (writes 0x300 to GUS reset which only enables DAC and takes card out of\n"
+							 "         reset, does not enable IRQ)");
+			
+    Pbool = secprop->Add_bool("UnMaskIRQ",Property::Changeable::WhenIdle,false);
+	Pbool->Set_help(         "================================================================================================\n"		
+							  "Start the DOS virtual machine with the GUS IRQ already unmasked at the PIC.");
+
+  			
+	Pbool = secprop->Add_bool("UnMaskDMA",Property::Changeable::WhenIdle,false);
+	Pbool->Set_help(         "================================================================================================\n"	
+							  "GUS Unmask DMA:\n"
+							  "Start the DOS virtual machine with the DMA channel already unmasked at the controller.\n"
+							  "Use this for DOS applications that expect to operate the GUS but forget to unmask the DMA channel.");
+			
+    Pbool = secprop->Add_bool("EnCPolling",Property::Changeable::WhenIdle,false);
+	Pbool->Set_help(         "================================================================================================\n"	
+						     "DMA Enable on DMA Control Polling:\n"
+					         "If set, automatically enable GUS DMA transfer bit in specific cases when the DMA control register\n"
+							 "is being polled. THIS IS A HACK. Some games and demoscene productions need this hack to avoid\n"
+							 "hanging while uploading sample data to the Gravis Ultrasound due to bugs in their implementation.");
+							 
+	Pbool = secprop->Add_bool("ClearTcIRQ",Property::Changeable::WhenIdle,false);
+	Pbool->Set_help(         "================================================================================================\n"	
+							 "Clear DMA Terminal Count IRQ if excess polling\n"
+							 "If the DOS application is seen polling the IRQ status register rapidly, automatically clear the\n"
+							 "DMA TC IRQ status. This is a hack that should only be used with DOS applications that need it to\n"
+							 "avoid bugs in their GUS support code. Needed for:\n"
+							 "- Warcraft 2:\tif using GUS for music & sound, set this option to prevent the game from\n"
+			                 "             \thanging when you click on the buttons in the main menu.");												
+						
+    Pbool = secprop->Add_bool("ForceDetect",Property::Changeable::WhenIdle,false);
+	Pbool->Set_help(         "================================================================================================\n"	
+						     "Alyways tried to Install Ultrasound Drivers and the Setup/ Install/ CardCHK and ConScan tell\n"
+							 "There is no a Card Or Unavailable with SB Setup and OPL Emu Mode is on. However. I added  0x348\n"
+							 "to the Write GUS Register. If this enabled, this will help Gravis Ultrasound to install and in\n"
+							 "Combination with SB OPL EMU and the Ultrainit v2.28 work correctly\n");
+							 
+	Pstring = secprop->Add_string("Pantable",Property::Changeable::WhenIdle,"default");
+	Pstring->Set_values(pangus);
+	Pstring->Set_help(       "================================================================================================\n"	
+                             "Controls which table or equation is used for the Gravis Ultrasound panning emulation.\n"
+			                 "Accurate Emulation attempts to better reflect how the actual hardware handles panning,\n"
+			                 "while the old emulation uses a simpler idealistic mapping.");
+							 		
+    Pdouble = secprop->Add_double("GusVolume",Property::Changeable::WhenIdle,0);
+    Pdouble->SetMinMax(-120.0,120.0);
+	Pdouble->Set_help(       "================================================================================================\n"		
+                             "Master Gravis Ultrasound GF1 volume: In decibels. Reducing the master volume can help with games\n"
+							 "or demoscene productions where the music is too loud and clipping");
+
+	Pbool = secprop->Add_bool("R89Silent",Property::Changeable::WhenIdle,false);
+	Pbool->Set_help(         "================================================================================================\n"	
+							  "Mute Execute Read Register 0x89:\n"
+							  "Let the few channels go silent and it sounds like arranged. (Was originally for test purposes,\n"
+							  "since the music in Duke Nukem with this i like it so I leave the bool in.");							 
+	
+	Pbool = secprop->Add_bool("MonoMixed",Property::Changeable::WhenIdle,false);
+	Pbool->Set_help(         "================================================================================================\n"	
+							  "Duke Nukem 1.5 Temporary Fix:\n"
+							  "Lets the left channels mix. Strangely, these 8000 Hz, 8-bit, mono sound effects are only played\n"
+							  "in the right channel. (With flip stereo then only on the left");		
+							 
+    Pbool = secprop->Add_bool("ultrinit",Property::Changeable::WhenIdle,false);
+	Pbool->Set_help(         "================================================================================================\n"		
+						     "If set, start the GF1 in a fully initialized state (as if ULTRINIT had been run). If clear, leave\n"
+							 "the card in an uninitialized state (as if cold boot). Some DOS games / demoscene productions will\n"
+							 "hang or fail to use the Ultrasound hardware because they assume the card is initialized and their\n"
+							 "hardware detect does not fully initialize the card.");
+							 
 	Pstring = secprop->Add_string("ultradir",Property::Changeable::WhenIdle,"C:\\ULTRASND");
 	Pstring->Set_help(      "================================================================================================\n"
 	                        "Path to Ultrasound directory. In this directory there should be a MIDI directory that contains\n"

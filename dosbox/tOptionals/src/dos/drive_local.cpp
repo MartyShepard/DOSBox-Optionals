@@ -283,12 +283,40 @@ again:
 	return true;
 }
 
+bool localDrive::SetFileAttr(char * name,Bit16u attr) {
+#if defined (WIN32)
+	char newname[CROSS_LEN];
+	strcpy(newname,basedir);
+	strcat(newname,name);
+	CROSS_FILENAME(newname);
+	dirCache.ExpandName(newname);
+	if (!SetFileAttributes(newname, attr))
+		{
+		DOS_SetError((Bit16u)GetLastError());
+		return false;
+		}
+	dirCache.EmptyCache();
+	return true;
+#else
+	return GetFileAttr(name, &attr);
+#endif
+}
+
 bool localDrive::GetFileAttr(char * name,Bit16u * attr) {
 	char newname[CROSS_LEN];
 	strcpy(newname,basedir);
 	strcat(newname,name);
 	CROSS_FILENAME(newname);
 	dirCache.ExpandName(newname);
+
+	Bitu attribs = GetFileAttributes(newname);
+	if (attribs == INVALID_FILE_ATTRIBUTES)
+		{
+		DOS_SetError((Bit16u)GetLastError());
+		return false;
+		}
+	*attr = attribs&0x3f;
+	return true;
 
 	struct stat status;
 	if (stat(newname,&status)==0) {
@@ -297,7 +325,8 @@ bool localDrive::GetFileAttr(char * name,Bit16u * attr) {
 		return true;
 	}
 	*attr=0;
-	return false; 
+	return false;
+	
 }
 
 bool localDrive::MakeDir(char * dir) {

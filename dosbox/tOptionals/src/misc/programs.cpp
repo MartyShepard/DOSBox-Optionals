@@ -120,7 +120,7 @@ void Program::ChangeToLongCmd() {
 	 * Length of arguments can be ~120. but switch when above 100 to be sure
 	 */
 
-	if (/*control->SecureMode() ||*/ cmd->Get_arglength() > 100) {	
+	if (/*control->SecureMode() ||*/ cmd->Get_arglength() > 10) {	
 		CommandLine* temp = new CommandLine(cmd->GetFileName(),full_arguments.c_str());
 		delete cmd;
 		cmd = temp;
@@ -128,27 +128,52 @@ void Program::ChangeToLongCmd() {
 	full_arguments.assign(""); //Clear so it gets even more save
 }
 
-static char last_written_character = 0;//For 0xA to OxD 0xA expansion
+static char last_written_character = 0;					/* For 0xA to OxD 0xA expansion */
+
 void Program::WriteOut(const char * format,...) {
-	char buf[2048];
+	char buf[2048]; 
 	va_list msg;
 	
 	va_start(msg,format);
-	vsnprintf(buf,2047,format,msg);
+		vsnprintf(buf,2047,format,msg);
 	va_end(msg);
 
-	Bit16u size = (Bit16u)strlen(buf);
+	Bit16u size 	= (Bit16u)strlen(buf);	
+	bool nFirstLine = true;
+	
 	dos.internal_output=true;
-	for(Bit16u i = 0; i < size;i++) {
-		Bit8u out;Bit16u s=1;
-		if (buf[i] == 0xA && last_written_character != 0xD) {
-			out = 0xD;DOS_WriteFile(STDOUT,&out,&s);
+	/*
+	LOG(LOG_DOSMISC,LOG_WARN)("Program::WriteOut ======== (File %s:, Line: %d)\n\n",__FILE__,__LINE__);	
+	*/
+	for(Bit16u i = 0; i < size;i++)
+	{
+		/*
+		LOG(LOG_DOSMISC,LOG_WARN)("Char Written, 0x%x (Asc=%d)", buf[i],(int)buf[i]);
+		*/
+		if ( nFirstLine == true && size == 1 && buf[i] == 0xA)
+		{
+			/*
+				Erste Zeile enthält ein newline
+				Überspringe
+			*/
+			 nFirstLine = false;
+			 continue;
+		} else {
+
+			Bit8u  out;
+			Bit16u s=1;
+						
+			if (buf[i] == 0xA && last_written_character != 0xD)
+			{
+					out = 0xD;
+					DOS_WriteFile(STDOUT,&out,&s);
+			}
+			last_written_character = out = buf[i];								
+			DOS_WriteFile(STDOUT,&out,&s);
 		}
-		last_written_character = out = buf[i];
-		DOS_WriteFile(STDOUT,&out,&s);
 	}
 	dos.internal_output=false;
-	
+		
 //	DOS_WriteFile(STDOUT,(Bit8u *)buf,&size);
 }
 
@@ -570,8 +595,12 @@ void CONFIG::Run(void) {
 			std::string::size_type spcpos = pvars[0].find_first_of(' ');
 			// split on the ' '
 			if (spcpos != std::string::npos) {
-				pvars.insert(pvars.begin()+1,pvars[0].substr(spcpos+1));
-				pvars[0].erase(spcpos);
+				if (spcpos>1&&pvars[0].c_str()[spcpos-1]==',')
+					spcpos=pvars[0].find_first_of(' ', spcpos+1);
+				if (spcpos != std::string::npos) {
+					pvars.insert(pvars.begin()+1,pvars[0].substr(spcpos+1));
+					pvars[0].erase(spcpos);
+				}
 			}
 			switch(pvars.size()) {
 			case 1: {

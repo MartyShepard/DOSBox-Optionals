@@ -47,7 +47,7 @@ static void SHELL_ProgramStart_First_shell(DOS_Shell * * make) {
 	*make = new DOS_Shell;
 }
 
-#define AUTOEXEC_SIZE 4096
+#define AUTOEXEC_SIZE 4096*3
 static char autoexec_data[AUTOEXEC_SIZE] = { 0 };
 static std::list<std::string> autoexec_strings;
 typedef std::list<std::string>::iterator auto_it;
@@ -102,60 +102,81 @@ void AutoexecObject::CreateAutoexec(void) {
 		std::string linecopy = (*it);
 		std::string::size_type offset = 0;
 		//Lets have \r\n as line ends in autoexec.bat.
-		while(offset < linecopy.length()) {
-			std::string::size_type  n = linecopy.find("\n",offset);
-			if ( n == std::string::npos ) break;
-			std::string::size_type rn = linecopy.find("\r\n",offset);
-			if ( rn != std::string::npos && rn + 1 == n) {offset = n + 1; continue;}
-			// \n found without matching \r
+		
+		while(offset < linecopy.length())
+		{	
+			std::string::size_type  n = linecopy.find("\n",offset);			
+			if ( n == std::string::npos )
+			{
+				break;
+			}
+			
+			std::string::size_type rn = linecopy.find("\r\n",offset);			
+			if ( rn != std::string::npos && rn + 1 == n)
+			{
+				offset = n + 1;
+				continue;
+			}
+			
+			/*
+				\n found without matching \r
+			*/			
 			linecopy.replace(n,1,"\r\n");
-			offset = n + 2;
+			offset = n + 2;		
 		}
 
 		auto_len = strlen(autoexec_data);
-		if ((auto_len+linecopy.length() + 3) > AUTOEXEC_SIZE) {
+		
+		if ( (auto_len + linecopy.length() + 3) > AUTOEXEC_SIZE )
+		{
 			E_Exit("SYSTEM:Autoexec.bat file overflow");
 		}
-		sprintf((autoexec_data + auto_len),"%s\r\n",linecopy.c_str());
+		
+		sprintf( (autoexec_data + auto_len),"%s\r\n",linecopy.c_str());
 	}
-	if (first_shell) VFILE_Register("AUTOEXEC.BAT",(Bit8u *)autoexec_data,(Bit32u)strlen(autoexec_data));
+	
+	if (first_shell)
+	{
+		VFILE_Register("AUTOEXEC.BAT",(Bit8u *)autoexec_data,(Bit32u)strlen(autoexec_data));
+	}
 }
 
-AutoexecObject::~AutoexecObject(){
+void AutoexecObject::Uninstall() {
 	if(!installed) return;
 
 	// Remove the line from the autoexecbuffer and update environment
 	for(auto_it it = autoexec_strings.begin(); it != autoexec_strings.end(); ) {
-		if((*it) == buf) {
-			//it = autoexec_strings.erase(it);
+		if ((*it) == buf) {
 			std::string::size_type n = buf.size();
 			char* buf2 = new char[n + 1];
 			safe_strncpy(buf2, buf.c_str(), n + 1);
 			bool stringset = false;
 			// If it's a environment variable remove it from there as well
-			if((strncasecmp(buf2,"set ",4) == 0) && (strlen(buf2) > 4)){
+			if ((strncasecmp(buf2,"set ",4) == 0) && (strlen(buf2) > 4)){
 				char* after_set = buf2 + 4;//move to variable that is being set
-				char* test = strpbrk(after_set,"=");
-				if(!test){
-					delete [] buf2;
-					continue;
-				}
-				*test = 0;
+				char* test2 = strpbrk(after_set,"=");
+				if (!test2) continue;
+				*test2 = 0;
 				stringset = true;
 				//If the shell is running/exists update the environment
-				if(first_shell) first_shell->SetEnv(after_set,"");
+				if (first_shell) first_shell->SetEnv(after_set,"");
 			}
 			delete [] buf2;
 			if (stringset && first_shell && first_shell->bf && first_shell->bf->filename.find("AUTOEXEC.BAT") != std::string::npos) {
 				//Replace entry with spaces if it is a set and from autoexec.bat, as else the location counter will be off.
 				*it = buf.assign(buf.size(),' ');
-				it++;
+				++it;
 			} else {
 				it = autoexec_strings.erase(it);
-			}			
-		} else it++;
+			}
+		} else ++it;
 	}
+	installed=false;
 	this->CreateAutoexec();
+}
+
+AutoexecObject::~AutoexecObject(){
+	Uninstall();
 }
 
 DOS_Shell::DOS_Shell():Program(){
@@ -164,6 +185,7 @@ DOS_Shell::DOS_Shell():Program(){
 	exit=false;
 	bf=0;
 	call=false;
+	input_eof=false;
 	completion_start = NULL;
 }
 
@@ -228,7 +250,7 @@ Bitu DOS_Shell::GetRedirection(char *s, char **ifn, char **ofn,bool * append) {
 }
 
 void DOS_Shell::ParseLine(char * line) {
-	LOG(LOG_EXEC,LOG_ERROR)("Parsing command line: %s",line);
+	//LOG(LOG_EXEC,LOG_ERROR)("Parsing command line: %s",line);
 	/* Check for a leading @ */
  	if (line[0] == '@') line[0] = ' ';
 	line = trim(line);
@@ -361,21 +383,30 @@ void DOS_Shell::Run(void) {
 		WriteOut(MSG_Get("SHELL_STARTUP_SUB"),VERSION,DOSBOXREVISION);
 	}
 	do {
-		if (bf){
-			if(bf->ReadLine(input_line)) {
+		/* Get command once a line */
+		if (bf) {
+			if (bf->ReadLine(input_line)) {
 				if (echo) {
 					if (input_line[0]!='@') {
 						ShowPrompt();
 						WriteOut_NoParsing(input_line);
 						WriteOut_NoParsing("\n");
-					};
-				};
-				ParseLine(input_line);
-				if (echo) WriteOut("\n");
-			}
+					}
+				}
+			} else input_line[0]='\0';
 		} else {
 			if (echo) ShowPrompt();
 			InputCommand(input_line);
+			if (echo && !input_eof) WriteOut("\n");
+
+            /* Bugfix: CTTY NUL will return immediately, the shell input will return
+             *         immediately, and if we don't consume CPU cycles to compensate,
+             *         will leave DOSBox-X running in an endless loop, hung. */
+            if (input_eof) CALLBACK_Idle();
+		}
+
+		/* do it */
+		if(strlen(input_line)!=0) {
 			ParseLine(input_line);
 			if (echo && !bf) WriteOut_NoParsing("\n");
 		}
@@ -597,6 +628,8 @@ void SHELL_Init() {
 									"  /H:         Synchronize with host\n");
 	MSG_Add("SHELL_CMD_MKDIR_ERROR","Unable to make: %s.\n");
 	MSG_Add("SHELL_CMD_RMDIR_ERROR","Unable to remove: %s.\n");
+	MSG_Add("SHELL_CMD_ATTRIB_GET_ERROR","Unable to get attributes: %s.\n");
+	MSG_Add("SHELL_CMD_ATTRIB_SET_ERROR","Unable to set attributes: %s.\n");	
 	MSG_Add("SHELL_CMD_DEL_ERROR","Unable to delete: %s.\n");
 	MSG_Add("SHELL_CMD_DEL_SUCCE","\tDeleted: %8s.\n");	
 	MSG_Add("SHELL_CMD_DEL_NOARG","Missing arguments.\n");	
@@ -614,12 +647,13 @@ void SHELL_Init() {
 	MSG_Add("SHELL_CMD_GOTO_LABEL_NOT_FOUND","GOTO: Label %s not found.\n");
 	MSG_Add("SHELL_CMD_FILE_NOT_FOUND","File %s not found.\n");
 	MSG_Add("SHELL_CMD_FILE_EXISTS","File %s already exists.\n");
-	MSG_Add("SHELL_CMD_DIR_INTRO"," Directory of %s.\n\n");
+	MSG_Add("SHELL_CMD_DIR_INTRO"," Directory of %s");
 	MSG_Add("SHELL_CMD_DIR_BYTES_USED","%5d File(s) %17s Bytes.\n");
 	MSG_Add("SHELL_CMD_DIR_BYTES_FREE","%5d Dir(s)  %17s Bytes free.\n");
 	MSG_Add("SHELL_EXECUTE_DRIVE_NOT_FOUND","Drive %c does not exist!\nYou must \033[31mmount\033[0m it first. Type \033[1;33mintro\033[0m or \033[1;33mintro mount\033[0m for more information.\n");
 	MSG_Add("SHELL_EXECUTE_ILLEGAL_COMMAND","Illegal command: %s.\n");
 	MSG_Add("SHELL_CMD_PAUSE","Press any key to continue.\n");
+	MSG_Add("SHELL_CMD_PAUSE_CONTINUE","(continuing %s)\n");	
 	MSG_Add("SHELL_CMD_PAUSE_HELP","Waits for 1 keystroke to continue.\n");
 	MSG_Add("SHELL_CMD_COPY_FAILURE","Copy failure : %s.\n");
 	MSG_Add("SHELL_CMD_COPY_SUCCESS","   %d File(s) copied.\n");
@@ -695,19 +729,53 @@ void SHELL_Init() {
 	        "Type CD drive: to display the current directory in the specified drive.\n"
 	        "Type CD without parameters to display the current drive and directory.\n");
 	MSG_Add("SHELL_CMD_CLS_HELP","Clear screen.\n");
-	MSG_Add("SHELL_CMD_DIR_HELP","Directory View.\n");
-	MSG_Add("SHELL_CMD_DIR_HELP_LONG","DIR [drive:][path][filename] [/W] [/S] [/P] [/B] [/AD] [/O[Sort Order]\n\n"
-		   "   [drive:][path][filename]\n"
-		   "       Specifies drive, directory, and/or files to list.\n\n"
-		   "   /W\tUses wide list format.\n"
-		   "   /S\tDisplays files in specified directory and all subdirectories.\n\t(not supported)\n"
-		   "   /P\tPauses after each screenful of information.\n"
-		   "   /B\tUses bare format (no heading information or summary).\n"
-		   "   /AD\tDisplays directories.\n\n"
-		   "   List by files in sorted order. /O[Switch]\n"
-		   "   N\tBy name (alphabetic)           S  By size (smallest first)\n"
-		   "   E\tBy extension (alphabetic)      D  By date/time (oldest first)\n"
-		   "   -\tPrefix to reverse order");	
+	MSG_Add("SHELL_CMD_DIR_HELP","Displays a list of files and subdirectories in a directory.\n");
+	MSG_Add("SHELL_CMD_DIR_HELP_LONG",
+	        "DIR [drive:][path][filename] [/P] [/W] [/A[attributes]]\n"
+		    "                             [/S] [/B] [/O[Sort Order]]\n"
+		    "   [drive:][path][filename]\n"
+		    "              Specifies drive, directory, and/or files to list.\n\n"
+		    "   /P         Pauses after each screenful of information.\n"
+		    "   /W         Uses wide list format.\n"
+		    "   /A         Displays files with specified attributes.\n"
+		    "   attributes  D Directories                  R Read-only files\n"
+		    "               H Hidden files                 A files ready for archiving\n"
+		    "               S System files                 - Prefix meaning \"not\"\n"
+		    "   /O         List files in sorted order.\n"
+		    "               N By Name      (alphabetic)    S By size (smalles first)\n"
+		    "               E By Extension (alphabetic)    D By date & time (earliest first)\n"
+		    "                                              - Prefix to reverse order\n"
+		    "   /S         Displays files in specified directory and all subdirectories.\n"
+		    "              (not supported)\n"
+		    "   /B         Uses bare format (no heading information or summary).\n"
+			"   /L         Use Lowercase\n"
+			"   /LN        Use Lowercase but the first letter stays large.\n"			
+		    );	
+	MSG_Add("SHELL_CMD_DIR_HELP_SORT",
+	        "    Sort order: Too few arguments\n\n"
+			"    /O   List files in sorted order.\n"
+		    "          N By Name      (alphabetic)    S By Size (smalles first)\n"
+		    "          E By Extension (alphabetic)    D By Date & Time (earliest first)\n"
+		    "                                         - Prefix to reverse order\n"
+			"    For Example: DIR /ON /OD /OE /OS /O-N /O-D /O-E /O-S\n"
+			);
+	MSG_Add("SHELL_CMD_DIR_HELP_SORT_REVERSE",
+	        "    Sort order: Too few arguments for Reverse Sort\n\n"
+			"    /O   List files in sorted order.\n"
+		    "          -N By Name      (Z -> A)    -S by Size (greatest first)\n"
+		    "          -E By Extension (Z -> A)    -D by Date & Time (oldest first)\n"
+            "\n"
+			"    For Example: DIR /O-N /O-D /O-E /O-S\n"
+			);	
+	MSG_Add("SHELL_CMD_DIR_HELP_ATTRIBUTE",
+	        "    Attributes: Too few arguments\n\n"
+		    "    /A          Displays files with specified attributes.\n"
+		    "    attributes   D Directories             R Read-only files\n"
+		    "                 H Hidden files            A files ready for archiving\n"
+		    "                 S System files            - Prefix meaning \"not\"\n"
+			"    For Example: DIR /AA /AD /AH /AS /AR /A-A /A-D /A-H /A-S /A-R\n"
+			);			
+	MSG_Add("SHELL_CMD_DIR_ILLEGAL_PARAMETER","Parameter format not correct %s\n");			
 	MSG_Add("SHELL_CMD_ECHO_HELP","Display messages and enable/disable command echoing.\n");
 	MSG_Add("SHELL_CMD_EXIT_HELP","Exit from the shell.\n");
 	MSG_Add("SHELL_CMD_HELP_HELP","Show help.\n");
@@ -764,7 +832,7 @@ void SHELL_Init() {
 		   "\t\twill be deleted.\n"
 		   "  /P\t\tPrompts for confirmation before deleting one or more files.\n"
 		   "  /Q\t\tQuiet mode, do not ask if ok to delete on global wildcard\n");	
-	MSG_Add("SHELL_CMD_COPY_HELP","Copy files.\n");
+	MSG_Add("SHELL_CMD_COPY_HELP","Copy one or more files.\n");
 	MSG_Add("SHELL_CMD_COPY_HELP_LONG","COPY [/B] [/-Y] source[+source[+...]] [destination]\n\n"
 		   "  source\tSpecifies the file(s) to be copied.\n"
 		   "  destination\tSpecifies the directory and/or filename for the new file.\n"
@@ -782,7 +850,17 @@ void SHELL_Init() {
 	        "  /N  -  Do not display the choices at end of prompt.\n"
 	        "  /S  -  Enables case-sensitive choices to be selected.\n"
 	        "  text  -  The text to display as a prompt.\n");
-	MSG_Add("SHELL_CMD_ATTRIB_HELP","Does nothing. Provided for compatibility.\n");
+	MSG_Add("SHELL_CMD_ATTRIB_HELP","Displays/changes file attributes.\n");
+	MSG_Add("SHELL_CMD_ATTRIB_HELP_LONG",
+	        "ATTRIB [+R | -R] [+A | -A] [+S | -S] [+H | -H] [drive:][path][filename]\n\n"
+			"  +	Sets an attribute.\n"
+			"  -	Clears an attribute.\n"
+			"  R	Read-only file attribute.\n"
+			"  A	Archive file attribute.\n"
+			"  S	System file attribute.\n"
+			"  H	Hidden file attribute.\n"
+			"  [drive:][path][filename]\n"
+			"	Specifies file(s) for ATTRIB to process.\n");
 	MSG_Add("SHELL_CMD_PATH_HELP","Displays/Sets a search path for executable files.\n");
 	MSG_Add("SHELL_CMD_PATH_HELP_LONG","PATH [[drive:]path[;...][;%PATH%]\n"
 		   "PATH ;\n\n"
@@ -832,6 +910,8 @@ void SHELL_Init() {
 	MSG_Add("SHELL_CMD_MORE_HELP","Displays output one screen at a time.\n");
 	MSG_Add("SHELL_CMD_MORE_HELP_LONG","MORE [filename]\n");
 	MSG_Add("SHELL_CMD_MOUSECAP_HELP","Toggle Command. Capture / Release the Host Mouse.\n");
+	MSG_Add("SHELL_CMD_ATTRIB_SET_DIRECTORY","  Directory 	%s\n");
+
 
 	/* Regular startup */
 	call_shellstop=CALLBACK_Allocate();

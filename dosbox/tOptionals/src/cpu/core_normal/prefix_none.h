@@ -1101,6 +1101,9 @@
 					FillFlags();SAVEIP;
 					return cb;
 				}
+			case 0x04:				
+			case 0x05:					
+				break;
 			default:
 				E_Exit("Illegal GRP4 Call %d",(rm>>3) & 7);
 				break;

@@ -83,10 +83,14 @@ public:
 	}
 	Bitu readb(PhysPt addr) {
 #if defined(C_DEBUG)
-		LOG_MSG("Illegal read from %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
+		static Bits lcount=0;
+		if (lcount<100) {
+			lcount++;
+			LOG(LOG_CPU,LOG_ERROR)("MEM: Illegal read from %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
+		}		
 #else
 		static Bits lcount=0;
-		if (lcount<1000) {
+		if (lcount<10) {
 			lcount++;
 			LOG_MSG("MEM: Illegal read from %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
 		}
@@ -95,10 +99,14 @@ public:
 	} 
 	void writeb(PhysPt addr,Bitu val) {
 #if defined(C_DEBUG)
-		LOG_MSG("Illegal write to %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
+		static Bits lcount=0;
+		if (lcount<100) {
+			lcount++;
+			LOG(LOG_CPU,LOG_ERROR)("MEM: Illegal write to %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
+		}		
 #else
 		static Bits lcount=0;
-		if (lcount<1000) {
+		if (lcount<10) {
 			lcount++;
 			LOG_MSG("MEM: Illegal write to %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
 		}

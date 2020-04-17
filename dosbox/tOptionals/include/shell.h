@@ -31,9 +31,9 @@
 #include <string>
 #include <list>
 
-#define CMD_MAXLINE 4096
-#define CMD_MAXCMDS 20
-#define CMD_OLDSIZE 4096
+#define CMD_MAXLINE 4096*2
+#define CMD_MAXCMDS 2048
+#define CMD_OLDSIZE 4096*2
 class DOS_Shell;
 
 extern Bitu call_shellstop;
@@ -127,6 +127,8 @@ public:
 	bool echo;
 	bool exit;
 	bool call;
+    /* Status */
+    bool input_eof;                     //! STDIN has hit EOF	
 };
 
 struct SHELL_Cmd {
@@ -147,6 +149,7 @@ public:
 	AutoexecObject():installed(false){ };
 	void Install(std::string const &in);
 	void InstallBefore(std::string const &in);
+	void Uninstall();	
 	~AutoexecObject();
 private:
 	void CreateAutoexec(void);

@@ -910,11 +910,27 @@ bool Config::PrintConfig(char const * const configfilename) const {
 	return true;
 }
 
-
+bool sReplace(std::string& str, const std::string& from, const std::string& to) {
+    size_t start_pos = str.find(from);
+    if(start_pos == std::string::npos)
+        return false;
+    str.replace(start_pos, from.length(), to);
+    return true;
+}
 
 inline bool FileExists (const std::string& name) {
   struct stat buffer;   
   return (stat (name.c_str(), &buffer) == 0); 
+}
+
+std::string sGetFileName(std::string filename)
+{
+	if ( strlen( filename.c_str() ) != 0){
+
+		filename = filename.substr(filename.find_last_of("/\\") + 1);
+		return filename;
+	}
+	
 }
 
 std::string sCurrentWorkingPath()
@@ -923,7 +939,6 @@ std::string sCurrentWorkingPath()
 	GetCurrentDirectory(sizeof(current), current);
 	return current;
 }
-
 /*
 	Get Dosbox.conf file from the Current Path.
 	We don't using Windows Appdata Path and let the

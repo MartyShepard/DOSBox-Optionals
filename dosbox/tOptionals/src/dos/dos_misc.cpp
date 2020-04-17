@@ -57,6 +57,7 @@ static Bitu INT2A_Handler(void) {
 }
 
 static bool DOS_MultiplexFunctions(void) {
+	char name[256];
 	switch (reg_ax) {
 	case 0x1216:	/* GET ADDRESS OF SYSTEM FILE TABLE ENTRY */
 		// reg_bx is a system file table entry, should coincide with
@@ -146,6 +147,36 @@ static bool DOS_MultiplexFunctions(void) {
 
 		}
 		return true;
+	
+	//	With this case No Keyinput on Windows 3.11
+	case 0x1300:				
+		LOG(LOG_DOSMISC,LOG_WARN)("0x1300");
+    case 0x1302:
+		LOG(LOG_DOSMISC,LOG_WARN)("0x1302");	
+        reg_ax=0;
+        return true;
+    case 0x1612:
+		LOG(LOG_DOSMISC,LOG_WARN)("0x1612");	
+        reg_ax=0;
+        name[0]=1;
+        name[1]=0;
+        MEM_BlockWrite(SegPhys(es)+reg_bx,name,0x20);
+        return true;
+    case 0x1613:    /* Get SYSTEM.DAT path */
+		LOG(LOG_DOSMISC,LOG_WARN)("0x1613 - C:\\WINDOWS\\SYSTEM.DAT");	
+        strcpy(name,"C:\\WINDOWS\\SYSTEM.DAT");
+        MEM_BlockWrite(SegPhys(es)+reg_di,name,(Bitu)(strlen(name)+1));
+        reg_ax=0;
+        reg_cx=(Bit16u)strlen(name);
+        return true;
+    case 0x1600:    /* Windows enhanced mode installation check */
+		LOG(LOG_DOSMISC,LOG_WARN)("0x1600 -Windows enhanced mode installation check");	
+					/*
+						Leave AX as 0x1600, indicating that neither 
+						Windows 3.x enhanced mode, Windows/386 2.x
+						nor Windows 95 are running, nor is XMS version 1 driver installed
+					*/
+        return true;		
 	case 0x1607:
 		if (reg_bx == 0x15) {
 			switch (reg_cx) {
@@ -188,6 +219,14 @@ static bool DOS_MultiplexFunctions(void) {
 	case 0x168f:	/*  Close awareness crap */
 	   /* Removing warning */
 		return true;
+    case 0x4680:    /* Windows v3.0 check */
+		LOG(LOG_DOSMISC,LOG_WARN)("0x4680 -Windows v3.0 check");		
+					/* 
+						Leave AX as 0x4680, indicating that Windows 3.0
+						is not running in real (/R) or standard (/S) mode,				
+						nor is DOS 5 DOSSHELL active
+					*/
+        return true;		
 	case 0x4a01:	/* Query free hma space */
 	case 0x4a02:	/* ALLOCATE HMA SPACE */
 		LOG(LOG_DOSMISC,LOG_WARN)("INT 2f:4a HMA. DOSBox reports none available.");

@@ -404,3 +404,5 @@ public:
 	Little Helper
 */
 	std::string sCurrentWorkingPath();
+	std::string sGetFileName(std::string filename);
+	bool sReplace(std::string& str, const std::string& from, const std::string& to);

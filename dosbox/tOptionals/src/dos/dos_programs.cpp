@@ -765,25 +765,33 @@ public:
 					return; //TODO give a warning.
 				}
 				
-				WriteOut(MSG_Get("PROGRAM_BOOT_IMAGE_OPEN"), temp_line.c_str());
-				swapInNextDisk(true, true, false);	
-							
-				Bit32u rombytesize;
-				FILE *usefile = getFSFile(temp_line.c_str(), &floppysize, &rombytesize);
-				if(usefile != NULL) {
-					delete diskSwap[i];
-					diskSwap[i] = new imageDisk(usefile, (Bit8u *)temp_line.c_str(), floppysize, false);
-					if (usefile_1==NULL) {
-						usefile_1=usefile;
-						rombytesize_1=rombytesize;
+
+				
+				if (strlen (temp_line.c_str()) != 0 ){		
+					WriteOut(MSG_Get("PROGRAM_BOOT_IMAGE_OPEN"), sGetFileName(temp_line).c_str());
+					swapInNextDisk(true, true, false);	
+				
+								
+					Bit32u rombytesize;
+					FILE *usefile = getFSFile(temp_line.c_str(), &floppysize, &rombytesize);
+					if(usefile != NULL) {
+						delete diskSwap[i];
+						diskSwap[i] = new imageDisk(usefile, (Bit8u *)temp_line.c_str(), floppysize, false);
+						if (usefile_1==NULL) {
+							usefile_1=usefile;
+							rombytesize_1=rombytesize;
+						} else {
+							usefile_2=usefile;
+							rombytesize_2=rombytesize;
+						}
 					} else {
-						usefile_2=usefile;
-						rombytesize_2=rombytesize;
+						if (strlen (temp_line.c_str()) != 0 ){					
+							WriteOut(MSG_Get("PROGRAM_BOOT_IMAGE_NOT_OPEN"), temp_line.c_str());						
+							return;
+						}
 					}
-				} else {
-					WriteOut(MSG_Get("PROGRAM_BOOT_IMAGE_NOT_OPEN"), temp_line.c_str());
-					return;
 				}
+				
 
 			}
 			i++;
@@ -1067,7 +1075,8 @@ class BIOSTEST : public Program {
 public:
 	void Run(void) {
 		if (!(cmd->FindCommand(1, temp_line))) {
-			WriteOut("Must specify BIOS file to load.\n");
+			
+			WriteOut(MSG_Get("PROGRAM_BIOS_SPECIFY"));
 			return;
 		}
 
@@ -1083,12 +1092,12 @@ public:
 
 			FILE *tmpfile = ldp->GetSystemFilePtr(fullname, "rb");
 			if (tmpfile == NULL) {
-				WriteOut("Can't open a file");
+				WriteOut(MSG_Get("PROGRAM_BIOS_ERROR_LOAD"));
 				return;
 			}
 			fseek(tmpfile, 0L, SEEK_END);
 			if (ftell(tmpfile) > 64 * 1024) {
-				WriteOut("BIOS File too large");
+				WriteOut(MSG_Get("PROGRAM_BIOS_ERROR_LARGE"));
 				fclose(tmpfile);
 				return;
 			}
@@ -2152,112 +2161,121 @@ public:
 			el_torito_cd_drive = toupper(el_torito[0]);
 
 			/* must be valid drive letter, C to Z */
-			if (!isalpha(el_torito_cd_drive) || el_torito_cd_drive < 'C') {
-				WriteOut("ElTorito BootCD:\n"
-					/*   "= Requires a Proper Drive Letter Corresponding To Your CD-ROM drive\n"		*/
-						 "= Erfordert einen geeigneten Laufwerksbuchstaben fuer Ihr CD-ROM-Laufwerk\n"
-						 "");																				
+			if (!isalpha(el_torito_cd_drive) || el_torito_cd_drive < 'C')
+			{		
+				WriteOut(MSG_Get("PROGRAM_BOOT_ELCD_REQUIRES"));																			
 				return;
 			}
 
 			/* drive must not exist (as a hard drive) */
-			if (!imageDiskList[el_torito_cd_drive-'C'] != 0) {
-				WriteOut("ElTorito BootCD:\n"
-					/*	 "= CD-ROM drive [%c] specified already exists as a non-CD-ROM device\n"		*/
-						 "= Das angegebene CD-ROM-Laufwerk [%c] ist bereits als Nicht-CD-ROM-Geraet vorhanden\n"
-						 ,el_torito_cd_drive);
-				return;
+			if (!imageDiskList[el_torito_cd_drive-'C'] != 0)
+			{
+				WriteOut(MSG_Get("PROGRAM_BOOT_ELCD_ALREADY_EXISTS"),el_torito_cd_drive);
+				return;				
 			}
 
 			bool GetMSCDEXDrive(unsigned char drive_letter,CDROM_Interface **_cdrom);
 
 			/* get the CD-ROM drive */
 			CDROM_Interface *src_drive=NULL;
-			if (!GetMSCDEXDrive(el_torito_cd_drive-'A',&src_drive)) {
-				WriteOut("ElTorito BootCD:\n"
-					/*	 "= CD-ROM drive specified is not actually a CD-ROM drive [%c]\n",				*/
-						 "= Das angegebene CD-ROM-Laufwerk [%c] ist kein CD-ROM-Laufwerk\n",
-						 el_torito_cd_drive);
+			if (!GetMSCDEXDrive(el_torito_cd_drive-'A',&src_drive))						
+			{
+				WriteOut(MSG_Get("PROGRAM_BOOT_ELCD_NOT_CDROM"),el_torito_cd_drive);				
 				return;
 			}
 
 			/* FIXME: We only support the floppy emulation mode at this time.
 			 *        "Superfloppy" or hard disk emulation modes are not yet implemented */
-			if (type != "floppy") {
-				WriteOut("ElTorito BootCD:\n"
-					/*	 "= must be used with -t floppy at this time\n");								*/
-						 "= muss zu diesem Zeitpunkt mit -t Floppy verwendet werden\n");	
+			if (type != "floppy")
+			{			
+				WriteOut(MSG_Get("PROGRAM_BOOT_ELCD_NEED_FLOPPY"));
 				return;
 			}
 
 			/* Okay. Step #1: Scan the volume descriptors for the Boot Record. */
 			unsigned long el_torito_base = 0,boot_record_sector = 0;
-			if (!ElTorito_ScanForBootRecord(src_drive,boot_record_sector,el_torito_base)) {
-				WriteOut("ElTorito BootCD:\n"
-					/*	 "= Boot Record not found\n"													*/
-						 "= Boot Record niocht gefunden\n" 
-					);
+			if (!ElTorito_ScanForBootRecord(src_drive,boot_record_sector,el_torito_base))
+			{
+				WriteOut(MSG_Get("PROGRAM_BOOT_ELCD_NO_BOOTRECORD"));			
 				return;
 			}
 
-			fprintf(stderr,"El Torito emulation: Found ISO 9660 Boot Record in sector %lu, pointing to sector %lu\n",
-				boot_record_sector,el_torito_base);
+			LOG_MSG("ElTorito BootCD Emulation:\n"
+					"Found ISO 9660 Boot Record in sector %lu, pointing to sector %lu\n",boot_record_sector,el_torito_base);
 				
 
 			/* Step #2: Parse the records. Each one is 32 bytes long */
-			if (!src_drive->ReadSectorsHost(entries,false,el_torito_base,1)) {
-				WriteOut("El Torito entries unreadable\n");
+			if (!src_drive->ReadSectorsHost(entries,false,el_torito_base,1))
+			{
+				WriteOut(MSG_Get("PROGRAM_BOOT_ELCD_UNREADABLE"));				
 				return;
 			}
 
-			/* for more information about what this loop is doing, read:
-			 * http://download.intel.com/support/motherboards/desktop/sb/specscdrom.pdf
-			 */
-			/* FIXME: Somebody find me an example of a CD-ROM with bootable code for both x86, PowerPC, and Macintosh.
-			 *        I need an example of such a CD since El Torito allows multiple "headers" */
-			/* TODO: Is it possible for this record list to span multiple sectors? */
+			/*
+				for more information about what this loop is doing, read:
+				http://download.intel.com/support/motherboards/desktop/sb/specscdrom.pdf
+			 
+				FIXME:
+				Somebody find me an example of a CD-ROM with bootable code for both x86,
+				PowerPC, and Macintosh.
+				I need an example of such a CD since El Torito allows multiple "headers"
+			    
+				TODO: Is it possible for this record list to span multiple sectors?
+			*/
+			
 			for (ent_num=0;ent_num < (2048/0x20);ent_num++) {
 				entry = entries + (ent_num*0x20);
 
-				if (memcmp(entry,"\0\0\0\0""\0\0\0\0""\0\0\0\0""\0\0\0\0""\0\0\0\0""\0\0\0\0""\0\0\0\0""\0\0\0\0",32) == 0)
+				if (memcmp(entry,"\0\0\0\0"
+								 "\0\0\0\0"
+								 "\0\0\0\0"
+								 "\0\0\0\0"
+								 "\0\0\0\0"
+								 "\0\0\0\0"
+								 "\0\0\0\0"
+								 "\0\0\0\0",32) == 0)
 					break;
 
 				if (entry[0] == 0x01/*header*/) {
 					if (!ElTorito_ChecksumRecord(entry)) {
-						fprintf(stderr,"Warning: El Torito checksum error in header(0x01) entry\n");
+						LOG_MSG("Warning: El Torito checksum error in header(0x01) entry\n");
 						continue;
 					}
 
 					if (header_count != 0) {
-						fprintf(stderr,"Warning: El Torito has more than one Header/validation entry\n");
+						LOG_MSG("Warning: El Torito has more than one Header/validation entry\n");
 						continue;
 					}
 
 					if (header_final) {
-						fprintf(stderr,"Warning: El Torito has an additional header past the final header\n");
+						LOG_MSG("Warning: El Torito has an additional header past the final header\n");
 						continue;
 					}
 
 					header_more = -1;
 					header_platform = entry[1];
-					fprintf(stderr,"El Torito entry: first header platform=0x%02x\n",header_platform);
+					LOG_MSG("El Torito entry: first header platform=0x%02x\n",header_platform);
 					header_count++;
 				}
-				else if (entry[0] == 0x90/*header, more follows*/ || entry[0] == 0x91/*final header*/) {
+				else if (entry[0] == 0x90/*header, more follows*/ || entry[0] == 0x91/*final header*/)
+				{
 					if (header_final) {
-						fprintf(stderr,"Warning: El Torito has an additional header past the final header\n");
+						LOG_MSG("Warning: El Torito has an additional header past the final header\n");
 						continue;
 					}
 
 					header_final = (entry[0] == 0x91);
 					header_more = ((unsigned int)entry[2]) + (((unsigned int)entry[3]) << 8);
 					header_platform = entry[1];
-					fprintf(stderr,"El Torito entry: first header platform=0x%02x more=%u final=%u\n",header_platform,header_more,header_final);
+					
+					LOG_MSG("El Torito entry: first header platform=0x%02x more=%u final=%u\n",
+							header_platform,header_more,header_final);
+					
 					header_count++;
 				}
 				else {
 					if (header_more == 0) {
-						fprintf(stderr,"El Torito entry: Non-header entry count expired, ignoring record 0x%02x\n",entry[0]);
+						LOG_MSG("El Torito entry: Non-header entry count expired, ignoring record 0x%02x\n",entry[0]);
 						continue;
 					}
 					else if (header_more > 0) {
@@ -2265,10 +2283,10 @@ public:
 					}
 
 					if (entry[0] == 0x44) {
-						fprintf(stderr,"El Torito entry: ignoring extension record\n");
+						LOG_MSG("El Torito entry: ignoring extension record\n");
 					}
 					else if (entry[0] == 0x00/*non-bootable*/) {
-						fprintf(stderr,"El Torito entry: ignoring non-bootable record\n");
+						LOG_MSG("El Torito entry: ignoring non-bootable record\n");
 					}
 					else if (entry[0] == 0x88/*bootable*/) {
 						if (header_platform == 0x00/*x86*/) {
@@ -2279,21 +2297,27 @@ public:
 							unsigned long load_rba = ((unsigned int)entry[8]) + (((unsigned int)entry[9]) << 8) +
 								(((unsigned int)entry[10]) << 16) + (((unsigned int)entry[11]) << 24);
 
-							fprintf(stderr,"El Torito entry: bootable x86 record mediatype=%u load_segment=0x%04x "
-								"system_type=0x%02x sector_count=%u load_rba=%lu\n",
-								mediatype,load_segment,system_type,sector_count,load_rba);
+							LOG_MSG("ElTorito BootCD Entry:\n"
+									"- Bootable x86 record Mediatype = %u\n"
+									"  -            Load_segment     = 0x%04x\n"
+								    "  -            system_type      = 0x%02x\n"
+									"  -            sector_count     = %u\n"
+									"  -            load_rba         = %lu\n",
+								    mediatype,load_segment,system_type,sector_count,load_rba);
 
 							/* already chose one, ignore */
 							if (el_torito_floppy_base != ~0UL)
 								continue;
 
 							if (load_segment != 0 && load_segment != 0x7C0)
-								fprintf(stderr,"El Torito boot warning: load segments other than 0x7C0 not supported yet\n");
+								LOG_MSG("El Torito boot warning: load segments other than 0x7C0 not supported yet\n");
+							
 							if (sector_count != 1)
-								fprintf(stderr,"El Torito boot warning: sector counts other than 1 are not supported yet\n");
+								LOG_MSG("El Torito boot warning: sector counts other than 1 are not supported yet\n");
 
-							if (mediatype < 1 || mediatype > 3) {
-								fprintf(stderr,"El Torito boot entry: media types other than floppy emulation not supported yet\n");
+							if (mediatype < 1 || mediatype > 3)
+							{
+								LOG_MSG("El Torito boot entry: media types other than floppy emulation not supported yet\n");
 								continue;
 							}
 
@@ -2301,17 +2325,18 @@ public:
 							el_torito_floppy_type = mediatype;
 						}
 						else {
-							fprintf(stderr,"El Torito entry: ignoring bootable non-x86 (platform_id=0x%02x) record\n",header_platform);
+							LOG_MSG("El Torito entry: ignoring bootable non-x86 (platform_id=0x%02x) record\n",header_platform);
 						}
 					}
 					else {
-						fprintf(stderr,"El Torito entry: ignoring unknown record ID %02x\n",entry[0]);
+						LOG_MSG("El Torito entry: ignoring unknown record ID %02x\n",entry[0]);
 					}
 				}
 			}
 
-			if (el_torito_floppy_type == 0xFF || el_torito_floppy_base == ~0UL) {
-				WriteOut("El Torito bootable floppy not found\n");
+			if (el_torito_floppy_type == 0xFF || el_torito_floppy_base == ~0UL)
+			{
+				WriteOut(MSG_Get("PROGRAM_BOOT_ELCD_NOT_FOUND"));
 				return;
 			}				
 		}
@@ -2484,8 +2509,8 @@ public:
 
 						Bit8u dummy;
 						if (!DOS_MakeName(tmp, fullname, &dummy) || strncmp(Drives[dummy]->GetInfo(),"local directory",15)) {
-							WriteOut(MSG_Get("PROGRAM_IMGMOUNT_NON_LOCAL_DRIVE"));							
-							WriteOut("Image not Found\n [at Position %d] in %s\n", ImageCNT, homedir.c_str());
+							WriteOut(MSG_Get("PROGRAM_IMGMOUNT_NON_LOCAL_DRIVE"));	
+							WriteOut(MSG_Get("PROGRAM_MOUNT_NOT_FOUND"), ImageCNT, homedir.c_str());	
 							Beep(1568, 200);
 							return;
 						}
@@ -2514,8 +2539,8 @@ public:
 			}
 
 			if (el_torito != "") {
-				if (paths.size() != 0) {
-					WriteOut("Do not specify files when mounting virtual floppy disk images from El Torito bootable CDs\n");
+				if (paths.size() != 0) {					
+					WriteOut(MSG_Get("PROGRAM_BOOT_ELCD_NO_FILES"));					
 					return;
 				}
 			}
@@ -2536,7 +2561,7 @@ public:
 				if (!diskfile) {
 
 					WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_IMAGE"));
-					WriteOut        ("Image: %s",temp_line.c_str());
+					WriteOut        ("Image: %s",sGetFileName(temp_line).c_str());
 					WriteOut        ("Image is Open and used from another Program?");					
 					
 					LOG_MSG         ("Autodetect: No Access to HDD %s",temp_line.c_str());
@@ -2594,33 +2619,35 @@ public:
 				fclose(diskfile);							
 			}
 				
-			if(fstype=="fat") {
+			if(fstype=="fat")
+			{
 				
-				if (el_torito != "") {
-					WriteOut("El Torito bootable CD: -fs fat mounting not supported\n"); /* <- NTS: Someday!! */
+				if (el_torito != "")
+				{					
+					WriteOut(MSG_Get("PROGRAM_BOOT_ELCD_NO_FSFAT"));			/* <- NTS: Someday!! */
 					return;
 				}				
 				
 				if (imgsizedetect) {
 
-/* DOSBox-MB IMGMAKE patch. ========================================================================= */					
+					/* DOSBox-MB IMGMAKE patch. ========================================================================= */					
 					bool yet_detected = false;
 					FILE * diskfile = fopen64(temp_line.c_str(), "rb+");
-/* DOSBox-MB IMGMAKE patch. ========================================================================= */					
+					/* DOSBox-MB IMGMAKE patch. ========================================================================= */					
 
 					if (!diskfile) {
 						WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_IMAGE"));
 						return;
 					}
 
-/* DOSBox-MB IMGMAKE patch. ========================================================================= */										
+					/* DOSBox-MB IMGMAKE patch. ========================================================================= */										
 					fseeko64(diskfile, 0L, SEEK_END);
 					Bit32u fcsize = (Bit32u)(ftello64(diskfile) / 512L);
-/* DOSBox-MB IMGMAKE patch. ========================================================================= */										
+					/* DOSBox-MB IMGMAKE patch. ========================================================================= */										
 
 					Bit8u buf[512];
 
-/* DOSBox-MB IMGMAKE patch. ========================================================================= */															
+					/* DOSBox-MB IMGMAKE patch. ========================================================================= */					
 					// check for vhd signature
 					fseeko64(diskfile, -512, SEEK_CUR);
 					if (fread(buf,sizeof(Bit8u),512,diskfile)<512) {
@@ -2654,7 +2681,8 @@ public:
 					}
 
 					fseeko64(diskfile, 0L, SEEK_SET);
-/* DOSBox-MB IMGMAKE patch. ========================================================================= */															
+					/* DOSBox-MB IMGMAKE patch. ========================================================================= */															
+					
 					if (fread(buf,sizeof(Bit8u),512,diskfile)<512) {
 						fclose(diskfile);
 						WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_IMAGE"));
@@ -2662,7 +2690,7 @@ public:
 					}
 					fclose(diskfile);
 					
-/* DOSBox-MB IMGMAKE patch. ========================================================================= */	
+					/* DOSBox-MB IMGMAKE patch. ========================================================================= */	
 					// check it is not dynamic VHD image
 					if(!strcmp((const char*)buf,"conectix")) {
 						WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_IMAGE"));
@@ -2670,14 +2698,15 @@ public:
 						return;
 					}
 					// check MBR signature for unknown images
-					if (!yet_detected && ((buf[510]!=0x55) || (buf[511]!=0xaa))) {
-/* DOSBox-MB IMGMAKE patch. ========================================================================= */	
+					if (!yet_detected && ((buf[510]!=0x55) || (buf[511]!=0xaa)))
+					{
+					/* DOSBox-MB IMGMAKE patch. ========================================================================= */	
 
 						WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_GEOMETRY"));
 						return;
 					}
 
-/* DOSBox-MB IMGMAKE patch. ========================================================================= */	
+					/* DOSBox-MB IMGMAKE patch. ========================================================================= */	
 					// check MBR partition entry 1
 					Bitu starthead = buf[0x1bf];
 					Bitu startsect = buf[0x1c0]&0x3f-1;
@@ -2726,7 +2755,7 @@ public:
 						WriteOut(MSG_Get("PROGRAM_IMGMOUNT_AUTODET_VALUES"),sizes[0],sizes[1],sizes[2],sizes[3]);
 
 					} else {
-/* DOSBox-MB IMGMAKE patch. ========================================================================= */							
+					/* DOSBox-MB IMGMAKE patch. ========================================================================= */							
 						WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_GEOMETRY"));
 						return;
 					}
@@ -2789,17 +2818,17 @@ public:
 				}
 				
 				if (ddn > 0){						
-					WriteOut("=========== Multiples Mount on Drive %c: ===========\n"
-						     "            Press CTRL + F4 to Cycle through Disk's\n",drive);																
-					WriteOut("Mounted:\n");							 
+					WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_MULTI1"),drive);																
+					WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_MULTI2"),drive);							 
 					
 					for (i = 0; i < paths.size(); i++) {
-						WriteOut("%s\n", paths[i].c_str());	
+						WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_MULTI3"), sGetFileName(paths[i]).c_str());	
+						
 					}					
-					WriteOut("====================================================\n");
+					WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_MULTI4"));
 					
 				}else{
-					WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_2"), drive, lfw.c_str());
+					WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_2"), drive, sGetFileName(lfw).c_str());
 					
 				}
 				
@@ -2830,8 +2859,10 @@ public:
 				}
 			} else if (fstype=="iso") {
 
-				if (el_torito != "") {
-					WriteOut("El Torito bootable CD: -fs iso mounting not supported\n"); /* <- NTS: Will never implement, either */
+				if (el_torito != "")
+				{					
+					/* NTS: Will never implement, either */
+					WriteOut(MSG_Get("PROGRAM_BOOT_ELCD_NO_FSISO"));
 					return;
 				}
 				
@@ -2897,17 +2928,16 @@ public:
 				WriteOut("\n");				
 				WriteOut(MSG_Get("MSCDEX_SUCCESS"));			
 				if (ddn > 0){						
-					WriteOut("=========== Multiples Mount on Drive %c: ===========\n"
-						     "            Press CTRL + F3 to Cycle through CD's\n",drive);																
-					WriteOut("Mounted:\n");							 
+					WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_MULTI5"),drive);																
+					WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_MULTI2"),drive);							 
 					
 					for (i = 0; i < paths.size(); i++) {
-						WriteOut("%s\n", paths[i].c_str());	
+						WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_MULTI3"), sGetFileName( paths[i] ).c_str());	
 					}					
-					WriteOut("====================================================\n");
+					WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_MULTI4"));
 					
 				}else{
-					WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_2"), drive, tmp.c_str());
+					WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_2"), drive, sGetFileName(tmp).c_str());
 					
 				}
 
@@ -2915,22 +2945,26 @@ public:
 				newImage = new imageDiskElToritoFloppy(el_torito_cd_drive,el_torito_floppy_base,el_torito_floppy_type);
 				
 			} else {
-				if (el_torito != "") {
-					WriteOut("El Torito bootable CD: -fs none unexpected path (BUG)\n");
+				if (el_torito != "")
+				{
+					WriteOut(MSG_Get("PROGRAM_BOOT_ELCD_NO_FSNON"));					
 					return;
 				}
 				
-/* DOSBox-MB IMGMAKE patch. ========================================================================= */					
+				/* DOSBox-MB IMGMAKE patch. ========================================================================= */					
 				FILE *newDisk = fopen64(temp_line.c_str(), "rb+");			
-/* DOSBox-MB IMGMAKE patch. ========================================================================= */					
-				if (!newDisk) {
+				/* DOSBox-MB IMGMAKE patch. ========================================================================= */					
+				
+				if (!newDisk)
+				{
 					WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_IMAGE"));
 					return;
 				}
-/* DOSBox-MB IMGMAKE patch. ========================================================================= */					
+				
+				/* DOSBox-MB IMGMAKE patch. ========================================================================= */					
 				fseeko64(newDisk,0L, SEEK_END);
 				imagesize = (Bit32u)(ftello64(newDisk) / 1024);
-/* DOSBox-MB IMGMAKE patch. ========================================================================= */					
+				/* DOSBox-MB IMGMAKE patch. ========================================================================= */					
 
 				newImage = new imageDisk(newDisk, (Bit8u *)temp_line.c_str(), imagesize, (imagesize > 2880));
 				if(imagesize>2880) newImage->Set_Geometry(sizes[2],sizes[3],sizes[1],sizes[0]);				
@@ -2946,7 +2980,7 @@ public:
 			imageDiskList[drive-'0'] = newImage;
 			updateDPT();
 			
-			WriteOut(MSG_Get("PROGRAM_IMGMOUNT_MOUNT_NUMBER"),drive-'0',temp_line.c_str());
+			WriteOut(MSG_Get("PROGRAM_IMGMOUNT_MOUNT_NUMBER"),drive-'0',sGetFileName(temp_line).c_str());
 			/*
 				If instructed, attach to IDE controller as ATA hard disk
 			*/
@@ -3045,6 +3079,53 @@ static void KEYB_ProgramStart(Program * * make) {
 
 void DOS_SetupPrograms(void) {
 	/*Add Messages */
+	MSG_Add("PROGRAM_BOOT_ELCD_REQUIRES",
+	        "ElTorito BootCD:\n"
+			"Requires a Proper Drive Letter Corresponding To Your CD-ROM drive\n"
+			);
+	MSG_Add("PROGRAM_BOOT_ELCD_ALREADY_EXISTS",
+	        "ElTorito BootCD:\n"
+			"CD-ROM drive [%c] specified already exists as a non-CD-ROM device\n"
+			);
+	MSG_Add("PROGRAM_BOOT_ELCD_NOT_CDROM",
+	        "ElTorito BootCD:\n"
+			"CD-ROM drive specified is not actually a CD-ROM drive [%c]\n"
+			);
+	MSG_Add("PROGRAM_BOOT_ELCD_NEED_FLOPPY",
+	        "ElTorito BootCD:\n"
+			"must be used with -t floppy at this time\n"
+			);
+	MSG_Add("PROGRAM_BOOT_ELCD_NO_BOOTRECORD",
+	        "ElTorito BootCD:\n"
+			"Boot Record not found\n"
+			);
+
+	MSG_Add("PROGRAM_BOOT_ELCD_UNREADABLE",
+	        "ElTorito BootCD:\n"
+			"Entries unreadable\n"
+			);	
+
+	MSG_Add("PROGRAM_BOOT_ELCD_NOT_FOUND",
+	        "ElTorito BootCD:\n"
+			"Bootable Floppy Not Found\n"
+			);
+
+	MSG_Add("PROGRAM_BOOT_ELCD_NO_FILES",
+	        "ElTorito BootCD:\n"
+			"Do not specify files when mounting virtual floppy disk images from El Torito bootable CDs\n"
+			);
+	MSG_Add("PROGRAM_BOOT_ELCD_NO_FSFAT",
+	        "ElTorito BootCD:\n"
+			"-fs fat mounting not supported\n"
+			);
+	MSG_Add("PROGRAM_BOOT_ELCD_NO_FSISO",
+	        "ElTorito BootCD:\n"
+			"-fs iso mounting not supported\n"
+			);
+	MSG_Add("PROGRAM_BOOT_ELCD_NO_FSNON",
+	        "ElTorito BootCD:\n"
+			"-fs none unexpected path (BUG)\n"
+			);			
 	MSG_Add("PROGRAM_MOUSE_INSTALL","Installed at PS/2 port.\n");
 	MSG_Add("PROGRAM_MOUSE_UNINSTALL","Driver successfully unloaded...\n");
 	MSG_Add("PROGRAM_MOUSE_ERROR","Already installed at PS/2 port.\n");
@@ -3054,8 +3135,21 @@ void DOS_SetupPrograms(void) {
 	
 	MSG_Add("PROGRAM_MOUNT_CDROMS_FOUND","CDROMs found: %d\n");	
 	MSG_Add("PROGRAM_MOUNT_STATUS_FORMAT","%-5s  %-58s %-12s\n");
+
+	MSG_Add("PROGRAM_MOUNT_STATUS_MULTI1","\033[37;1m================= Multiples Mount on Drive %c: =================\033[0m\n"
+	                                      "\033[37;1m                  Press\033[32;1m CTRL + F4\033[37;1m to Cycle through Disk's\033[0m\n");
+										  
+	MSG_Add("PROGRAM_MOUNT_STATUS_MULTI2","\033[34;1m Mount Drive: %c:\033[0m\n");	
+	MSG_Add("PROGRAM_MOUNT_STATUS_MULTI3","\033[37;1m %s\033[0m\n");	
+	MSG_Add("PROGRAM_MOUNT_STATUS_MULTI4","\033[37;1m================================================================\033[0m\n");	
+	
+	MSG_Add("PROGRAM_MOUNT_STATUS_MULTI5","\033[37;1m================= Multiples Mount on Drive %c: =================\033[0m\n"
+	                                      "\033[37;1m                  Press\033[32;1m CTRL + F3\033[37;1m to Cycle through CD's\033[0m\n");
+					
 				// Multiple Imagemount ======================================================== BEGIN	
-	MSG_Add("PROGRAM_MOUNT_STATUS_2","Mount Drive %c: %s\n");
+	MSG_Add("PROGRAM_MOUNT_STATUS_2","\033[34;1m Mount Drive %c:\033[37;1m %s\033[0m\n");
+	
+	
 				// Multiple Imagemount ======================================================== END	
 	MSG_Add("PROGRAM_MOUNT_STATUS_3","Mount: %s in Drive %c\n");	
 	MSG_Add("PROGRAM_MOUNT_STATUS_1","The currently mounted drives are:\n");
@@ -3073,7 +3167,8 @@ void DOS_SetupPrograms(void) {
 	MSG_Add("PROGRAM_MOUNT_UMOUNT_NO_VIRTUAL","Virtual Drives can not be unMOUNTed.\n");
 	MSG_Add("PROGRAM_MOUNT_WARNING_WIN","\033[31;1mMounting c:\\ is NOT recommended. Please mount a (sub)directory next time.\033[0m\n");
 	MSG_Add("PROGRAM_MOUNT_WARNING_OTHER","\033[31;1mMounting / is NOT recommended. Please mount a (sub)directory next time.\033[0m\n");
-
+	MSG_Add("PROGRAM_MOUNT_NOT_FOUND","Image not Found\n [at Position %d] in %s\n");
+	
 	MSG_Add("PROGRAM_MOUNT_OVERLAY_NO_BASE","A normal directory needs to be MOUNTed first before an overlay can be added on top.\n");
 	MSG_Add("PROGRAM_MOUNT_OVERLAY_INCOMPAT_BASE","The overlay is NOT compatible with the drive that is specified.\n");
 	MSG_Add("PROGRAM_MOUNT_OVERLAY_MIXED_BASE","The overlay needs to be specified using the same addressing as the underlying drive. No mixing of relative and absolute paths.");
@@ -3091,7 +3186,7 @@ void DOS_SetupPrograms(void) {
 	MSG_Add("PROGRAM_LOADFIX_DEALLOCALL","Used memory freed.\n");
 	MSG_Add("PROGRAM_LOADFIX_ERROR","Memory allocation error.\n");
 
-	MSG_Add("MSCDEX_SUCCESS","MSCDEX installed.\n");
+	MSG_Add("MSCDEX_SUCCESS"," MSCDEX installed...\n");
 	MSG_Add("MSCDEX_ERROR_MULTIPLE_CDROMS","MSCDEX: Failure: Drive-letters of multiple CD-ROM drives have to be continuous.\n");
 	MSG_Add("MSCDEX_ERROR_NOT_SUPPORTED","MSCDEX: Failure: Not yet supported.\n");
 	MSG_Add("MSCDEX_ERROR_PATH","MSCDEX: Specified location is not a CD-ROM drive.\n");
@@ -3196,28 +3291,35 @@ void DOS_SetupPrograms(void) {
 		"\033[33;1mCTRL-ALT-F8\033[0m : Start/Stop the recording of raw MIDI commands.\n"		
 	
 		);
+		
+	MSG_Add("PROGRAM_BIOS_SPECIFY","Must specify BIOS file to load.\n");
+	MSG_Add("PROGRAM_BIOS_ERROR_LOAD","Can't open a file");	
+	MSG_Add("PROGRAM_BIOS_ERROR_LARGE","BIOS File too large");		
+
+				
 	MSG_Add("PROGRAM_BOOT_NOT_EXIST","Bootdisk file does not exist.  Failing.\n");
 	MSG_Add("PROGRAM_BOOT_NOT_OPEN","Cannot open bootdisk file.  Failing.\n");
 	MSG_Add("PROGRAM_BOOT_WRITE_PROTECTED","Image file is read-only! Might create problems.\n");
-	MSG_Add("PROGRAM_BOOT_PRINT_ERROR","This command boots DOSBox from either a floppy or hard disk image.\n\n"
-		"For this command, one can specify a succession of floppy disks swappable\n"
-		"by pressing Ctrl-F4, and -l specifies the mounted drive to boot from.  If\n"
-		"no drive letter is specified, this defaults to booting from the A drive.\n"
-		"The only bootable drive letters are A, C, and D.  For booting from a hard\n"
-		"drive (C or D), the image should have already been mounted using the\n"
-		"\033[34;1mIMGMOUNT\033[0m command.\n\n"
-		"The syntax of this command is:\n\n"
-		"\033[34;1mBOOT [diskimg1.img diskimg2.img] [-l driveletter]\033[0m\n"
-		);
+	MSG_Add("PROGRAM_BOOT_PRINT_ERROR",
+	        "This command boots DOSBox from either a floppy or hard disk image.\n\n"
+		    "For this command, one can specify a succession of floppy disks swappable\n"
+		    "by pressing Ctrl-F4, and -l specifies the mounted drive to boot from.  If\n"
+		    "no drive letter is specified, this defaults to booting from the A drive.\n"
+	      	"The only bootable drive letters are A, C, and D.  For booting from a hard\n"
+	     	"drive (C or D), the image should have already been mounted using the\n"
+		    "\033[34;1mIMGMOUNT\033[0m command.\n\n"
+		    "The syntax of this command is:\n\n"
+		    "\033[34;1mBOOT [diskimg1.img diskimg2.img] [-l driveletter]\033[0m\n"
+		   );
 	MSG_Add("PROGRAM_BOOT_START_DRIVE", "\033[34;1mAuto Detecting Images... \033[0m\n" );		
 	MSG_Add("PROGRAM_BOOT_UNABLE","033[31;1mUnable to Boot off of Drive %c ...\033[0m\n");
 	MSG_Add("PROGRAM_BOOT_IMAGE_OPEN", "\033[34;1mAdded: \033[0m\033[37;1m%s\033[0m\n");	
-	MSG_Add("PROGRAM_BOOT_IMAGE_NOT_OPEN","\033[31;1m -- Can not Open --\033[0m\n");	
+	MSG_Add("PROGRAM_BOOT_IMAGE_NOT_OPEN","\033[31;1m -- Can not Open --\n \"%s\" \033[0m\n");	
 	MSG_Add("PROGRAM_BOOT_BOOT","\n\033[37;1mBooting from Drive %c:...\033[0m\n");
 	MSG_Add("PROGRAM_BOOT_CART_WO_PCJR","PCjr cartridge found, but machine is not PCjr");
 	MSG_Add("PROGRAM_BOOT_CART_LIST_CMDS","Available PCjr cartridge commandos:%s");
 	MSG_Add("PROGRAM_BOOT_CART_NO_CMDS","No PCjr cartridge commandos found");
-
+						 
 	MSG_Add("PROGRAM_LOADROM_SPECIFY_FILE","Must specify ROM file to load.\n");
 	MSG_Add("PROGRAM_LOADROM_CANT_OPEN","ROM file not accessible.\n");
 	MSG_Add("PROGRAM_LOADROM_TOO_LARGE","ROM file too large.\n");

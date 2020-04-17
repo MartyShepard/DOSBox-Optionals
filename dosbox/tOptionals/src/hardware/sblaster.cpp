@@ -1761,7 +1761,10 @@ public:
 
 static SBLASTER* test;
 void SBLASTER_ShutDown(Section* /*sec*/) {
-	delete test;	
+	if (test != NULL) {
+		delete test;	
+		test = NULL;
+	}
 }
 
 void SBLASTER_Init(Section* sec) {

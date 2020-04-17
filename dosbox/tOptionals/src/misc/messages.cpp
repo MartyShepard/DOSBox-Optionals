@@ -20,6 +20,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <WinNls.h>
+#include <windows.h>
 #include "dosbox.h"
 #include "cross.h"
 #include "support.h"
@@ -73,7 +75,8 @@ static void LoadMessageFile(const char * fname) {
 	FILE * mfile=fopen(fname,"rt");
 	/* This should never happen and since other modules depend on this use a normal printf */
 	if (!mfile) {
-		E_Exit("MSG:Can't load messages: %s",fname);
+		LOG_MSG("\nLanguage: Can't not open Language:\n"
+		        "            %s",fname);
 	}
 	char linein[LINE_IN_MAXLEN];
 	char name[LINE_IN_MAXLEN];
@@ -133,12 +136,194 @@ bool MSG_Write(const char * location) {
 	return true;
 }
 
-void MSG_Init(Section_prop * section) {
+/* ------------------------------------------------------------------------------------------------------------- */
+inline bool FileExists (const std::string& name) {
+  struct stat buffer; 
+
+  return (stat (name.c_str(), &buffer) == 0 ); 
+}
+
+/* ------------------------------------------------------------------------------------------------------------- */
+static bool MSG_Load_Automatically(const std::string& name){
+	
+	bool bLoaded = FileExists( name.c_str() );
+	if ( bLoaded == true )		
+	{	
+		LoadMessageFile(name.c_str());	
+		LOG_MSG("Language: Loaded: %s ... \n\n",sGetFileName( name.c_str() ).c_str());				
+		return true;
+	}
+	return false;	
+	
+}
+
+/* ------------------------------------------------------------------------------------------------------------- */
+
+#define NELEMS(a) (sizeof (a) / sizeof (a[0]))
+static bool MSG_Load_LangMessage (LANGID langid)
+{
+  LCID lcid;
+  char lng[10];
+  char cty[10];
+  char loc[26];
+  char Lng[256];
+  std::string LanguageFile;
+  
+
+  lcid = MAKELCID (langid, SORT_DEFAULT);
+		
+	if (GetLocaleInfo (lcid, LOCALE_SISO639LANGNAME, lng, NELEMS (lng)) && GetLocaleInfo (lcid, LOCALE_SISO3166CTRYNAME, cty, NELEMS (cty)))
+	{			
+
+		strcpy(Lng,"DosCodepage_");
+		strcat(Lng,lng);
+		strcat(Lng,"_");
+		strcat(Lng,cty);			
+		
+    }
+	
+	else if (GetLocaleInfo (lcid, LOCALE_SISO639LANGNAME, loc, NELEMS (loc)))
+    {		
+		strcpy(Lng,"DosCodepage_");
+		strcat(Lng,loc);	
+	
+    }	
+	
+	LanguageFile = sCurrentWorkingPath() + "\\data\\Language\\" + Lng + ".lng";
+	if (!MSG_Load_Automatically(LanguageFile.c_str()))
+	{
+		
+		LanguageFile = sCurrentWorkingPath() + "\\data\\Language\\" + Lng + ".lang";
+		if (!MSG_Load_Automatically(LanguageFile.c_str()))
+		{
+			
+			LanguageFile = sCurrentWorkingPath() + "\\data\\" + Lng + ".lng";			
+			if (!MSG_Load_Automatically(LanguageFile.c_str()))
+			{
+				
+				LanguageFile = sCurrentWorkingPath() + "\\data\\" + Lng + ".lang";	
+				if (!MSG_Load_Automatically(LanguageFile.c_str()))
+				{
+					
+					LanguageFile = sCurrentWorkingPath() + "\\Language\\" + Lng + ".lng";	
+					if (!MSG_Load_Automatically(LanguageFile.c_str()))
+					{						
+					
+						LanguageFile = sCurrentWorkingPath() + "\\Language\\" + Lng + ".lng";	
+						if (!MSG_Load_Automatically(LanguageFile.c_str()))
+						{						
+							LanguageFile = sCurrentWorkingPath() + "\\" + Lng + ".lng";	
+							if (!MSG_Load_Automatically(LanguageFile.c_str()))
+							{	
+			
+								LanguageFile = sCurrentWorkingPath() + "\\" + Lng + ".lang";
+								if (!MSG_Load_Automatically(LanguageFile.c_str()))
+								{	
+									LOG_MSG("Language: Nothing found, Searched -> \"%s(.lng/.lang)\"\n\n",Lng);
+									return false;
+								}
+							}
+						}
+					}
+				}								
+			}		
+		}
+	}
+	return true;
+}
+/* ------------------------------------------------------------------------------------------------------------- */
+
+bool MSG_Load(void)
+{
+	/*
+		Simple Automatically Load User Language File		
+		...................Yep Windows User on baord
+	*/
+	
+	/* 	Wird System wirklich gebraucht ?
+		static LANGID nSysLangUIID = GetSystemDefaultUILanguage();
+		
+		if ( MSG_Load_LangMessage(nSysLangUIID) ){		
+			return true;
+		}		
+	*/
+	
+	static LANGID nUsrLangUIID = GetUserDefaultUILanguage();
+		
+	LOG_MSG("\nLanguage: Automatically try to Load Language from System");
+	
+	if ( MSG_Load_LangMessage(nUsrLangUIID) ){
+		return true;		
+	}	
+		
+	LOG_MSG("Language: Nothing to do ... No files found\n\n");	
+	return false;		
+}
+/* ------------------------------------------------------------------------------------------------------------- */
+
+bool MSG_Load_Commandline(void)
+{
 	std::string file_name;
-	if (control->cmdline->FindString("-lang",file_name,true)) {
-		LoadMessageFile(file_name.c_str());
-	} else {
-		Prop_path* pathprop = section->Get_path("language");
-		if(pathprop) LoadMessageFile(pathprop->realpath.c_str());
+	
+	if (control->cmdline->FindString("-lang",file_name,true))
+	{	
+		bool bLoaded = FileExists( file_name.c_str());
+		if ( bLoaded == true )		
+		{
+			LoadMessageFile(file_name.c_str());
+			LOG_MSG("\nLanguage: File loaded with argument [-lang]\n"
+			        "          %s",file_name.c_str());	
+			return true;
+		}
+		LOG_MSG("\nLanguage: Can't load with argument [-lang]\n"
+		        "          %s",file_name.c_str());			
+	}		
+	return false;
+}
+/* ------------------------------------------------------------------------------------------------------------- */
+
+bool MSG_Load_ConfigFile(Section_prop * section)
+{
+
+	Prop_path* pathprop = section->Get_path("language");
+	if(pathprop)
+	{	
+		bool bLoaded = FileExists( pathprop->realpath.c_str());		
+		if ( bLoaded == true )
+		{
+			LoadMessageFile(pathprop->realpath.c_str());
+			LOG_MSG("\nLanguage: File loaded from Configfile\n"
+			        "          %s",pathprop->realpath.c_str());	
+			return true;			
+		}
+		LOG_MSG("\nLanguage: File from Configfile can not loaded\n"
+		        "          %s",pathprop->realpath.c_str());			
+	}		
+	return false;			
+}
+/* ------------------------------------------------------------------------------------------------------------- */
+
+void MSG_Init(Section_prop * section) {
+
+	/*
+		Scenario
+		#1 Benutzer kann die Sprachdatei von der Kommandozeile aus laden.
+		   Schlägt fehl oder wird es ohne Parameter angegeben
+		#2 Es wird versucht die Sprachdatei aus der Konfiguration zu laden.
+		   Schlägt dies auch fehl oder der Wert "Language =" bleibt leer
+		#3 wird versucht eine Sprachdatei aus dem Dosbox Unter/verzeichnis
+		   zu laden.		   	   
+	*/
+
+	bool bLoaded = MSG_Load_Commandline();
+	
+	if ( bLoaded == false )
+	{	
+		 bLoaded = MSG_Load_ConfigFile( section );
+	}			
+	
+	if ( bLoaded == false )
+	{	
+		 bLoaded = MSG_Load();
 	}
 }

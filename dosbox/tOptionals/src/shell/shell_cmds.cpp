@@ -424,52 +424,93 @@ void DOS_Shell::CMD_EXIT(char * args) {
 void DOS_Shell::CMD_CHDIR(char * args) {
 	HELP("CHDIR");
 	StripSpaces(args);
+	
 	Bit8u drive = DOS_GetDefaultDrive()+'A';
+	
 	char dir[DOS_PATHLENGTH];
-	if (!*args) {
+	if (!*args)
+	{
 		DOS_GetCurrentDir(0,dir);
 		WriteOut("%c:\\%s\n",drive,dir);
-	} else if(strlen(args) == 2 && args[1]==':') {
-		Bit8u targetdrive = (args[0] | 0x20)-'a' + 1;
+	
+	}
+	
+	else if ( strlen(args) == 2 && args[1]==':' )
+	{
+	    Bit8u targetdrive = (args[0] | 0x20)-'a' + 1;
 		unsigned char targetdisplay = *reinterpret_cast<unsigned char*>(&args[0]);
-		if(!DOS_GetCurrentDir(targetdrive,dir)) {
-			if(drive == 'Z') {
+		
+		if(!DOS_GetCurrentDir(targetdrive,dir))
+		{
+			if(drive == 'Z')
+			{
 				WriteOut(MSG_Get("SHELL_EXECUTE_DRIVE_NOT_FOUND"),toupper(targetdisplay));
 			} else {
 				WriteOut(MSG_Get("SHELL_ILLEGAL_PATH"));
 			}
 			return;
 		}
-		WriteOut("%c:\\%s\n",toupper(targetdisplay),dir);
+		
+		WriteOut("%c:\\%s",toupper(targetdisplay),dir);
+		
 		if(drive == 'Z')
+		{
 			WriteOut(MSG_Get("SHELL_CMD_CHDIR_HINT"),toupper(targetdisplay));
-	} else 	if (!DOS_ChangeDir(args)) {
+		}
+	}
+	
+	else if (!DOS_ChangeDir(args))
+	{
 		/* Changedir failed. Check if the filename is longer then 8 and/or contains spaces */
-	   
+	   		
 		std::string temps(args),slashpart;
 		std::string::size_type separator = temps.find_first_of("\\/");
-		if(!separator) {
+		if(!separator)
+		{
 			slashpart = temps.substr(0,1);
 			temps.erase(0,1);
 		}
 		separator = temps.find_first_of("\\/");
-		if(separator != std::string::npos) temps.erase(separator);
+		
+		if(separator != std::string::npos)
+		{
+			temps.erase(separator);			
+		}
 		separator = temps.rfind('.');
-		if(separator != std::string::npos) temps.erase(separator);
-		separator = temps.find(' ');
-		if(separator != std::string::npos) {/* Contains spaces */
+		
+		if(separator != std::string::npos)
+		{
 			temps.erase(separator);
-			if(temps.size() >6) temps.erase(6);
+		}
+		separator = temps.find(' ');
+		
+		if(separator != std::string::npos)
+		{
+			/* Contains spaces */
+			temps.erase(separator);
+			if(temps.size() >6)
+			{
+				temps.erase(6);
+			}
 			temps += "~1";
 			WriteOut(MSG_Get("SHELL_CMD_CHDIR_HINT_2"),temps.insert(0,slashpart).c_str());
-		} else if (temps.size()>8) {
+			
+		}
+		
+		else if (temps.size()>8)
+		{
 			temps.erase(6);
 			temps += "~1";
 			WriteOut(MSG_Get("SHELL_CMD_CHDIR_HINT_2"),temps.insert(0,slashpart).c_str());
-		} else {
-			if (drive == 'Z') {
+		}
+		else
+		{
+			if (drive == 'Z')
+			{
 				WriteOut(MSG_Get("SHELL_CMD_CHDIR_HINT_3"));
-			} else {
+			}
+			else
+			{
 				WriteOut(MSG_Get("SHELL_CMD_CHDIR_ERROR"),args);
 			}
 		}
@@ -555,8 +596,10 @@ struct DtaResult {
 void DOS_Shell::CMD_DIR(char * args) {
 	HELP("DIR");
 	char numformat[16];
-	char path[DOS_PATHLENGTH];
+	char path[DOS_PATHLENGTH]={0};
+	char cmds[CROSS_LEN]={0};
 
+	
 	std::string line;
 	if(GetEnvStr("DIRCMD",line)){
 		std::string::size_type idx = line.find('=');
@@ -565,61 +608,115 @@ void DOS_Shell::CMD_DIR(char * args) {
 		args=const_cast<char*>(line.c_str());
 	}
    
-	bool optW=ScanCMDBool(args,"W");
-	ScanCMDBool(args,"S");
-	bool optP=ScanCMDBool(args,"P");
-	if (ScanCMDBool(args,"WP") || ScanCMDBool(args,"PW")) {
-		optW=optP=true;
+	bool optW = ScanCMDBool(args,"W");
+				ScanCMDBool(args,"S");
+				
+	bool optP = ScanCMDBool(args,"P");
+	
+	if (ScanCMDBool(args,"WP") || ScanCMDBool(args,"PW"))
+	{
+		optW = optP = true;
 	}
-	bool optB=ScanCMDBool(args,"B");
-	bool optAD=ScanCMDBool(args,"AD");
-	bool optAminusD=ScanCMDBool(args,"A-D");
-	// Sorting flags
+	
+	bool optB 		= ScanCMDBool(args,"B");
+	bool optA		= ScanCMDBool(args,"A");	
+	bool optAD		= ScanCMDBool(args,"AD");
+	bool optAminusD	= ScanCMDBool(args,"A-D");
+	bool optAS		= ScanCMDBool(args,"AS");
+	bool optAminusS	= ScanCMDBool(args,"A-S");
+	bool optAH		= ScanCMDBool(args,"AH");
+	bool optAminusH	= ScanCMDBool(args,"A-H");
+	bool optAR		= ScanCMDBool(args,"AR");
+	bool optAminusR	= ScanCMDBool(args,"A-R");
+	bool optAA		= ScanCMDBool(args,"AA");
+	bool optAminusA	= ScanCMDBool(args,"A-A");
+	bool optL 		= ScanCMDBool(args,"L");
+	bool optLN 		= ScanCMDBool(args,"LN");	
+	
+	/* Sorting flags */
 	bool reverseSort = false;
-	bool optON=ScanCMDBool(args,"ON");
-	if (ScanCMDBool(args,"O-N")) {
-		optON = true;
-		reverseSort = true;
-	}
-	bool optOD=ScanCMDBool(args,"OD");
-	if (ScanCMDBool(args,"O-D")) {
-		optOD = true;
-		reverseSort = true;
-	}
-	bool optOE=ScanCMDBool(args,"OE");
-	if (ScanCMDBool(args,"O-E")) {
-		optOE = true;
-		reverseSort = true;
-	}
-	bool optOS=ScanCMDBool(args,"OS");
-	if (ScanCMDBool(args,"O-S")) {
-		optOS = true;
-		reverseSort = true;
-	}else if (ScanCMDBool(args,"O")) {
-		WriteOut("Sort order need a argument more (/ON /OD /OE /OS /O-N /O-D /O-E /O-S)");
+	bool optON = ScanCMDBool(args,"ON");
+			 if (ScanCMDBool(args,"O-N"))
+			 {
+				optON 	    = true;
+				reverseSort = true;
+			 }
+			 
+	bool optOD = ScanCMDBool(args,"OD");
+			 if (ScanCMDBool(args,"O-D"))
+			 {
+				optOD 		= true;
+				reverseSort = true;
+			 }
+			 
+	bool optOE = ScanCMDBool(args,"OE");
+			 if (ScanCMDBool(args,"O-E"))
+			 {
+				optOE 		= true;
+				reverseSort = true;
+			 }
+	
+	bool optOS = ScanCMDBool(args,"OS");
+			 if (ScanCMDBool(args,"O-S"))
+			 {
+				optOS 		= true;
+				reverseSort = true;
+			 }
+			 else if (ScanCMDBool(args,"O"))
+			 {
+				WriteOut(MSG_Get("SHELL_CMD_DIR_HELP_SORT"));
+				return;
+			 }
+			 else if (ScanCMDBool(args,"O-"))
+			 {
+				WriteOut(MSG_Get("SHELL_CMD_DIR_HELP_SORT_REVERSE"));
+				return;
+			 }	
+			 else if (ScanCMDBool(args,"A-"))
+			 {				 
+				WriteOut(MSG_Get("SHELL_CMD_DIR_HELP_ATTRIBUTE"));				 
+				return;
+			 }			 
+	
+	char * rem = ScanCMDRemain(args);
+	if (rem)
+	{		
+			if (rem[0] == '/') /* "/" */
+			{
+				if       ( (rem[1] == 'O') || (rem[1] == 'o') )
+				{
+					rem[0] = '-'; 					
+					rem[1] = ' '; 
+				}
+				
+				if  ( (rem[1] == 'A') || (rem[1] == 'a') )					
+				{
+					rem[0] = '-'; 					
+					rem[1] = ' '; 
+				}	
+				WriteOut(MSG_Get("SHELL_CMD_DIR_ILLEGAL_PARAMETER"),rem);				
+				
+			} else {
+				WriteOut(MSG_Get("SHELL_ILLEGAL_SWITCH"),rem);
+			}
 		return;
-	}else if (ScanCMDBool(args,"-")) {
-		WriteOut("Reverse Sort Help: (/O-N /O-D /O-E /O-S)");
-		return;
-	}		
-	char * rem=ScanCMDRemain(args);
-	if (rem) {
-		WriteOut(MSG_Get("SHELL_ILLEGAL_SWITCH"),rem);
-		return;
 	}
-	Bit32u byte_count,file_count,dir_count;
-	Bitu w_count=0;
-	Bitu p_count=0;
-	Bitu w_size = optW?5:1;
-	byte_count=file_count=dir_count=0;
+	
+	Bit32u byte_count, file_count, dir_count;
+	Bitu w_count = 0;
+	Bitu p_count = 0;
+	Bitu w_size  = optW?5:1;
+	byte_count	 = file_count = dir_count = 0;
 
-	char buffer[CROSS_LEN];
-	args = trim(args);
+	args = trim(args);	
 	size_t argLen = strlen(args);
-	if (argLen == 0) {
-		strcpy(args,"*.*"); //no arguments.
-	} else {
-		switch (args[argLen-1])
+	if (argLen == 0)
+	{
+		strcpy(args,"*.*"); //no arguments.	
+	}
+	else
+	{
+		switch (args [argLen-1] )
 		{
 		case '\\':	// handle \, C:\, etc.
 		case ':' :	// handle C:, etc.
@@ -627,8 +724,10 @@ void DOS_Shell::CMD_DIR(char * args) {
 			break;
 		default:
 			break;
-		}
+		}	
 	}
+	
+	char buffer[CROSS_LEN]={0};	
 	args = ExpandDot(args,buffer,CROSS_LEN);
 	
 	bool con_temp = false, null_temp = false;
@@ -636,14 +735,21 @@ void DOS_Shell::CMD_DIR(char * args) {
 	else if (!strcasecmp(args,"nul")) null_temp=true;
 	
 
-	if (!strrchr(args,'*') && !strrchr(args,'?')) {
+	if (!strrchr(args,'*') && !strrchr(args,'?'))
+	{		
 		Bit16u attribute=0;
-		if(DOS_GetFileAttr(args,&attribute) && (attribute&DOS_ATTR_DIRECTORY) ) {
-			strcat(args,"\\*.*");	// if no wildcard and a directory, get its files
+		if(DOS_GetFileAttr(cmds,&attribute) && (attribute&DOS_ATTR_DIRECTORY) )
+		{
+			DOS_FindFirst(cmds,0xffff & ~DOS_ATTR_VOLUME);					
+			DOS_DTA dta(dos.dta());
+			strcpy(args,cmds);		
+			strcat(args,"\\*.*");	// if no wildcard and a directory, get its files					
 		}
 	}
-	if (!strrchr(args,'.')) {
-		strcat(args,".*");	// if no extension, get them all
+
+	if (!strrchr(args,'.'))
+	{
+		strcat(args,".*");	// if no extension, get them all	
 	}
 
 	/* Make a full path in the args */
@@ -651,24 +757,59 @@ void DOS_Shell::CMD_DIR(char * args) {
 		WriteOut(MSG_Get("SHELL_ILLEGAL_PATH"));
 		return;
 	}
-	*(strrchr(path,'\\')+1)=0;
-	CMD_VOL(empty_string);	
-	if (!optB) WriteOut(MSG_Get("SHELL_CMD_DIR_INTRO"),path);
 
+	*(strrchr(path,'\\')+1)=0;
+		
+    if (!optB)
+	{
+		if (strlen(path)>2&&path[1]==':')
+		{
+			char c[]=" _:";
+			c[1]=toupper( path[0] );
+			CMD_VOL(c[1]>='A'&&c[1]<='Z'?c:empty_string);		
+		}
+		else
+		{
+			CMD_VOL(empty_string);			
+			if (optP)
+			{
+				p_count+=optW?15:3;
+			}
+		}
+		
+		if (strlen(path) >= 4)	
+			path[strlen(path)-1] = path[strlen(path)];			
+	
+		WriteOut(MSG_Get("SHELL_CMD_DIR_INTRO"),path);
+	}
+	
+	
 	/* Command uses dta so set it to our internal dta */
-	RealPt save_dta=dos.dta();
+	RealPt save_dta = dos.dta();
 	dos.dta(dos.tables.tempdta);
 	DOS_DTA dta(dos.dta());
-	bool ret=DOS_FindFirst(args,0xffff & ~DOS_ATTR_VOLUME);
-	if (!ret) {
-		if (!optB) WriteOut(MSG_Get("SHELL_CMD_FILE_NOT_FOUND"),args);
+	
+	bool ret = DOS_FindFirst( args,0xffff & ~DOS_ATTR_VOLUME );
+	if (!ret)
+	{
+		if (!optB)
+		{
+			WriteOut(MSG_Get("SHELL_CMD_FILE_NOT_FOUND"),args);
+		}
 		dos.dta(save_dta);
 		return;
 	}
  
-	if (con_temp || null_temp) {
-		if(con_temp) WriteOut(MSG_Get("SHELL_CMD_FILE_NOT_FOUND"),"con.*");
-		else if (null_temp) WriteOut(MSG_Get("SHELL_CMD_FILE_NOT_FOUND"),"nul.*");
+	if (con_temp || null_temp)
+	{
+		if(con_temp)
+		{
+			WriteOut(MSG_Get("SHELL_CMD_FILE_NOT_FOUND"),"con.*");
+		}
+		else if (null_temp)
+		{
+			WriteOut(MSG_Get("SHELL_CMD_FILE_NOT_FOUND"),"nul.*");
+		}
 		return;
 	}
 
@@ -681,101 +822,270 @@ void DOS_Shell::CMD_DIR(char * args) {
 		/* Skip non-directories if option AD is present, or skip dirs in case of A-D */
 		if(optAD && !(result.attr&DOS_ATTR_DIRECTORY) ) continue;
 		else if(optAminusD && (result.attr&DOS_ATTR_DIRECTORY) ) continue;
-
+		else if(optAS && !(result.attr&DOS_ATTR_SYSTEM) ) continue;
+		else if(optAminusS && (result.attr&DOS_ATTR_SYSTEM) ) continue;
+		else if(optAH && !(result.attr&DOS_ATTR_HIDDEN) ) continue;
+		else if(optAminusH && (result.attr&DOS_ATTR_HIDDEN) ) continue;
+		else if(optAR && !(result.attr&DOS_ATTR_READ_ONLY) ) continue;
+		else if(optAminusR && (result.attr&DOS_ATTR_READ_ONLY) ) continue;
+		else if(optAA && !(result.attr&DOS_ATTR_ARCHIVE) ) continue;
+		else if(optAminusA && (result.attr&DOS_ATTR_ARCHIVE) ) continue;
+		else if(!(optA||optAD||optAminusD||optAS||optAminusS||optAH||optAminusH||optAR||optAminusR||optAA||optAminusA) && (result.attr&DOS_ATTR_SYSTEM || result.attr&DOS_ATTR_HIDDEN) ) continue;		
+		
 		results.push_back(result);
 
 	} while ( (ret=DOS_FindNext()) );
 
-	if (optON) {
+	if (optON)
+	{
 		// Sort by name
 		std::sort(results.begin(), results.end(), DtaResult::compareName);
-	} else if (optOE) {
+	}
+	else if (optOE)
+	{
 		// Sort by extension
 		std::sort(results.begin(), results.end(), DtaResult::compareExt);
-	} else if (optOD) {
+	}
+	else if (optOD)
+	{
 		// Sort by date
 		std::sort(results.begin(), results.end(), DtaResult::compareDate);
-	} else if (optOS) {
+	}
+	else if (optOS)
+	{
 		// Sort by size
 		std::sort(results.begin(), results.end(), DtaResult::compareSize);
 	}
-	if (reverseSort) {
+	
+	if (reverseSort)
+	{
 		std::reverse(results.begin(), results.end());
 	}
 
-	for (std::vector<DtaResult>::iterator iter = results.begin(); iter != results.end(); iter++) {
-
+	int cntLines	= -1; 	/* Zeilen Anzahl bei jeden durchgang auf -1 zurckgesetzt wird 		  */
+	int cntContinue =  0;  	/* Der Continue der von den MaxFiles und P_Count abgeuogen wird 	  */ 
+	int MaxFiles    =  0;  	/* Maximale Anzhal an Verzeichnis/Datei Einträgen 					  */	
+	bool optPCount 	= true; /* Elaubt den Zähler beim Ersten Durchgang nur 18 Einträge anzuzeigen */
+	
+	if (optP){
+		for (std::vector<DtaResult>::iterator MaxIter = results.begin(); MaxIter != results.end(); MaxIter++)
+		{
+			/* Zähle einmal das gnaze Verzeichnis durch */
+			MaxFiles++;
+		}		
+	}
+		
+	for (std::vector<DtaResult>::iterator iter = results.begin(); iter != results.end(); iter++)
+	{
 		char * name = iter->name;
 		Bit32u size = iter->size;
 		Bit16u date = iter->date;
 		Bit16u time = iter->time;
-		Bit8u attr = iter->attr;
-
-		
+		Bit8u attr  = iter->attr;
+						
 		/* output the file */
-		if (optB) {
+		if (optB)
+		{			
 			// this overrides pretty much everything
-			if (strcmp(".",name) && strcmp("..",name)) {
-				WriteOut("%s\n",name);
-			}
-		} else {
+			if (strcmp(".",name) && strcmp("..",name))
+				WriteOut("%s\n",name);						
+		}
+		else
+		{
 			char * ext = empty_string;
-			if (!optW && (name[0] != '.')) {
+			if (!optW && (name[0] != '.'))
+			{
 				ext = strrchr(name, '.');
-				if (!ext) ext = empty_string;
-				else *ext++ = 0;
+				if (!ext)
+				{
+					ext = empty_string;
+				}
+				else
+				{
+					*ext++ = 0;
+				}
 			}
-			Bit8u day	= (Bit8u)(date & 0x001f);
-			Bit8u month	= (Bit8u)((date >> 5) & 0x000f);
-			Bit16u year = (Bit16u)((date >> 9) + 1980);
-			Bit8u hour	= (Bit8u)((time >> 5 ) >> 6);
+			
+			Bit8u day	 = (Bit8u)(date & 0x001f);
+			Bit8u month	 = (Bit8u)((date >> 5) & 0x000f);
+			Bit16u year  = (Bit16u)((date >> 9) + 1980);
+			Bit8u hour	 = (Bit8u)((time >> 5 ) >> 6);
 			Bit8u minute = (Bit8u)((time >> 5) & 0x003f);
 
 			if (attr & DOS_ATTR_DIRECTORY) {
-				if (optW) {
+				if (optP)
+					cntLines++;	
+				
+				if ( (optL) || (optLN) )
+				{
+					int ntoL=0;					
+					while (name[ntoL])
+					{			
+						if ( (optLN) && (ntoL==0) )
+						{
+							ntoL++;	
+							continue;
+						}
+							
+						name[ntoL]=tolower(name[ntoL]);
+						ntoL++;						
+					}
+					ntoL=0;
+					while (ext[ntoL])
+					{												
+						ext[ntoL]=tolower(ext[ntoL]);
+						ntoL++;						
+					}
+				}
+				
+				if (optW)
+				{
 					WriteOut("[%s]",name);
 					size_t namelen = strlen(name);
-					if (namelen <= 14) {
+					if (namelen <= 14)
+					{
 						for (size_t i=14-namelen;i>0;i--) WriteOut(" ");
 					}
-				} else {
-					WriteOut("%-8s %-3s   %-16s %02d-%02d-%04d %2d:%02d\n",name,ext,"<DIR>",day,month,year,hour,minute);
 				}
+				else
+				{					
+					if (optP && (cntLines == 0) && !optPCount)
+						WriteOut(MSG_Get("SHELL_CMD_PAUSE_CONTINUE"),path);/* Zeige "continuing path " an */
+
+					WriteOut("%-8s %-3s   %-16s %02d-%02d-%04d %2d:%02d\n",name,ext,"<DIR>",day,month,year,hour,minute);																							
+				}			 
 				dir_count++;
-			} else {
-				if (optW) {
+				
+			}
+			else
+			{
+				if (optP)
+					cntLines++;
+				
+				if ( (optL) || (optLN) )
+				{
+					int ntoL=0;
+					while (name[ntoL])
+					{			
+						if ( (optLN) && (ntoL==0) )
+						{
+							ntoL++;	
+							continue;
+						}
+						
+						name[ntoL]=tolower(name[ntoL]);
+						ntoL++;						
+					}
+					ntoL=0;
+					while (ext[ntoL])
+					{												
+						ext[ntoL]=tolower(ext[ntoL]);
+						ntoL++;						
+					}					
+				}
+				
+				if (optW)
+				{
 					WriteOut("%-16s",name);
-				} else {
+				}
+				else
+				{
 					FormatNumber(size,numformat);
-					WriteOut("%-8s %-3s   %16s %02d-%02d-%04d %2d:%02d\n",name,ext,numformat,day,month,year,hour,minute);
+					
+					if (optP && (cntLines == 0) && !optPCount)
+						WriteOut(MSG_Get("SHELL_CMD_PAUSE_CONTINUE"),path);/* Zeige "continuing path " an */
+								
+					WriteOut("%-8s %-3s   %16s %02d-%02d-%04d %2d:%02d\n",name,ext,numformat,day,month,year,hour,minute);																											
 				}
 				file_count++;
-				byte_count+=size;
+				byte_count+=size;					
+
 			}
 			if (optW) {
 				w_count++;
 			}
 		}
-		if (optP && !(++p_count%(22*w_size))) {
-			CMD_PAUSE(empty_string);
+				
+		if (optP && optPCount)
+		{
+			/* Erster Durchgang mit Option P zeige nur 18 Einträge */
+			if ( cntLines == 18 )								
+			{
+				WriteOut(MSG_Get("SHELL_CMD_PAUSE"));
+				Bit8u   c;
+				Bit16u  n = 1;
+				optPCount = false;
+				cntLines  = -1;					
+				DOS_ReadFile(STDIN,&c,&n);
+				if (c==3)
+				{
+					WriteOut("^C\r\n");
+					dos.dta(save_dta);
+					return;
+				}
+				if (c==0)
+					DOS_ReadFile(STDIN,&c,&n);		/*  Read extended key */
+			
+			}
+			
 		}
-	}
-	if (optW) {
+		else if (optP && !optPCount)			
+		{				
+	
+			/* Die Restliche Einträge, 1 Bildschirmseite 25 Einträge - 3 Zeilen (Oben/Unten + Warte Cursor) */			
+			if (!(++p_count%(22*w_size)))
+			{			
+				cntContinue = MaxFiles - p_count;						
+				WriteOut(MSG_Get("SHELL_CMD_PAUSE"));
+				Bit8u   c;
+				Bit16u  n = 1;		
+				DOS_ReadFile(STDIN,&c,&n);
+				
+				if (c==3)
+				{
+					WriteOut("^C\r\n");
+					dos.dta(save_dta);				
+					return;								
+				}		
+				if (c==0)
+					DOS_ReadFile(STDIN,&c,&n);		/*  Read extended key */						
+																		
+				
+				if ( cntContinue > 19 )
+					 WriteOut("\r\n");				/* Wie Original DOS 5.0 :)*/
+									
+				cntLines =-1;				
+			}						
+		}
+	}	
+	
+	if (optW)
+	{
 		if (w_count%5)	WriteOut("\n");
 	}
-	if (!optB) {
+	
+	if (!optB)
+	{
 		/* Show the summary of results */
-		FormatNumber(byte_count,numformat);
+		FormatNumber(byte_count,numformat);		
 		WriteOut(MSG_Get("SHELL_CMD_DIR_BYTES_USED"),file_count,numformat);
 		Bit8u drive=dta.GetSearchDrive();
 		//TODO Free Space
 		Bitu free_space=1024*1024*100;
-		if (Drives[drive]) {
+		
+		if (Drives[drive])
+		{
 			Bit16u bytes_sector;Bit8u sectors_cluster;Bit16u total_clusters;Bit16u free_clusters;
 			Drives[drive]->AllocationInfo(&bytes_sector,&sectors_cluster,&total_clusters,&free_clusters);
 			free_space=bytes_sector*sectors_cluster*free_clusters;
 		}
 		FormatNumber(free_space,numformat);
+		
+		/* dir_count 2 abgerechnet, [.] + [..] sind keine Verzeichnisse */
+		dir_count -= 2;
+		if ( dir_count == -2 )
+			 dir_count = 0;
+		 
 		WriteOut(MSG_Get("SHELL_CMD_DIR_BYTES_FREE"),dir_count,numformat);
 	}
 	dos.dta(save_dta);
@@ -1104,7 +1414,7 @@ void DOS_Shell::CMD_IF(char * args) {
 		do n = n * 10 + (*word - '0');
 		while (isdigit(*++word));
 		if(*word && !isspace(*word)) {
-			WriteOut("TEST");
+			//WriteOut("TEST");
 			WriteOut(MSG_Get("SHELL_CMD_IF_ERRORLEVEL_INVALID_NUMBER"));
 			return;
 		}
@@ -1542,7 +1852,144 @@ void DOS_Shell::CMD_CHOICE(char * args){
 
 void DOS_Shell::CMD_ATTRIB(char *args){
 	HELP("ATTRIB");
-	// No-Op for now.
+	StripSpaces(args);
+	RealPt save_dta = dos.dta();
+	dos.dta(dos.tables.tempdta);
+
+	char * rem=ScanCMDRemain(args);
+	if (rem)
+	{
+		WriteOut(MSG_Get("SHELL_ILLEGAL_SWITCH"),rem);
+		return;
+	}
+	
+	bool adda=false, adds=false, addh=false, addr=false, suba=false, subs=false, subh=false, subr=false;
+	char full[DOS_PATHLENGTH];
+	char* arg1;
+	strcpy(full, "*.*");
+	
+	do
+	{
+		arg1=StripArg(args);
+	
+		     if (!strcasecmp(arg1, "+A")) adda=true;
+		else if (!strcasecmp(arg1, "+S")) adds=true;
+		else if (!strcasecmp(arg1, "+H")) addh=true;
+		else if (!strcasecmp(arg1, "+R")) addr=true;
+		else if (!strcasecmp(arg1, "-A")) suba=true;
+		else if (!strcasecmp(arg1, "-S")) subs=true;
+		else if (!strcasecmp(arg1, "-H")) subh=true;
+		else if (!strcasecmp(arg1, "-R")) subr=true;
+		else if (*arg1) strcpy(full, strcmp(arg1, "*")?arg1:"*.*");
+	} while (*args);
+
+	char buffer[CROSS_LEN];
+	args = ExpandDot(full,buffer, CROSS_LEN);
+	StripSpaces(args);
+	
+	if (!DOS_Canonicalize(args,full))
+	{
+		WriteOut(MSG_Get("SHELL_ILLEGAL_PATH"));
+		return;
+	}
+		
+	bool res=DOS_FindFirst(full,0xffff & ~DOS_ATTR_VOLUME);
+	if (!res) {
+		WriteOut(MSG_Get("SHELL_CMD_FILE_NOT_FOUND"),full);
+		dos.dta(save_dta);
+		return;
+	}
+	
+	char * end = strrchr( full,'\\' ) +1; *end = 0;
+	char name[DOS_NAMELENGTH_ASCII];Bit32u size; Bit16u time,date; Bit8u attr; Bit16u fattr;
+	DOS_DTA dta(dos.dta());
+	Bitu p_count = 0;	
+	Bitu w_size  = 5;	
+	while (res)
+	{
+		dta.GetResult(name,size,date,time,attr);
+		if (!((!strcmp(name, ".") || !strcmp(name, "..")) && attr & DOS_ATTR_DIRECTORY)) {
+			strcpy(end,name);				
+			if (DOS_GetFileAttr(full, &fattr))
+			{
+				if (full && attr & DOS_ATTR_DIRECTORY){
+					WriteOut(MSG_Get("SHELL_CMD_ATTRIB_SET_DIRECTORY"),full);
+					
+				}else
+				{					
+					bool attra=fattr&DOS_ATTR_ARCHIVE, attrs=fattr&DOS_ATTR_SYSTEM, attrh=fattr&DOS_ATTR_HIDDEN, attrr=fattr&DOS_ATTR_READ_ONLY;
+					if (adda||adds||addh||addr||suba||subs||subh||subr)
+					{
+						if (adda)
+						{
+							fattr|=DOS_ATTR_ARCHIVE;
+						}
+						if (adds)
+						{
+							fattr|=DOS_ATTR_SYSTEM;
+						}
+						if (addh)
+						{
+							fattr|=DOS_ATTR_HIDDEN;
+						}
+						if (addr)
+						{
+							fattr|=DOS_ATTR_READ_ONLY;
+						}
+						if (suba)
+						{
+							fattr&=~DOS_ATTR_ARCHIVE;
+						}
+						if (subs)
+						{
+							fattr&=~DOS_ATTR_SYSTEM;
+						}
+						if (subh)
+						{
+							fattr&=~DOS_ATTR_HIDDEN;
+						}
+						if (subr)
+						{
+							fattr&=~DOS_ATTR_READ_ONLY;
+						}
+										
+						if (DOS_SetFileAttr(full, fattr))
+						{						
+							
+							if (DOS_GetFileAttr(full, &fattr))
+							{
+								WriteOut("  %c  %c%c%c	%s\n", fattr&DOS_ATTR_ARCHIVE?'A':' ', fattr&DOS_ATTR_SYSTEM?'S':' ', fattr&DOS_ATTR_HIDDEN?'H':' ', fattr&DOS_ATTR_READ_ONLY?'R':' ',full);
+							}
+						} else
+							WriteOut(MSG_Get("SHELL_CMD_ATTRIB_SET_ERROR"),full);
+					} else
+						WriteOut("  %c  %c%c%c	%s\n", attra?'A':' ', attrs?'S':' ', attrh?'H':' ', attrr?'R':' ', full);
+				}
+			} else
+				WriteOut(MSG_Get("SHELL_CMD_ATTRIB_GET_ERROR"),full);
+		}	
+		
+		if (!(++p_count%22))
+		{
+			WriteOut(MSG_Get("SHELL_CMD_PAUSE"));
+			Bit8u  c;
+			Bit16u n = 1;
+			DOS_ReadFile(STDIN,&c,&n);
+			if (c==3)
+			{
+				WriteOut("^C\r\n");
+				dos.dta(save_dta);
+				return;
+			}
+			if (c==0)
+			{
+				/* read extended key */
+				DOS_ReadFile(STDIN,&c,&n);
+			}			
+		}		
+		res=DOS_FindNext();
+	}
+	dos.dta(save_dta);
 }
 
 void DOS_Shell::CMD_PROMPT(char *args){
@@ -1981,5 +2428,5 @@ void DOS_Shell::CMD_ADDKEY(char * args){
    } else {
 	   GFX_CaptureMouse();
    }
-   WriteOut("Host Mouse Captured. (State = %s\n",(mouselocked==1)?"On) Press CTRL-F10 To Release":"Off)");
+   WriteOut("Host Mouse Captured. (State = %s\n\n",(mouselocked==1)?"On) Press CTRL-F10 To Release":"Off)");
 }

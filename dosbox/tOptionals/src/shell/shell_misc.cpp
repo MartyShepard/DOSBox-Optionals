@@ -278,10 +278,13 @@ void DOS_Shell::InputCommand(char * line) {
 		case 0x0a:				/* New Line not handled */
 			/* Don't care */
 			break;
-		case 0x0d:				/* Return */
-			outc('\r');		
-			outc('\n');
-			size=0;			//Kill the while loop
+			
+		case 0x0d:												/* Return */
+			{
+				outc('\r');		
+				outc('\n');
+				size = 0;										/* Kill the while loop */
+			}
 			break;
 		case'\t':
 			{

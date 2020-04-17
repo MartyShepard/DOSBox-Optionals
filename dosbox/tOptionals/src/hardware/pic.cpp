@@ -317,6 +317,57 @@ void PIC_DeActivateIRQ(Bitu irq) {
 	pic->lower_irq(t);
 }
 
+unsigned int PIC_IRQ_hax[16] = { PIC_irq_hack_none };
+
+void PIC_Set_IRQ_hack(int IRQ,unsigned int hack) {
+    if (IRQ < 0 || IRQ >= 16) return;
+    PIC_IRQ_hax[IRQ] = hack;
+}
+
+unsigned int PIC_parse_IRQ_hack_string(const char *str) {
+    unsigned int res = PIC_irq_hack_none;
+    std::string what;
+
+    while (*str != 0) {
+        while (*str == ' ') str++;
+        if (*str == 0) break;
+
+        what.clear();
+        while (*str != 0 && *str != ' ')
+            what += *str++;
+
+        while (*str == ' ') str++;
+
+        LOG_MSG("IRQ HACK: '%s'",what.c_str());
+
+        if (what == "none")
+            res  = PIC_irq_hack_none;
+        else if (what == "cs_equ_ds")
+            res |= PIC_irq_hack_cs_equ_ds;
+    }
+
+    return res;
+}
+
+static bool IRQ_hack_check_cs_equ_ds(const int IRQ) {
+    (void)IRQ;
+
+    uint16_t s_cs = SegValue(cs);
+    uint16_t s_ds = SegValue(ds);
+
+    if (s_cs >= 0xA000)
+        return true; // don't complain about the BIOS ISR
+
+    if (s_cs != s_ds) {
+#if 0
+        LOG(LOG_PIC,LOG_NORMAL)("Not dispatching IRQ %d according to IRQ hack. CS != DS",IRQ);
+#endif
+        return false;
+    }
+
+    return true;
+}
+
 static void slave_startIRQ(){
 	Bit8u pic1_irq = 8;
 	const Bit8u p = (slave.irr & slave.imrr)&slave.isrr;

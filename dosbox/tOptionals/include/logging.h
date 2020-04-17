@@ -60,26 +60,27 @@ void DEBUG_ShowMsg(char const* format,...) GCC_ATTRIBUTE(__format__(__printf__, 
 
 struct LOG
 {
-	LOG(LOG_TYPES , LOG_SEVERITIES )										{ }
-	void operator()(char const* )													{ }
-	void operator()(char const* , double )											{ }
-	void operator()(char const* , double , double )								{ }
-	void operator()(char const* , double , double , double )					{ }
-	void operator()(char const* , double , double , double , double )					{ }
+	LOG(LOG_TYPES , LOG_SEVERITIES )															{ }
+	void operator()(char const* )																{ }
+	void operator()(char const* , double )														{ }
+	void operator()(char const* , double , double )												{ }
+	void operator()(char const* , double , double , double )									{ }
+	void operator()(char const* , double , double , double , double )							{ }
 	void operator()(char const* , double , double , double , double , double )					{ }
-	void operator()(char const* , double , double , double , double , double , double )					{ }
-	void operator()(char const* , double , double , double , double , double , double , double)					{ }
+	void operator()(char const* , double , double , double , double , double , double )			{ }
+	void operator()(char const* , double , double , double , double , double , double , double)	{ }
 
 
 
 	void operator()(char const* , char const* )									{ }
-	void operator()(char const* , char const* , double )							{ }
+	void operator()(char const* , char const* , double )						{ }
 	void operator()(char const* , char const* , double ,double )				{ }
 	void operator()(char const* , double , char const* )						{ }
-	void operator()(char const* , double , double, char const* )						{ }
-	void operator()(char const* , char const*, char const*)				{ }
+	void operator()(char const* , double , double, char const* )				{ }
+	void operator()(char const* , char const*, char const*)						{ }
+	void operator()(char const* , char const*, char const*, double)				{ }	
 
-	void operator()(char const* , double , double , double , char const* )					{ }
+	void operator()(char const* , double , double , double , char const* )		{ }
 }; //add missing operators to here
 	//try to avoid anything smaller than bit32...
 void GFX_ShowMsg(char const* format,...) GCC_ATTRIBUTE(__format__(__printf__, 1, 2));

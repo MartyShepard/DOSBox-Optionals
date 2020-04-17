@@ -63,6 +63,7 @@ public:
 	virtual bool TestDir(char * dir);
 	virtual bool FindFirst(char * _dir,DOS_DTA & dta,bool fcb_findfirst=false);
 	virtual bool FindNext(DOS_DTA & dta);
+	virtual bool SetFileAttr(char * name,Bit16u attr);
 	virtual bool GetFileAttr(char * name,Bit16u * attr);
 	virtual bool Rename(char * oldname,char * newname);
 	virtual bool AllocationInfo(Bit16u * _bytes_sector,Bit8u * _sectors_cluster,Bit16u * _total_clusters,Bit16u * _free_clusters);
@@ -161,6 +162,7 @@ public:
 	virtual bool TestDir(char * dir);
 	virtual bool FindFirst(char * _dir,DOS_DTA & dta,bool fcb_findfirst=false);
 	virtual bool FindNext(DOS_DTA & dta);
+	virtual bool SetFileAttr(char * name,Bit16u attr);	
 	virtual bool GetFileAttr(char * name,Bit16u * attr);
 	virtual bool Rename(char * oldname,char * newname);
 	virtual bool AllocationInfo(Bit16u * _bytes_sector,Bit8u * _sectors_cluster,Bit16u * _total_clusters,Bit16u * _free_clusters);
@@ -334,6 +336,7 @@ public:
 	virtual bool TestDir(char *dir);
 	virtual bool FindFirst(char *_dir, DOS_DTA &dta, bool fcb_findfirst);
 	virtual bool FindNext(DOS_DTA &dta);
+	virtual bool SetFileAttr(char *name, Bit16u attr);
 	virtual bool GetFileAttr(char *name, Bit16u *attr);
 	virtual bool Rename(char * oldname,char * newname);
 	virtual bool AllocationInfo(Bit16u *bytes_sector, Bit8u *sectors_cluster, Bit16u *total_clusters, Bit16u *free_clusters);
@@ -398,6 +401,7 @@ public:
 	bool TestDir(char * dir);
 	bool FindFirst(char * _dir,DOS_DTA & dta,bool fcb_findfirst);
 	bool FindNext(DOS_DTA & dta);
+	bool SetFileAttr(char * name, Bit16u attr);
 	bool GetFileAttr(char * name,Bit16u * attr);
 	bool Rename(char * oldname,char * newname);
 	bool AllocationInfo(Bit16u * _bytes_sector,Bit8u * _sectors_cluster,Bit16u * _total_clusters,Bit16u * _free_clusters);

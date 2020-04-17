@@ -150,7 +150,7 @@ void DriveManager__NotifyShowLabel(DOS_Drive* Floppy, int Laufwerk, int Pos, int
 		{
 			strcpy(sDskNameA, "");					
 			if ( strlen( Drives[0]->GetInfo() ) != 0 ){
-				LOG_MSG(">>>>>>>>>>>> %s",Drives[0]->GetInfo() );
+				
 				if ( strlen( Drives[0]->GetLabel() ) == 0 ){
 					sprintf(sDskNameA, "%c:Blank",'A');
 					
