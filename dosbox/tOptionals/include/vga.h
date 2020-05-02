@@ -33,12 +33,25 @@ class PageHandler;
 
 
 enum VGAModes {
-	M_CGA2, M_CGA4,
-	M_EGA, M_VGA,
-	M_LIN4, M_LIN8, M_LIN15, M_LIN16, M_LIN24, M_LIN32,
+	M_CGA2,
+	M_CGA4,
+	M_EGA,
+	M_VGA,
+	M_LIN4,
+	M_LIN8,
+	M_LIN15,
+	M_LIN16,
+	M_LIN24,
+	M_LIN32,
 	M_TEXT,
-	M_HERC_GFX, M_HERC_TEXT,
-	M_CGA16, M_TANDY2, M_TANDY4, M_TANDY16, M_TANDY_TEXT,
+	M_HERC_GFX,
+	M_HERC_TEXT,
+	M_CGA16,
+	M_TANDY2,
+	M_TANDY4,
+	M_TANDY16,
+	M_TANDY_TEXT,
+	M_AMSTRAD,
 	M_ERROR
 };
 
@@ -226,6 +239,13 @@ typedef struct {
 } VGA_HERC;
 
 typedef struct {
+	Bit32u mask_plane;
+	Bit8u write_plane;
+	Bit8u read_plane;
+	Bit8u border_color;
+} VGA_AMSTRAD;
+
+typedef struct {
 	Bit8u index;
 	Bit8u htotal;
 	Bit8u hdend;
@@ -404,6 +424,7 @@ typedef struct {
 	VGA_SVGA svga;
 	VGA_HERC herc;
 	VGA_TANDY tandy;
+	VGA_AMSTRAD amstrad;
 	VGA_OTHER other;
 	VGA_Memory mem;
 	Bit32u vmemwrap; /* this is assumed to be power of 2 */

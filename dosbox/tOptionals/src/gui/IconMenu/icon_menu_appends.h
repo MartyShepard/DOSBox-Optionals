@@ -71,16 +71,23 @@
  */
  
 
-	HMENU hSubFllRes = CreatePopupMenu();
-	HMENU hSubWinRes = CreatePopupMenu();
-	HMENU hvoodooflt = CreatePopupMenu();
-	HMENU hfinternet = CreatePopupMenu();	
-	
-	
-	HMENU hSysMenu 	 = 
+	hSubFllRes = CreatePopupMenu();
+	hSubWinRes = CreatePopupMenu();
+	hvoodooflt = CreatePopupMenu();
+	hfinternet = CreatePopupMenu();
+	hcpucycles = CreatePopupMenu();	
+	hcputypes  = CreatePopupMenu();	
+	hcpucores  = CreatePopupMenu();	
+	hsbTypen   = CreatePopupMenu();
+	hsbOptionen= CreatePopupMenu();
+	hdbOptionen= CreatePopupMenu();
+	hgsTypen   = CreatePopupMenu();
+	hgsOptionen= CreatePopupMenu();	
+
+	hSysMenu   = 
 	
 	::GetSystemMenu(DosboxHwndIcon, FALSE);
-		
+	
 	::AppendMenu(hSysMenu	, MF_SEPARATOR			, 0, "");
 	
 	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_FULLSCREEN		, ("&FullScreen\tAlt+Enter"));
@@ -161,15 +168,148 @@
 		::AppendMenu(hSubFllRes	, MF_STRING			, ICNMNU_FUL7680X4320	, ("\t7680x4320"	));			
 
 	::AppendMenu(hSysMenu	, MF_SEPARATOR			, 0, "");
+	::AppendMenu(hSysMenu	, MF_STRING|MF_POPUP	,(UINT_PTR)hdbOptionen	, ("Resolution Fixes"));		
+		::AppendMenu(hdbOptionen, MF_STRING			, ICNMNU_320x240x8		, ("320x240x4 <-> 320x200x8"));	
+		::AppendMenu(hdbOptionen, MF_STRING			, ICNMNU_400x300x8		, ("400x300x8 <-> 320x480x8"));	
+		::AppendMenu(hdbOptionen, MF_STRING			, ICNMNU_640x480x16		, ("640x480x16 <-> 320x480x8"));
+		::AppendMenu(hdbOptionen, MF_SEPARATOR		, 0, "");		
+		::AppendMenu(hdbOptionen, MF_STRING			, ICNMNU_640x480x15		, ("Stretch 640x480x15"));
+		::AppendMenu(hdbOptionen, MF_SEPARATOR		, 0, "");		
+		::AppendMenu(hdbOptionen, MF_STRING			, ICNMNU_32BitModes		, ("Use 32Bit Modes"));	
 
-	::AppendMenu(hSysMenu	, MF_STRING|MF_POPUP	,(UINT_PTR)hvoodooflt	, ("Voodoo: Filter"));		
-		::AppendMenu(hvoodooflt	, MF_STRING			, ICNMNU_VD_FILT_NONE	, ("None"			));		
-		::AppendMenu(hvoodooflt	, MF_STRING			, ICNMNU_VD_FLT_POINT	, ("Point"			));		
-		::AppendMenu(hvoodooflt	, MF_STRING			, ICNMNU_VD_FLT_BILINEAR, ("Bilinear"		));			
-		::AppendMenu(hvoodooflt	, MF_STRING			, ICNMNU_VD_FLT_TRILINER, ("Trilinear"		));			
-		::AppendMenu(hvoodooflt	, MF_STRING			, ICNMNU_VD_FLT_ANISOTRC, ("Anisotropic"	));				
-		::AppendMenu(hvoodooflt	, MF_STRING			, ICNMNU_VD_FLT_TESTMODE, ("Debug Testmode"	));			
+	::AppendMenu(hSysMenu	, MF_SEPARATOR			, 0, "");
+	::AppendMenu(hSysMenu	, MF_STRING|MF_POPUP	,(UINT_PTR)hvoodooflt	, ("Voodoo: Options"	));		
+		::AppendMenu(hvoodooflt	, MF_STRING			, ICNMNU_VD_FILT_NONE	, ("Filter: None"		));		
+		::AppendMenu(hvoodooflt	, MF_STRING			, ICNMNU_VD_FLT_POINT	, ("Filter: Point"		));		
+		::AppendMenu(hvoodooflt	, MF_STRING			, ICNMNU_VD_FLT_BILINEAR, ("Filter: Bilinear"	));			
+		::AppendMenu(hvoodooflt	, MF_STRING			, ICNMNU_VD_FLT_TRILINER, ("Filter: Trilinear"	));			
+		::AppendMenu(hvoodooflt	, MF_STRING			, ICNMNU_VD_FLT_ANISOTRC, ("Filter: Anisotropic"));				
+		::AppendMenu(hvoodooflt	, MF_STRING			, ICNMNU_VD_FLT_TESTMODE, ("Filter: Testmode"	));
+		::AppendMenu(hvoodooflt	, MF_SEPARATOR			, 0, "");		
+		::AppendMenu(hvoodooflt	, MF_STRING			, ICNMNU_ScreenFixFrnt	, ("LFB Screen Fix (Front)"));	
+		::AppendMenu(hvoodooflt	, MF_STRING			, ICNMNU_ScreenFixBack	, ("LFB Screen Fix (Back)" ));		
+		::AppendMenu(hvoodooflt	, MF_STRING			, ICNMNU_LogRegisterNr	, ("LFB LOG Register Nr."  ));
+		::AppendMenu(hvoodooflt	, MF_SEPARATOR			, 0, "");			
+		::AppendMenu(hvoodooflt	, MF_STRING			, ICNMNU_QuadsDraw_use	, ("OpenGL QuadsDraw"	   ));	
+					
+	::AppendMenu(hSysMenu	, MF_SEPARATOR			, 0, "");
+	::AppendMenu(hSysMenu	, MF_STRING|MF_POPUP	,(UINT_PTR)hcpucores	, ("CPU: Cores"));		
+		::AppendMenu(hcpucores	, MF_STRING				,ICNMNU_CCORE_AUTO		, ("Automatic"));
+		::AppendMenu(hcpucores	, MF_SEPARATOR			, 0, "");
+		::AppendMenu(hcpucores	, MF_STRING				,ICNMNU_CCORE_SIMP		, ("Simple"));		
+		::AppendMenu(hcpucores	, MF_STRING				,ICNMNU_CCORE_NORM		, ("Normal"));
+		::AppendMenu(hcpucores	, MF_STRING				,ICNMNU_CCORE_DYNA		, ("Dynamic"));
 		
+	::AppendMenu(hSysMenu	, MF_STRING|MF_POPUP	,(UINT_PTR)hcputypes	, ("CPU: Types"));		
+		::AppendMenu(hcputypes	, MF_STRING				,ICNMNU_CTYPE_AUTO		, ("Automatic"));
+		::AppendMenu(hcputypes	, MF_SEPARATOR			, 0, "");
+		::AppendMenu(hcputypes	, MF_STRING				,ICNMNU_CTYPE_386	, ("386"));	
+		::AppendMenu(hcputypes	, MF_STRING				,ICNMNU_CTYPE_386P	, ("386 Prefetch"));
+		::AppendMenu(hcputypes	, MF_STRING				,ICNMNU_CTYPE_386S	, ("386 Slow"));
+		::AppendMenu(hcputypes	, MF_STRING				,ICNMNU_CTYPE_486S	, ("486 Slow"));
+		::AppendMenu(hcputypes	, MF_SEPARATOR			, 0, "");		
+		::AppendMenu(hcputypes	, MF_STRING				,ICNMNU_CTYPE_PENS	, ("Pentium"));
+		::AppendMenu(hcputypes	, MF_STRING				,ICNMNU_CTYPE_PPRS	, ("Pentium Pro"));		
+		
+	::AppendMenu(hSysMenu	, MF_STRING|MF_POPUP	,(UINT_PTR)hcpucycles	, ("CPU: Cycles"));		
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCAUTO		, ("Automatic"));	
+		::AppendMenu(hcpucycles	, MF_SEPARATOR			, 0, "");	
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCi8088_716	, ("8088 (7,16mhz)"));	
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCi8088_954	, ("8088 (9,54mhz)"));
+		::AppendMenu(hcpucycles	, MF_SEPARATOR			, 0, "");		
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCi286_10		, ("268    (10mhz)"));
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCi286_12		, ("268    (12mhz)"));
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCi286_16		, ("268    (16mhz)"));
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCi286_20		, ("268    (20mhz)"));
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCi286_25		, ("268    (25mhz)"));
+		::AppendMenu(hcpucycles	, MF_SEPARATOR			, 0, "");		
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCi386dx_25	, ("368DX  (25mhz)"));
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCi386dx_33	, ("368DX  (33mhz)"));
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCi386dx_40	, ("368DX  (40mhz)"));
+		::AppendMenu(hcpucycles	, MF_SEPARATOR			, 0, "");		
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCi486sx_25	, ("468SX  (25mhz)"));
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCi486dx_33	, ("468DX  (33mhz)"));
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCi486sx_33	, ("468SX  (33mhz)"));
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCi486sx_40	, ("468SX  (40mhz)"));
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCi486dx_50	, ("468DX  (50mhz)"));		
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCi486dx2_66	, ("468DX/2(66mhz)"));
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCi486sx2_80	, ("468DX/2(80mhz)"));
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCi486dx2_100	, ("468DX/2(100mhz)"));
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCi486dx4_100	, ("468DX/4(100mhz)"));
+		::AppendMenu(hcpucycles	, MF_SEPARATOR			, 0, "");		
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCp60			, ("Pentium(60mhz)"));
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCp75			, ("Pentium(75mhz)"));
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCp100		, ("Pentium(100mhz)"));	
+		::AppendMenu(hcpucycles	, MF_SEPARATOR			, 0, "");
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCMAX100		, ("Max"));			
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCMAX150		, ("Max 150%"));
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCMAX200		, ("Max 200%"));
+		::AppendMenu(hcpucycles	, MF_STRING				,ICNMNU_CCYCMAX250		, ("Max 250%"));
+		
+	::AppendMenu(hSysMenu	, MF_SEPARATOR			, 0, "");			
+	::AppendMenu(hSysMenu	, MF_STRING|MF_POPUP	,(UINT_PTR)hsbTypen			, ("SB Types"));		
+		::AppendMenu(hsbTypen	, MF_STRING				,ICNMNU_SBTYPE_SB1		, ("Type: SB1"));		
+		::AppendMenu(hsbTypen	, MF_STRING				,ICNMNU_SBTYPE_SB2		, ("Type: SB2"));
+		::AppendMenu(hsbTypen	, MF_SEPARATOR			, 0, "");		
+		::AppendMenu(hsbTypen	, MF_STRING				,ICNMNU_SBTYPE_PRO1		, ("Type: SBPro1"));
+		::AppendMenu(hsbTypen	, MF_STRING				,ICNMNU_SBTYPE_PRO2		, ("Type: SBPro2"));
+		::AppendMenu(hsbTypen	, MF_SEPARATOR			, 0, "");		
+		::AppendMenu(hsbTypen	, MF_STRING				,ICNMNU_SBTYPE_SB16		, ("Type: SB16"));
+		::AppendMenu(hsbTypen	, MF_STRING				,ICNMNU_SBTYPE_SB16V	, ("Type: SB16 VibraC"));
+		::AppendMenu(hsbTypen	, MF_SEPARATOR			, 0, "");		
+		::AppendMenu(hsbTypen	, MF_STRING				,ICNMNU_SBTYPE_GB		, ("Type: Gameblaster"));
+		::AppendMenu(hsbTypen	, MF_SEPARATOR			, 0, "");
+		::AppendMenu(hsbTypen	, MF_STRING				,ICNMNU_SBTYPE_ESS		, ("Type: ESS 688"));
+		::AppendMenu(hsbTypen	, MF_STRING				,ICNMNU_SBTYPE_S400		, ("Type: Reveal SC400"));
+		::AppendMenu(hsbTypen	, MF_SEPARATOR			, 0, "");		
+		::AppendMenu(hsbTypen	, MF_STRING				,ICNMNU_SBTYPE_NONE		, ("Type: None"));		
+
+	::AppendMenu(hSysMenu	, MF_STRING|MF_POPUP	,(UINT_PTR)hsbOptionen			, ("SB Options"));		
+		::AppendMenu(hsbOptionen, MF_STRING			,ICNMNU_SBMIXER			, ("SB Mixer"));	
+		::AppendMenu(hsbOptionen, MF_SEPARATOR		, 0, "");			
+		::AppendMenu(hsbOptionen, MF_STRING			,ICNMNU_EnableASP		, ("SB16 Advanced Chip"));
+		::AppendMenu(hsbOptionen, MF_STRING			,ICNMNU_StereoCTRL		, ("SBPro Stereo Control"));
+		::AppendMenu(hsbOptionen, MF_STRING			,ICNMNU_ProStereo		, ("SBPro Stereo (PreSet)"));		
+		::AppendMenu(hsbOptionen, MF_SEPARATOR		, 0, "");			
+		::AppendMenu(hsbOptionen, MF_STRING			,ICNMNU_GoldPlay		, ("Goldplay Emulation"));		
+		::AppendMenu(hsbOptionen, MF_STRING			,ICNMNU_GoldPlayF		, ("Goldplay Force"));			
+		::AppendMenu(hsbOptionen, MF_STRING			,ICNMNU_GoldPlayS		, ("Goldplay Stereo"));			
+		::AppendMenu(hsbOptionen, MF_SEPARATOR		, 0, "");			
+		::AppendMenu(hsbOptionen, MF_STRING			,ICNMNU_EnableSpeaker	, ("Enable Speaker (VM)"));	
+		::AppendMenu(hsbOptionen, MF_SEPARATOR		, 0, "");		
+		::AppendMenu(hsbOptionen, MF_STRING			,ICNMNU_DSPAInit		, ("Force DSP AutoInit"));
+		::AppendMenu(hsbOptionen, MF_STRING			,ICNMNU_DSPReturn7F		, ("DSP Return 7f/ff"));		
+		::AppendMenu(hsbOptionen, MF_STRING			,ICNMNU_IOPrtAlias		, ("IO Port Aliasing"));
+		::AppendMenu(hsbOptionen, MF_STRING			,ICNMNU_IDirectDAC		, ("Instant Direct DAC"));
+		::AppendMenu(hsbOptionen, MF_STRING			,ICNMNU_UnMaskIRQ		, ("PIC Umnask IRQ"));
+		::AppendMenu(hsbOptionen, MF_SEPARATOR		, 0, "");			
+		::AppendMenu(hsbOptionen, MF_STRING			,ICNMNU_SRLimits		, ("Sample Rate Limits"));		
+			
+	::AppendMenu(hSysMenu	, MF_STRING|MF_POPUP	,(UINT_PTR)hgsTypen		, ("GS Types"));
+		::AppendMenu(hgsTypen	, MF_STRING			,ICNMNU_GUS_ENBALE		, ("Enable Ultrasound"));
+		::AppendMenu(hgsTypen, MF_SEPARATOR			, 0, "");
+		::AppendMenu(hgsTypen	, MF_STRING			,ICNMNU_GUS_TYPECL		, ("Type: Classic (Pre)"));		
+		::AppendMenu(hgsTypen	, MF_STRING			,ICNMNU_GUS_TYPE37		, ("Type: Classic v3.74"));		
+		::AppendMenu(hgsTypen	, MF_STRING			,ICNMNU_GUS_TYPEMX		, ("Type: UltraSound MAX"));			
+		::AppendMenu(hgsTypen	, MF_STRING			,ICNMNU_GUS_TYPEIN		, ("Type: GUS Interweave"));
+		
+	::AppendMenu(hSysMenu	, MF_STRING|MF_POPUP	,(UINT_PTR)hgsOptionen	, ("GS Options"));
+		::AppendMenu(hgsOptionen, MF_STRING			,ICNMNU_GUS_AUTOAMP		, ("Automatic AMP"));
+		::AppendMenu(hgsOptionen, MF_SEPARATOR		, 0, "");		
+		::AppendMenu(hgsOptionen, MF_STRING			,ICNMNU_GUS_FDETECT		, ("Force Detect"));
+		::AppendMenu(hgsOptionen, MF_SEPARATOR		, 0, "");		
+		::AppendMenu(hgsOptionen, MF_STRING			,ICNMNU_GUS_R89SILT		, ("Mute Register 89"));
+		::AppendMenu(hgsOptionen, MF_STRING			,ICNMNU_GUS_MONOMIX		, ("Mono Mixed"));		
+		::AppendMenu(hgsOptionen, MF_SEPARATOR		, 0, "");		
+		::AppendMenu(hgsOptionen, MF_STRING			,ICNMNU_GUS_FIXRATE		, ("Fixed Render Rate"));		
+		::AppendMenu(hgsOptionen, MF_STRING			,ICNMNU_GUS_IRQFORC		, ("Force Master IRQ"));
+		::AppendMenu(hgsOptionen, MF_SEPARATOR		, 0, "");		
+		::AppendMenu(hgsOptionen, MF_STRING			,ICNMNU_GUS_IRQUNMS		, ("Unmask IRQ"));		
+		::AppendMenu(hgsOptionen, MF_STRING			,ICNMNU_GUS_IRQUNDM		, ("Unmask DMA"));		
+		::AppendMenu(hgsOptionen, MF_SEPARATOR		, 0, "");		
+		::AppendMenu(hgsOptionen, MF_STRING			,ICNMNU_GUS_POLLING		, ("DMA Control Polling"));
+		::AppendMenu(hgsOptionen, MF_STRING			,ICNMNU_GUS_CLEAIRQ		, ("DMA Clear Ter.Count"));
+				
 	::AppendMenu(hSysMenu	, MF_SEPARATOR			, 0, "");	 	
 	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_RESTART		, ("&Maschine: Restart\tCtrl+Alt+Home"));		
 	
@@ -180,5 +320,5 @@
 		::AppendMenu(hfinternet	, MF_STRING			, ICNMNU_WWWVOGONS		, ("Vogons Forum" 	 ));
 		::AppendMenu(hfinternet	, MF_STRING			, ICNMNU_WWWGITHUB		, ("DOSBox Optionals"));
 	::AppendMenu(hSysMenu	, MF_SEPARATOR			, 0, "");
-	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_ABOUTOPTLS		, ("&... About ..."));	
+	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_ABOUTOPTLS		, ("&... About ..."));
 	

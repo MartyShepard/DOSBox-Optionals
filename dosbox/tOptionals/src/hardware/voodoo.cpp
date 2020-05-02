@@ -33,6 +33,8 @@
 #include "pci_bus.h"
 #include "voodoo_interface.h"
 
+std::string nCurrent_Voodoo = "";
+
 class VOODOO;
 static VOODOO* voodoo_dev;
 
@@ -88,21 +90,39 @@ private:
 public:
 	VOODOO(Section* configuration):Module_base(configuration){
 		emulation_type=-1;
-
+		
 		Section_prop * section=static_cast<Section_prop *>(configuration);
+		
 		std::string voodoo_type_str(section->Get_string("voodoo"));
-		if (voodoo_type_str=="false") {
+		if (voodoo_type_str=="false")
+		{
+			
 			emulation_type=0;
-		} else if (voodoo_type_str=="software") {
+		}
+		
+		else if (voodoo_type_str=="software")
+		{
+			nCurrent_Voodoo = "3DFX (Software Mode)";
 			emulation_type=1;
-#if C_OPENGL
-		} else if ((voodoo_type_str=="opengl") || (voodoo_type_str=="auto")) {
+
+		}
+		
+		else if ((voodoo_type_str=="opengl") || (voodoo_type_str=="auto"))
+		{
+			nCurrent_Voodoo = "3dfx Voodoo Graphics (SST-1)";
 			emulation_type=2;
-#else
-		} else if (voodoo_type_str=="auto") {
+
+		}
+		
+		else if (voodoo_type_str=="auto")
+		{
+			nCurrent_Voodoo = "3DFX (Software Mode)";	
 			emulation_type=1;
-#endif
-		} else {
+
+		}
+		
+		else
+		{
 			emulation_type=0;
 		}
 

@@ -410,7 +410,7 @@ static void IncreaseHue(bool pressed) {
 		return;
 	hue_offset += 5.0;
 	update_cga16_color();
-	LOG_MSG("VGA OTHER: Hue at %f",hue_offset); 
+	LOG_MSG("CGA: HUE at %f",hue_offset); 
 }
 
 static void DecreaseHue(bool pressed) {
@@ -418,7 +418,7 @@ static void DecreaseHue(bool pressed) {
 		return;
 	hue_offset -= 5.0;
 	update_cga16_color();
-	LOG_MSG("VGA OTHER: Hue at %f",hue_offset); 
+	LOG_MSG("CGA: HUE at %f",hue_offset); 
 }
 
 static void write_cga_color_select(Bitu val) {
@@ -448,20 +448,29 @@ static void write_cga_color_select(Bitu val) {
 		vga.tandy.border_color = val & 0xf;
 		vga.attr.overscan_color = 0;
 		break;
+	case M_AMSTRAD: // Amstrad "palette". 0x3D
+		break;	
 	default:
-		LOG_MSG("VGA OTHER: Enumeration value(%u) not handled in switch " __FILE__ ":%d", vga.mode, __LINE__);
+		LOG_MSG("VGA OTHER: Enumeration VGA Mode Value ( %u/ %d /0x%x) Not Handled",vga.mode,vga.mode,vga.mode);
+		LOG_MSG("         * File: %s / Line: %d",__FILE__ ,__LINE__);
 		break;		
 	}
 }
 
 static void write_cga(Bitu port,Bitu val,Bitu /*iolen*/) {
-	switch (port) {
+	switch (port)
+	{
 	case 0x3d8:
 		vga.tandy.mode_control=(Bit8u)val;
 		vga.attr.disabled = (val&0x8)? 0: 1; 
 		if (vga.tandy.mode_control & 0x2) {		// graphics mode
+		
 			if (vga.tandy.mode_control & 0x10) {// highres mode
-				if (cga_comp==1 || ((cga_comp==0 && !(val&0x4)) && !mono_cga)) {	// composite display
+
+				if (machine == MCH_AMSTRAD) {
+					VGA_SetMode(M_AMSTRAD);			//Amstrad 640x200x16 video mode.
+				
+				} else if (cga_comp==1 || ((cga_comp==0 && !(val&0x4)) && !mono_cga)) {	// composite display
 					VGA_SetMode(M_CGA16);		// composite ntsc 640x200 16 color mode
 				} else {
 					VGA_SetMode(M_TANDY2);
@@ -482,6 +491,18 @@ static void write_cga(Bitu port,Bitu val,Bitu /*iolen*/) {
 		break;
 	case 0x3d9: // color select
 		write_cga_color_select(val);
+		if( machine==MCH_AMSTRAD ) {
+			vga.amstrad.mask_plane = ( val | ( val << 8 ) | ( val << 16 ) | ( val << 24 ) ) & 0x0F0F0F0F;
+		}
+		break;
+	case 0x3dd:
+		vga.amstrad.write_plane = val & 0x0F;
+		break;
+	case 0x3de:
+		vga.amstrad.read_plane = val & 0x03;
+		break;
+	case 0x3df:
+		vga.amstrad.border_color = val & 0x0F;		
 		break;
 	}
 }
@@ -490,7 +511,7 @@ static void CGAModel(bool pressed) {
 	if (!pressed) return;
 	new_cga = !new_cga;
 	update_cga16_color();
-	LOG_MSG("VGA OTHER: %s model CGA selected", new_cga ? "Late" : "Early");
+	LOG_MSG("CGA: %s Model CGA Selected", new_cga ? "Late" : "Early");
 }
  
 static void PCJr_FindMode(void);
@@ -498,7 +519,7 @@ static void PCJr_FindMode(void);
 static void Composite(bool pressed) {
 	if (!pressed) return;
 	if (++cga_comp>2) cga_comp=0;
-	LOG_MSG("VGA OTHER: Composite output: %s",(cga_comp==0)?"auto":((cga_comp==1)?"on":"off"));
+	LOG_MSG("CGA: Composite Output: %s",(cga_comp==0)?"auto":((cga_comp==1)?"on":"off"));
 	// switch RGB and Composite if in graphics mode
 	if (vga.tandy.mode_control & 0x2) {
 	  if (machine==MCH_PCJR)
@@ -980,7 +1001,7 @@ void VGA_SetupOther(void) {
 	vga.tandy.line_mask = 3;
 	vga.tandy.line_shift = 13;
 
-	if (machine==MCH_CGA || IS_TANDY_ARCH) {
+	if (machine==MCH_CGA || machine==MCH_AMSTRAD || IS_TANDY_ARCH) {
 		extern Bit8u int10_font_08[256 * 8];
 		for (i=0;i<256;i++)	memcpy(&vga.draw.font[i*32],&int10_font_08[i*8],8);
 		vga.draw.font_tables[0]=vga.draw.font_tables[1]=vga.draw.font;
@@ -996,9 +1017,23 @@ void VGA_SetupOther(void) {
 		MAPPER_AddHandler(HercBlend,MK_f11,MMOD2,"hercblend","Herc Blend");
 		MAPPER_AddHandler(CycleHercPal,MK_f11,0,"hercpal","Herc Pal");
 	}
-	if (machine==MCH_CGA) {
+	if (machine==MCH_CGA || machine==MCH_AMSTRAD) {
+		vga.amstrad.mask_plane = 0x07070707;
+		vga.amstrad.write_plane = 0x0F;
+		vga.amstrad.read_plane = 0x00;
+		vga.amstrad.border_color = 0x00;
+
 		IO_RegisterWriteHandler(0x3d8,write_cga,IO_MB);
 		IO_RegisterWriteHandler(0x3d9,write_cga,IO_MB);
+		
+
+		if( machine==MCH_AMSTRAD )
+		{
+			IO_RegisterWriteHandler(0x3dd,write_cga,IO_MB);
+			IO_RegisterWriteHandler(0x3de,write_cga,IO_MB);
+			IO_RegisterWriteHandler(0x3df,write_cga,IO_MB);
+		}
+		
 		if(!mono_cga) {
 			MAPPER_AddHandler(IncreaseHue,MK_f11,MMOD2,"inchue","Inc Hue");
 			MAPPER_AddHandler(DecreaseHue,MK_f11,0,"dechue","Dec Hue");
@@ -1017,6 +1052,15 @@ void VGA_SetupOther(void) {
 		IO_RegisterWriteHandler(0x3de,write_tandy,IO_MB);
 		IO_RegisterWriteHandler(0x3df,write_tandy,IO_MB);
 	}
+	if (machine==MCH_AMSTRAD) {
+		Bitu base=0x3d4;
+		IO_RegisterWriteHandler(base,write_crtc_index_other,IO_MB);
+		IO_RegisterWriteHandler(base+1,write_crtc_data_other,IO_MB);
+		IO_RegisterReadHandler(base,read_crtc_index_other,IO_MB);
+		IO_RegisterReadHandler(base+1,read_crtc_data_other,IO_MB);
+
+        // TODO: Does MCH_AMSTRAD need to emulate CGA mirroring of I/O ports?
+    }	
 	if (machine==MCH_PCJR) {
 		//write_pcjr will setup base address
 		write_pcjr( 0x3df, 0x7 | (0x7 << 3), 0 );
@@ -1053,5 +1097,6 @@ void VGA_SetupOther(void) {
 			IO_RegisterReadHandler(base+port_ct*2+1,read_crtc_data_other,IO_MB);
 		}
 	}
+	
 
 }

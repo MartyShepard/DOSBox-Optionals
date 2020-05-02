@@ -160,6 +160,10 @@ restart_opcode:
 		#include "core_normal/prefix_0f.h"
 		#include "core_normal/prefix_66.h"
 		#include "core_normal/prefix_66_0f.h"
+		if ( CPU_Support_MMX == true )
+		{
+			#include "core_normal/prefix_0f_mmx.h"
+		}		
 		default:
 		illegal_opcode:
 #if defined(C_DEBUG)	

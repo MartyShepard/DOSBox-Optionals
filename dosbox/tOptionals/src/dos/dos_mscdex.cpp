@@ -30,7 +30,7 @@
 
 #include "cdrom.h"
 
-#define MSCDEX_LOG LOG(LOG_MISC,LOG_ERROR)
+//#define MSCDEX_LOG LOG(LOG_MISC,LOG_ERROR)
 //#define MSCDEX_LOG
 
 #define MSCDEX_VERSION_HIGH	2
@@ -253,13 +253,13 @@ int CMscdex::AddDrive(Bit16u _drive, char* physicalPath, Bit8u& subUnit)
 	// Get Mounttype and init needed cdrom interface
 	switch (CDROM_GetMountType(physicalPath,forceCD)) {
 	case 0x01:	// iso cdrom interface	
-		LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: Mounting iso file as cdrom: %s", physicalPath);
+		LOG(LOG_MSCDEX,LOG_NORMAL)("MSCDEX: Mounting iso file as cdrom: %s", physicalPath);
 		cdrom[numDrives] = new CDROM_Interface_Image((Bit8u)numDrives);
 		break;
 	case 0x02:	// fake cdrom interface (directories)
 		cdrom[numDrives] = new CDROM_Interface_Fake;
-		LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: Mounting directory as cdrom: %s",physicalPath);
-		LOG(LOG_MISC,LOG_NORMAL)("MSCDEX: You wont have full MSCDEX support !");
+		LOG(LOG_MSCDEX,LOG_NORMAL)("MSCDEX: Mounting directory as cdrom: %s",physicalPath);
+		LOG(LOG_MSCDEX,LOG_NORMAL)("MSCDEX: You wont have full MSCDEX support !");
 		result = 5;
 		break;
 	default	:	// weird result
@@ -690,7 +690,7 @@ bool CMscdex::GetDirectoryEntry(Bit16u drive, bool copyFlag, PhysPt pathname, Ph
 			if (entrylen>0 && entryName[entrylen-1]=='.') entryName[entrylen-1] = 0;
 			
 			if (strcmp(entryName,useName)==0) {
-				//LOG(LOG_MISC,LOG_ERROR)("MSCDEX: Get DirEntry : Found : %s",useName);
+				LOG(LOG_MSCDEX,LOG_NORMAL)("MSCDEX: Get DirEntry : Found : %s",useName);
 				foundName = true;
 				break;
 			}
@@ -701,7 +701,7 @@ bool CMscdex::GetDirectoryEntry(Bit16u drive, bool copyFlag, PhysPt pathname, Ph
 		if (foundName) {
 			if (foundComplete) {
 				if (copyFlag) {
-					LOG(LOG_MISC,LOG_WARN)("MSCDEX: GetDirEntry: Copyflag structure not entirely accurate maybe");
+					LOG(LOG_MSCDEX,LOG_WARN)("MSCDEX: GetDirEntry: Copyflag structure not entirely accurate maybe");
 					Bit8u readBuf[256];
 					Bit8u writeBuf[256];
 					if (entryLength > 256)
@@ -878,7 +878,7 @@ bool GetMSCDEXDrive(unsigned char drive_letter,CDROM_Interface **_cdrom) {
 
 static Bit16u MSCDEX_IOCTL_Input(PhysPt buffer,Bit8u drive_unit) {
 	Bit8u ioctl_fct = mem_readb(buffer);
-	MSCDEX_LOG("MSCDEX: IOCTL INPUT Subfunction %02X",ioctl_fct);
+	LOG(LOG_MSCDEX,LOG_WARN)("MSCDEX: IOCTL INPUT Subfunction %02X",ioctl_fct);
 	switch (ioctl_fct) {
 		case 0x00 : /* Get Device Header address */
 					mem_writed(buffer+1,RealMake(mscdex->rootDriverHeaderSeg,0));
@@ -889,7 +889,7 @@ static Bit16u MSCDEX_IOCTL_Input(PhysPt buffer,Bit8u drive_unit) {
 					Bit8u addr_mode = mem_readb(buffer+1);
 					if (addr_mode==0) {			// HSG
 						Bit32u frames=MSF_TO_FRAMES(pos.min, pos.sec, pos.fr);
-						if (frames<150) MSCDEX_LOG("MSCDEX: Get position: invalid position %d:%d:%d", pos.min, pos.sec, pos.fr);
+						if (frames<150) LOG(LOG_MSCDEX,LOG_WARN)("MSCDEX: Get position: invalid position %d:%d:%d", pos.min, pos.sec, pos.fr);
 						else frames-=150;
 						mem_writed(buffer+2,frames);
 					} else if (addr_mode==1) {	// Red book
@@ -898,7 +898,7 @@ static Bit16u MSCDEX_IOCTL_Input(PhysPt buffer,Bit8u drive_unit) {
 						mem_writeb(buffer+4,pos.min);
 						mem_writeb(buffer+5,0x00);
 					} else {
-						MSCDEX_LOG("MSCDEX: Get position: invalid address mode %x",addr_mode);
+						LOG(LOG_MSCDEX,LOG_WARN)("MSCDEX: Get position: invalid address mode %x",addr_mode);
 						return 0x03;		// invalid function
 					}
 				   }break;
@@ -914,8 +914,12 @@ static Bit16u MSCDEX_IOCTL_Input(PhysPt buffer,Bit8u drive_unit) {
 					mem_writed(buffer+1,mscdex->GetDeviceStatus(drive_unit)); 
 					break;
 		case 0x07 : /* Get sector size */
-					if (mem_readb(buffer+1)==0) mem_writed(buffer+2,2048);
-					else if (mem_readb(buffer+1)==1) mem_writed(buffer+2,2352);
+					/*
+						if (mem_readb(buffer+1)==0) mem_writed(buffer+2,2048);
+						else if (mem_readb(buffer+1)==1) mem_writed(buffer+2,2352);
+					*/
+					if (mem_readb(buffer+1)==0) mem_writew(buffer+2,2048);
+					else if (mem_readb(buffer+1)==1) mem_writew(buffer+2,2352);					
 					else return 0x03;		// invalid function
 					break;
 		case 0x08 : /* Get size of current volume */
@@ -987,7 +991,7 @@ static Bit16u MSCDEX_IOCTL_Input(PhysPt buffer,Bit8u drive_unit) {
 					mem_writeb(buffer+10,0x00);
 					break;
 				   };
-		default :	LOG(LOG_MISC,LOG_ERROR)("MSCDEX: Unsupported IOCTL INPUT Subfunction %02X",ioctl_fct);
+		default :	LOG(LOG_MSCDEX,LOG_WARN)("MSCDEX: Unsupported IOCTL INPUT Subfunction %02X",ioctl_fct);
 					return 0x03;	// invalid function
 	}
 	return 0x00;	// success
@@ -995,7 +999,7 @@ static Bit16u MSCDEX_IOCTL_Input(PhysPt buffer,Bit8u drive_unit) {
 
 static Bit16u MSCDEX_IOCTL_Optput(PhysPt buffer,Bit8u drive_unit) {
 	Bit8u ioctl_fct = mem_readb(buffer);
-//	MSCDEX_LOG("MSCDEX: IOCTL OUTPUT Subfunction %02X",ioctl_fct);
+	LOG(LOG_MSCDEX,LOG_WARN)("MSCDEX: IOCTL OUTPUT Subfunction %02X",ioctl_fct);
 	switch (ioctl_fct) {
 		case 0x00 :	// Unload /eject media
 					if (!mscdex->LoadUnloadMedia(drive_unit,true)) return 0x02;
@@ -1012,13 +1016,13 @@ static Bit16u MSCDEX_IOCTL_Optput(PhysPt buffer,Bit8u drive_unit) {
 					// do nothing -> report as success
 					break;
 		case 0x02 : // Reset Drive
-					LOG(LOG_MISC,LOG_WARN)("cdromDrive reset");
+					LOG(LOG_MISC,LOG_NORMAL)("cdromDrive reset");
 					if (!mscdex->StopAudio(drive_unit))  return 0x02;
 					break;
 		case 0x05 :	// load media
 					if (!mscdex->LoadUnloadMedia(drive_unit,false)) return 0x02;
 					break;
-		default	:	LOG(LOG_MISC,LOG_ERROR)("MSCDEX: Unsupported IOCTL OUTPUT Subfunction %02X",ioctl_fct);
+		default	:	LOG(LOG_MSCDEX,LOG_WARN)("MSCDEX: Unsupported IOCTL OUTPUT Subfunction %02X",ioctl_fct);
 					return 0x03;	// invalid function
 	}
 	return 0x00;	// success
@@ -1026,13 +1030,13 @@ static Bit16u MSCDEX_IOCTL_Optput(PhysPt buffer,Bit8u drive_unit) {
 
 static Bitu MSCDEX_Strategy_Handler(void) {
 	curReqheaderPtr = PhysMake(SegValue(es),reg_bx);
-//	MSCDEX_LOG("MSCDEX: Device Strategy Routine called, request header at %x",curReqheaderPtr);
+	LOG(LOG_MSCDEX,LOG_WARN)("MSCDEX: Device Strategy Routine called, request header at %x",curReqheaderPtr);
 	return CBRET_NONE;
 }
 
 static Bitu MSCDEX_Interrupt_Handler(void) {
 	if (curReqheaderPtr==0) {
-		MSCDEX_LOG("MSCDEX: invalid call to interrupt handler");						
+		LOG(LOG_MSCDEX,LOG_WARN)("MSCDEX: invalid call to interrupt handler");						
 		return CBRET_NONE;
 	}
 	Bit8u	subUnit		= mem_readb(curReqheaderPtr+1);
@@ -1040,7 +1044,7 @@ static Bitu MSCDEX_Interrupt_Handler(void) {
 	Bit16u	errcode		= 0;
 	PhysPt	buffer		= 0;
 
-	MSCDEX_LOG("MSCDEX: Driver Function %02X",funcNr);
+	LOG(LOG_MSCDEX,LOG_WARN)("MSCDEX: Driver Function %02X",funcNr);
 
 	if ((funcNr==0x03) || (funcNr==0x0c) || (funcNr==0x80) || (funcNr==0x82)) {
 		buffer = PhysMake(mem_readw(curReqheaderPtr+0x10),mem_readw(curReqheaderPtr+0x0E));
@@ -1088,14 +1092,14 @@ static Bitu MSCDEX_Interrupt_Handler(void) {
 		case 0x88	:	/* Resume Audio */
 						mscdex->ResumeAudio(subUnit);
 						break;
-		default		:	LOG(LOG_MISC,LOG_ERROR)("MSCDEX: Unsupported Driver Request %02X",funcNr);
+		default		:	LOG(LOG_MSCDEX,LOG_WARN)("MSCDEX: Unsupported Driver Request %02X",funcNr);
 						break;
 	
 	};
 	
 	// Set Statusword
 	mem_writew(curReqheaderPtr+3,mscdex->GetStatusWord(subUnit,errcode));
-	MSCDEX_LOG("MSCDEX: Status : %04X",mem_readw(curReqheaderPtr+3));						
+	LOG(LOG_MSCDEX,LOG_WARN)("MSCDEX: Status : %04X",mem_readw(curReqheaderPtr+3));						
 	return CBRET_NONE;
 }
 
@@ -1111,7 +1115,7 @@ static bool MSCDEX_Handler(void) {
 			reg_al = 0xff;
 			return true;
 		} else {
-			LOG(LOG_MISC,LOG_ERROR)("NETWORK REDIRECTOR USED!!!");
+			LOG(LOG_MSCDEX,LOG_WARN)("NETWORK REDIRECTOR USED!!!");
 			reg_ax = 0x49;//NETWERK SOFTWARE NOT INSTALLED
 			CALLBACK_SCF(true);
 			return true;
@@ -1122,7 +1126,7 @@ static bool MSCDEX_Handler(void) {
 	if (mscdex->rootDriverHeaderSeg==0) return false;	// not handled if MSCDEX not installed
 
 	PhysPt data = PhysMake(SegValue(es),reg_bx);
-	MSCDEX_LOG("MSCDEX: INT 2F %04X BX= %04X CX=%04X",reg_ax,reg_bx,reg_cx);
+	LOG(LOG_MSCDEX,LOG_WARN)("MSCDEX: INT 2F %04X BX= %04X CX=%04X",reg_ax,reg_bx,reg_cx);
 	switch (reg_ax) {
 	
 		case 0x1500:	/* Install check */
@@ -1219,7 +1223,7 @@ static bool MSCDEX_Handler(void) {
 						}
 						return true;
 	};
-	LOG(LOG_MISC,LOG_ERROR)("MSCDEX: Unknown call : %04X",reg_ax);
+	LOG(LOG_MSCDEX,LOG_WARN)("MSCDEX: Unknown call : %04X",reg_ax);
 	return true;
 }
 
@@ -1228,7 +1232,7 @@ public:
 	device_MSCDEX() { SetName("MSCD001"); }
 	bool Read (Bit8u * /*data*/,Bit16u * /*size*/) { return false;}
 	bool Write(Bit8u * /*data*/,Bit16u * /*size*/) { 
-		LOG(LOG_ALL,LOG_NORMAL)("Write to mscdex device");	
+		LOG(LOG_MSCDEX,LOG_WARN)("Write to mscdex device");	
 		return false;
 	}
 	bool Seek(Bit32u * /*pos*/,Bit32u /*type*/){return false;}

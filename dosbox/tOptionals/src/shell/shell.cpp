@@ -351,31 +351,199 @@ void DOS_Shell::Run(void) {
 	}
 	/* Start a normal shell and check for a first command init */
 	if (cmd->FindString("/INIT",line,true)) {
-		WriteOut(MSG_Get("SHELL_STARTUP_BEGIN"),VERSION,DOSBOXREVISION);
-#if defined(C_DEBUG)
-		WriteOut(MSG_Get("SHELL_STARTUP_DEBUG"));
-#endif
-		if (machine == MCH_CGA) {
-			WriteOut(MSG_Get("SHELL_STARTUP_CGA"));
-			
-		} else if (machine == MCH_HERC) {
-			WriteOut(MSG_Get("SHELL_STARTUP_HERC"));
-			
-		} else if (machine == MCH_PCJR){
-			WriteOut(MSG_Get("SHELL_STARTUP_PCJR"));	
-			
-		} else if (machine  == MCH_TANDY      ||
-			 machine  == MCH_EGA	    ||
-			 svgaCard == SVGA_S3Trio    ||		
-			 svgaCard == SVGA_TsengET4K ||
-			 svgaCard == SVGA_TsengET3K ||
-			 svgaCard == SVGA_ParadisePVGA1A||			 
-			 svgaCard == SVGA_None) {
-			WriteOut(MSG_Get("SHELL_STARTUP_BEGIN_DEFAULT"));
-			WriteOut(MSG_Get("SHELL_STARTUP_END"));
-		}
-		WriteOut(MSG_Get("SHELL_STARTUP_END_DEFAULT"));
+		
+		bool intrused = false;
 
+		switch (machine)
+		{
+			
+			case MCH_CGA			:
+				{
+					if (mono_cga) 
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_CGA_MONO"),nCurrent_Memory,VERSION,DOSBOXREVISION);
+					else
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_CGA_COLR"),nCurrent_Memory,VERSION,DOSBOXREVISION);
+					
+					intrused = true;
+				}
+				break;
+				
+			case MCH_HERC			:
+				{
+					WriteOut(MSG_Get("SHELL_STARTUP_HERCULES"),nCurrent_Memory,VERSION,DOSBOXREVISION);			
+					intrused = true;					
+				}
+				break;
+				
+			case MCH_AMSTRAD		:
+				{
+					WriteOut(MSG_Get("SHELL_STARTUP_AMSTRAD"),nCurrent_Memory,VERSION,DOSBOXREVISION);
+					intrused = true;
+				}
+				break;
+				
+			case MCH_PCJR			:
+				{
+					WriteOut(MSG_Get("SHELL_STARTUP_MODE_PCJR"));
+					WriteOut(MSG_Get("SHELL_STARTUP_MODE_PCJR_COLOR_MEM"),nCurrent_Memory);
+					WriteOut(MSG_Get("SHELL_STARTUP_MODE_PCJR_COLOR"));
+					WriteOut(MSG_Get("SHELL_STARTUP_MODE_PCJR_COLOR"));
+					WriteOut(MSG_Get("SHELL_STARTUP_MODE_PCJR_COLOR"));				
+					
+					/*
+					WriteOut(MSG_Get("SHELL_STARTUP_BEGIN"),VERSION,DOSBOXREVISION);
+					#if defined(C_DEBUG)
+						WriteOut(MSG_Get("SHELL_STARTUP_DEBUG"));
+					#endif
+					WriteOut(MSG_Get("SHELL_STARTUP_PCJR"));
+					WriteOut(MSG_Get("SHELL_STARTUP_END_DEFAULT"));					
+					*/
+					intrused = true;
+				}
+				break;
+				
+			case MCH_TANDY			:
+				{
+					WriteOut(MSG_Get("SHELL_STARTUP_TANDY"),nCurrent_Memory,VERSION,DOSBOXREVISION);
+				
+					intrused = true;				
+				}
+				break;
+				
+			case MCH_EGA			:
+				{
+					WriteOut(MSG_Get("SHELL_STARTUP_MODE_EGA"),VERSION,DOSBOXREVISION,nCurrent_Memory);
+					
+					if ( strcmp (nCurrent_Ne2000.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_NE2K"),nCurrent_Ne2000.c_str());	
+					if ( strcmp (nCurrent_SBType.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_SNDB"),nCurrent_SBType.c_str());	
+					if ( strcmp (nCurrentGUSType.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_GUSC"),nCurrentGUSType.c_str());	
+					if ( strcmp (nCurrentInnovtn.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_SSI2"),nCurrentInnovtn.c_str());	
+					if ( strcmp (nCurrentSnTandy.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_TNDY"),nCurrentSnTandy.c_str());	
+					if ( strcmp (nCurrent_Disney.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_COVX"),nCurrent_Disney.c_str());	
+					if ( strcmp (nCurrent_Ps1SND.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_PS1A"),nCurrent_Ps1SND.c_str());	
+					
+					WriteOut(MSG_Get("SHELL_STARTUP_MODE_BEG"));
+					
+					intrused = true;					
+				}
+				break;
+		}
+		
+		if (intrused == false )
+		{
+			switch (svgaCard)
+			{
+					
+				case SVGA_S3Trio		:
+					{
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_SVGA_S3TRIO"),VERSION,DOSBOXREVISION,nCurrent_VidSize_S3Trio);						
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_VESA"),nCurrentVBEMode.c_str());	
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_SIZE"),nCurrent_Memory);
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_CPUT"),nCurrentCPUType.c_str(), nCurrentCPUCore.c_str());
+	
+						if ( strcmp (nCurrent_Ne2000.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_NE2K"),nCurrent_Ne2000.c_str());	
+						if ( strcmp (nCurrent_Voodoo.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_3DFX"),nCurrent_Voodoo.c_str());	
+						if ( strcmp (nCurrent_SBType.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_SNDB"),nCurrent_SBType.c_str());	
+						if ( strcmp (nCurrentGUSType.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_GUSC"),nCurrentGUSType.c_str());	
+						if ( strcmp (nCurrentInnovtn.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_SSI2"),nCurrentInnovtn.c_str());	
+						if ( strcmp (nCurrentSnTandy.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_TNDY"),nCurrentSnTandy.c_str());	
+						if ( strcmp (nCurrent_Disney.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_COVX"),nCurrent_Disney.c_str());	
+						if ( strcmp (nCurrent_Ps1SND.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_PS1A"),nCurrent_Ps1SND.c_str());	
+						
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_BEG"));
+						
+						intrused = true;								
+					}
+					break;
+					
+				case SVGA_TsengET4K		:
+					{
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_SVGA_TSENG4K"),VERSION,DOSBOXREVISION,nCurrent_VidSize_S3ET4K);						
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_VESA"),nCurrentVBEMode.c_str());	
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_SIZE"),nCurrent_Memory);
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_CPUT"),nCurrentCPUType.c_str(), nCurrentCPUCore.c_str());
+	
+						if ( strcmp (nCurrent_Ne2000.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_NE2K"),nCurrent_Ne2000.c_str());	
+						if ( strcmp (nCurrent_Voodoo.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_3DFX"),nCurrent_Voodoo.c_str());	
+						if ( strcmp (nCurrent_SBType.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_SNDB"),nCurrent_SBType.c_str());	
+						if ( strcmp (nCurrentGUSType.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_GUSC"),nCurrentGUSType.c_str());	
+						if ( strcmp (nCurrentInnovtn.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_SSI2"),nCurrentInnovtn.c_str());	
+						if ( strcmp (nCurrentSnTandy.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_TNDY"),nCurrentSnTandy.c_str());	
+						if ( strcmp (nCurrent_Disney.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_COVX"),nCurrent_Disney.c_str());	
+						if ( strcmp (nCurrent_Ps1SND.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_PS1A"),nCurrent_Ps1SND.c_str());	
+						
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_BEG"));
+						
+						intrused = true;								
+					}
+					break;
+					
+				case SVGA_TsengET3K		:
+					{
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_SVGA_TSENG3K"),VERSION,DOSBOXREVISION,nCurrent_VidSize_S3ET3K);						
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_VESA"),nCurrentVBEMode.c_str());	
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_SIZE"),nCurrent_Memory);
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_CPUT"),nCurrentCPUType.c_str(), nCurrentCPUCore.c_str());
+	
+						if ( strcmp (nCurrent_Ne2000.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_NE2K"),nCurrent_Ne2000.c_str());	
+						if ( strcmp (nCurrent_Voodoo.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_3DFX"),nCurrent_Voodoo.c_str());	
+						if ( strcmp (nCurrent_SBType.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_SNDB"),nCurrent_SBType.c_str());	
+						if ( strcmp (nCurrentGUSType.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_GUSC"),nCurrentGUSType.c_str());	
+						if ( strcmp (nCurrentInnovtn.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_SSI2"),nCurrentInnovtn.c_str());	
+						if ( strcmp (nCurrentSnTandy.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_TNDY"),nCurrentSnTandy.c_str());	
+						if ( strcmp (nCurrent_Disney.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_COVX"),nCurrent_Disney.c_str());	
+						if ( strcmp (nCurrent_Ps1SND.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_PS1A"),nCurrent_Ps1SND.c_str());	
+						
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_BEG"));
+						
+						intrused = true;								
+					}
+					break;
+					
+				case SVGA_ParadisePVGA1A:
+					{
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_SVGA_PVGA1A"),VERSION,DOSBOXREVISION,nCurrent_VidSize_PVGA1A);						
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_VESA"),nCurrentVBEMode.c_str());	
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_SIZE"),nCurrent_Memory);
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_CPUT"),nCurrentCPUType.c_str(), nCurrentCPUCore.c_str());
+	
+						if ( strcmp (nCurrent_Ne2000.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_NE2K"),nCurrent_Ne2000.c_str());	
+						if ( strcmp (nCurrent_Voodoo.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_3DFX"),nCurrent_Voodoo.c_str());	
+						if ( strcmp (nCurrent_SBType.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_SNDB"),nCurrent_SBType.c_str());	
+						if ( strcmp (nCurrentGUSType.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_GUSC"),nCurrentGUSType.c_str());	
+						if ( strcmp (nCurrentInnovtn.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_SSI2"),nCurrentInnovtn.c_str());	
+						if ( strcmp (nCurrentSnTandy.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_TNDY"),nCurrentSnTandy.c_str());	
+						if ( strcmp (nCurrent_Disney.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_COVX"),nCurrent_Disney.c_str());	
+						if ( strcmp (nCurrent_Ps1SND.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_PS1A"),nCurrent_Ps1SND.c_str());	
+						
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_BEG"));
+						
+						intrused = true;								
+					}
+					break;
+					
+				case SVGA_None			:
+					{
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_VGA"),VERSION,DOSBOXREVISION,nCurrent_Memory);						
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_VESA"),nCurrentVBEMode.c_str());	
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_CPUT"),nCurrentCPUType.c_str(), nCurrentCPUCore.c_str());
+						
+						if ( strcmp (nCurrent_Ne2000.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_NE2K"),nCurrent_Ne2000.c_str());	
+						if ( strcmp (nCurrent_SBType.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_SNDB"),nCurrent_SBType.c_str());	
+						if ( strcmp (nCurrentGUSType.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_GUSC"),nCurrentGUSType.c_str());	
+						if ( strcmp (nCurrentInnovtn.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_SSI2"),nCurrentInnovtn.c_str());	
+						if ( strcmp (nCurrentSnTandy.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_TNDY"),nCurrentSnTandy.c_str());	
+						if ( strcmp (nCurrent_Disney.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_COVX"),nCurrent_Disney.c_str());	
+						if ( strcmp (nCurrent_Ps1SND.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_PS1A"),nCurrent_Ps1SND.c_str());	
+						
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_BEG"));
+						
+						intrused = true;								
+					}
+					break;				
+			}	
+		}
+		
 		strcpy(input_line,line.c_str());
 		line.erase();
 		ParseLine(input_line);
@@ -662,6 +830,215 @@ void SHELL_Init() {
 	MSG_Add("SHELL_CMD_SUBST_NO_REMOVE","Unable to remove, drive not in use.\n");
 	MSG_Add("SHELL_CMD_SUBST_FAILURE","SUBST failed. You either made an error in your commandline or the target drive is already used.\nIt's only possible to use SUBST on Local drives\n");
 
+	MSG_Add("SHELL_STARTUP_AMSTRAD",
+		"\n"
+		"\n"
+		"\tAmstrad %dMB Microcomputer Mode in DOSBox %s %s\n"
+		"\n"
+		"\t1984/85 Amstrad Consumer Elektronics plc\n"
+		"\t            and Locomotive Software Ltd.\n"
+		"\n"
+		"\n"
+		"\n"				
+	);
+	
+	MSG_Add("SHELL_STARTUP_HERCULES",
+		"\n"
+		"\n\033[44;1m"
+		"\tHercules with %dmb Maschine Memory, DOSBox %s %s\n"
+		"\n"
+		"\t1982-1987 Hercules Computer Technology, Inc\n\n"
+		"\t\t\033[31;1mF12\033[0m\t: Set Composite Output ON, OFF, or AUTO (default).\n" 
+		"\t\t\033[31;1mALT+F11\033[0m\t: Toggle Horizontal Blending (Graphics mode).\n"
+		"\n"
+		"\tReady..."
+		"\n"
+		"\n"
+		"\n"		
+	);
+	
+	MSG_Add("SHELL_STARTUP_MODE_CGA_MONO",
+		"\n"
+		"\n"
+		"\tMonocrome CGA with %dmb Maschine Memory, DOSBox %s %s\n"
+		"\n"
+		"\t1981 IBM PC Color/Graphics Monitor Adapter\n\n"
+		"\t\033[31;1m\033[44;1m(ALT-)F11    \033[0m: Change Contrast & Brightness.\n"		
+		"\t\033[31;1m\033[44;1mF11          \033[0m: Cycle Modes (Green, Amber, White & PaperWhite).\n" 
+		"\n"
+		"\tReady..."
+		"\n"
+		"\n"
+		"\n"		
+	);	
+	
+	MSG_Add("SHELL_STARTUP_MODE_CGA_COLR",
+		"\n"
+		"\n"
+		"\tColor CGA with %dmb Maschine Memory, DOSBox %s %s\n"
+		"\n"
+		"\t1981 The IBM Personal Computer Basic Color/Graphics Monitor Adapter\n\n"
+		"\t\033[31;1m\033[41;1mF12         \033[0m: Set Composite Output ON, OFF, or AUTO (default).\n" 
+		"\t\033[31;1m\033[41;1m(ALT-)F11   \033[0m: Changes HUE.\n"
+		"\t\033[31;1m\033[41;1mCTRL-ALT-F11\033[0m: Selects Early/Late CGA Model.\n"
+		"\n"
+		"\tReady..."
+		"\n"
+		"\n"
+		"\n"		
+	);	
+	
+	MSG_Add("SHELL_STARTUP_TANDY",
+		"\n"
+		"\n"
+		"\tTandy with %dMB, Virtual Mode in DOSBox %s %s\n"
+		"\n"
+		"\t1984-1993 Tandy Corporation\n"
+		"\t          IBM PC Compatible Home Computer.\n"
+		"\n"
+		"\n"
+		"\n"				
+	);	
+		
+	MSG_Add("SHELL_STARTUP_MODE_PCJR",
+		" \033[44;1m\t\t\t\t\t\t\t\t\t       \033[0m\n"
+		" \033[44;1m  \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF  \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF      \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF                  \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF  \033[0m\n"
+		" \033[44;1m  \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF  \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF    \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF              \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF  \033[0m\n"		
+		" \033[44;1m  \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF  \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF  \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF          \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF  \033[0m\n"
+		" \033[44;1m      \xDF\xDF\xDF\xDF\xDF\xDF          \xDF\xDF\xDF\xDF\xDF\xDF       \xDF\xDF\xDF\xDF\xDF       \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF      \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF      \033[0m\n"
+		" \033[44;1m      \xDF\xDF\xDF\xDF\xDF\xDF          \xDF\xDF\xDF\xDF\xDF\xDF       \xDF\xDF\xDF\xDF\xDF       \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF  \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF      \033[0m\n"
+		" \033[44;1m      \xDF\xDF\xDF\xDF\xDF\xDF          \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF         \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF      \033[0m\n"
+		" \033[44;1m      \xDF\xDF\xDF\xDF\xDF\xDF          \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF           \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF      \033[0m\n"
+		" \033[44;1m      \xDF\xDF\xDF\xDF\xDF\xDF          \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF         \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF      \033[0m\n"
+		" \033[44;1m      \xDF\xDF\xDF\xDF\xDF\xDF          \xDF\xDF\xDF\xDF\xDF\xDF       \xDF\xDF\xDF\xDF\xDF       \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF      \033[0m\n"
+		" \033[44;1m      \xDF\xDF\xDF\xDF\xDF\xDF          \xDF\xDF\xDF\xDF\xDF\xDF       \xDF\xDF\xDF\xDF\xDF       \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF      \033[0m\n"
+		" \033[44;1m  \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF  \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF  \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF     \xDF\xDF\xDF\xDF     \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF  \033[0m\n"
+		" \033[44;1m  \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF  \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF    \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF      \xDF\xDF      \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF  \033[0m\n"
+		" \033[44;1m  \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF  \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF      \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF              \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF  \033[0m\n"
+		" \033[44;1m\t\t\t\t\t\t\t\t\t       \033[0m\n"
+		" \033[44;1m  \033[31mF12\033[37m: Set Composite Output ON, OFF, or AUTO.  \033[31mAlt-F11\033[37m: Changes HUE.          \033[0m\n"
+		" \033[44;1m\t\t\t\t\t\t\t\t\t       \033[0m\n"		
+		"\n"
+		"\n"
+	);
+	MSG_Add("SHELL_STARTUP_MODE_PCJR_COLOR_MEM",		
+		"   "
+		"\033[44m    \033[0m"
+		"\033[42m    \033[0m"
+		"\033[46m    \033[0m"
+		"\033[41m    \033[0m"
+		"\033[45m    \033[0m"
+		"\033[43m    \033[0m"
+		"\033[47m    \033[0m"
+		"\033[48;5;40m    \033[0m"
+		"\033[48;5;44m    \033[0m"
+		"\033[48;5;42m    \033[0m"
+		"\033[48;5;46m    \033[0m"
+		"\033[48;5;41m    \033[0m"
+		"\033[48;5;45m    \033[0m"
+		"\033[48;5;43m    \033[0m"
+		"\033[48;5;47m    \033[0m    %dmb Memory\n"
+	);
+	
+	MSG_Add("SHELL_STARTUP_MODE_PCJR_COLOR",		
+		"   "
+		"\033[44m    \033[0m"
+		"\033[42m    \033[0m"
+		"\033[46m    \033[0m"
+		"\033[41m    \033[0m"
+		"\033[45m    \033[0m"
+		"\033[43m    \033[0m"
+		"\033[47m    \033[0m"
+		"\033[48;5;40m    \033[0m"
+		"\033[48;5;44m    \033[0m"
+		"\033[48;5;42m    \033[0m"
+		"\033[48;5;46m    \033[0m"
+		"\033[48;5;41m    \033[0m"
+		"\033[48;5;45m    \033[0m"
+		"\033[48;5;43m    \033[0m"
+		"\033[48;5;47m    \033[0m\n"
+	);
+		
+		/*
+
+		Color Table:
+			Color	| Forground	| Background
+			Black	| \033[30m 	| \033[40;1m (Alt \033[0m)			
+			Red		| \033[31m	| \033[41;1m
+			Green	| \033[32m	| \033[42;1m	
+			Yellow	| \033[33m	| \033[43;1m
+			Blue	| \033[34m	| \033[44;1m
+			Magenta | \033[35m	| \033[45;1m
+			Cyan	| \033[36m	| \033[46;1m
+			White	| \033[37m	| \033[47;1m	
+		*/
+		
+	MSG_Add("SHELL_STARTUP_MODE_EGA",
+		"\n"
+		"\tDOSBox %s %s Virtual Maschine with %dmb Memory\n"
+		"\n"
+		"\t1984 IBM Enhanced Graphics Adapter (EGA)\n"		
+	);
+	
+	MSG_Add("SHELL_STARTUP_MODE_VGA",
+		"\n"
+		"\tDOSBox %s %s Virtual Maschine with %dmb Memory\n"
+		"\n"
+		"\t1987 IBM Video Graphics Array (VGA)\n"		
+	);
+	
+	MSG_Add("SHELL_STARTUP_MODE_SVGA_S3TRIO",
+		"\n"
+		"\tDOSBox %s %s Virtual Maschine\n"
+		"\n"
+		"\t1995 S3 Inc. Trio64 86C764 (%dkb Video Memory)\n"		
+	);
+	
+	MSG_Add("SHELL_STARTUP_MODE_SVGA_TSENG4K",
+		"\n"
+		"\tDOSBox %s %s Virtual Maschine\n"
+		"\n"
+		"\t1990 Tseng Laboratories Inc. ET4000 (%dkb Video Memory)\n"		
+	);	
+	
+	MSG_Add("SHELL_STARTUP_MODE_SVGA_TSENG3K",
+		"\n"
+		"\tDOSBox %s %s Virtual Maschine\n"
+		"\n"
+		"\t1987 Tseng Laboratories Inc. ET3000 (%dkb Video Memory)\n"		
+	);	
+	
+	MSG_Add("SHELL_STARTUP_MODE_SVGA_PVGA1A",
+		"\n"
+		"\tDOSBox %s %s Virtual Maschine\n"
+		"\n"
+		"\t1988 (Western Digital) Paradise Systems PVGA1A (%dkb Video Memory)\n"		
+	);	
+	
+	MSG_Add("SHELL_STARTUP_MODE_VESA", "\t%s\n");
+	MSG_Add("SHELL_STARTUP_MODE_CPUT", "\tCPU : %s (Emulations Core: %s)\n");
+	MSG_Add("SHELL_STARTUP_MODE_SIZE", "\tTotal Memory: %dMB\n");	
+	MSG_Add("SHELL_STARTUP_MODE_SNDB", "\t\tPnP found... %s\n");	
+	MSG_Add("SHELL_STARTUP_MODE_GUSC", "\t\tPnP found... %s\n");
+	MSG_Add("SHELL_STARTUP_MODE_SSI2", "\t\tPnP found... %s\n");
+	MSG_Add("SHELL_STARTUP_MODE_TNDY", "\t\tPnP found... %s\n");
+	MSG_Add("SHELL_STARTUP_MODE_COVX", "\t\tPnP found... %s\n");
+	MSG_Add("SHELL_STARTUP_MODE_PS1A", "\t\tPnP found... %s\n");
+	MSG_Add("SHELL_STARTUP_MODE_NE2K", "\t\tPnP found... %s\n");
+	MSG_Add("SHELL_STARTUP_MODE_3DFX", "\t\tPnP found... %s\n");	
+	
+	
+	MSG_Add("SHELL_STARTUP_MODE_BEG",
+		"\t\xC9\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xBB\n"
+		"\t\xBA\033[44;1m For a short introduction for new users type:\t\033[33mINTRO\033[37m          \033[0m\xBA\n"
+		"\t\xBA\033[44;1m For supported list of shell commands type  :\t\033[33mHELP \033[37m          \033[0m\xBA\n"
+		"\t\xBA\033[44;1m To adjust the emulated CPU speed, use \033[31mCtrl-F11\033[37m and \033[31mCtrl-F12\033[37m. \033[0m\xBA\n"
+		"\t\xBA\033[44;1m To activate the Keymapper \033[31mCtrl-F1\033[37m.                           \033[0m\xBA\n"
+		"\t\xBA\033[44;1m For more information read the \033[36mREADME\033[37m file in the directoy.   \033[0m\xBA\n"
+		"\t\xC8\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xBC\n"
+		
+	);	
+	
 	MSG_Add("SHELL_STARTUP_BEGIN",
 		"\033[44;1m\xC9\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD"
 		"\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD"

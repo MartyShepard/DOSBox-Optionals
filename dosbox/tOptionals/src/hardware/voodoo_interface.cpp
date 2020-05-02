@@ -52,7 +52,8 @@ void Voodoo_PageHandler::writeb(PhysPt addr,Bitu val) {
 Bitu Voodoo_PageHandler::readw(PhysPt addr) {
 	addr = PAGING_GetPhysicalAddress(addr);
     if (addr&1) {
-        LOG_MSG("VOODOO: voodoo readw unaligned");
+        LOG(LOG_VOODOO,LOG_WARN)("Voodoo ReadW Unaligned");
+		LOG(LOG_VOODOO,LOG_WARN)("Voodoo: File %s, Line %d\n\n",__FILE__,__LINE__);	
         return (Bitu)-1;
     }
 	
@@ -67,7 +68,8 @@ Bitu Voodoo_PageHandler::readw(PhysPt addr) {
 void Voodoo_PageHandler::writew(PhysPt addr,Bitu val) {
 	addr = PAGING_GetPhysicalAddress(addr);
 	if (addr&1) {
-        LOG_MSG("VOODOO: voodoo writew unaligned");
+        LOG(LOG_VOODOO,LOG_WARN)("Voodoo WriteW Unaligned");
+		LOG(LOG_VOODOO,LOG_WARN)("Voodoo: File %s, Line %d\n\n",__FILE__,__LINE__);		
         return;
     }
 	
@@ -221,18 +223,21 @@ static void Voodoo_UpdateScreen(void) {
 		//vdraw.width=v->fbi.width;
 		voodoo_activate();
 		
-		// LOG_MSG("VOODOO: Interface, Activate:\n"
-				// "  Width : %d\n"
-				// "  Height: %d\n"
-				// "  Freq  : %d\n",v->fbi.width, v->fbi.height,vdraw.vfreq);
-					
+		/*
+		LOG(LOG_VOODOO,LOG_WARN)("Voodoo_UpdateScreen Interface, Activate:\n"
+				"  Width : %d\n"
+				"  Height: %d\n"
+				"  Freq  : %d\n",v->fbi.width, v->fbi.height,vdraw.vfreq);
+		*/		
 		if (v->ogl) {
 			v->ogl_dimchange = false;
 		} else {
-			// LOG_MSG("VOODOO: Interface, RENDER SetSize:\n"
-					// "        Width : %d\n"
-					// "        Height: %d\n"
-					// "		 Freq  : %d\n",v->fbi.width, v->fbi.height,vdraw.vfreq);
+		/*	
+		LOG(LOG_VOODOO,LOG_WARN)("Voodoo_UpdateScreen Interface, RENDER SetSize:\n"
+					"        Width : %d\n"
+					"        Height: %d\n"
+					"		 Freq  : %d\n",v->fbi.width, v->fbi.height,vdraw.vfreq);
+		*/
 			RENDER_SetSize(v->fbi.width, v->fbi.height, 16, vdraw.vfreq, 4.0/3.0, false, false);
 		}
 		Voodoo_VerticalTimer(0);

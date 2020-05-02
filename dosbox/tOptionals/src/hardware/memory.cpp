@@ -34,6 +34,7 @@
 #define LFB_PAGES	512
 #define MAX_LINKS	((MAX_MEMORY*1024/4)+4096)		//Hopefully enough
 
+int nCurrent_Memory;
 struct LinkBlock {
 	Bitu used;
 	Bit32u pages[MAX_LINKS];
@@ -86,7 +87,7 @@ public:
 		static Bits lcount=0;
 		if (lcount<100) {
 			lcount++;
-			LOG(LOG_CPU,LOG_ERROR)("MEM: Illegal read from %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
+			LOG(LOG_CPU,LOG_NORMAL)("MEM: Illegal read from %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
 		}		
 #else
 		static Bits lcount=0;
@@ -102,7 +103,7 @@ public:
 		static Bits lcount=0;
 		if (lcount<100) {
 			lcount++;
-			LOG(LOG_CPU,LOG_ERROR)("MEM: Illegal write to %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
+			LOG(LOG_CPU,LOG_NORMAL)("MEM: Illegal write to %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
 		}		
 #else
 		static Bits lcount=0;
@@ -133,13 +134,13 @@ public:
 		flags=PFLAG_READABLE|PFLAG_HASROM;
 	}
 	void writeb(PhysPt addr,Bitu val){
-		LOG(LOG_CPU,LOG_ERROR)("Write %x to rom at %x",val,addr);
+		LOG(LOG_CPU,LOG_NORMAL)("Write %x to rom at %x",val,addr);
 	}
 	void writew(PhysPt addr,Bitu val){
-		LOG(LOG_CPU,LOG_ERROR)("Write %x to rom at %x",val,addr);
+		LOG(LOG_CPU,LOG_NORMAL)("Write %x to rom at %x",val,addr);
 	}
 	void writed(PhysPt addr,Bitu val){
-		LOG(LOG_CPU,LOG_ERROR)("Write %x to rom at %x",val,addr);
+		LOG(LOG_CPU,LOG_NORMAL)("Write %x to rom at %x",val,addr);
 	}
 };
 
@@ -370,7 +371,7 @@ MemHandle MEM_GetNextFreePage(void) {
 
 void MEM_ReleasePages(MemHandle handle) {
 	if (memory.mhandles == NULL) {
-		LOG(LOG_MISC,LOG_WARN)("MEMORY: MEM_ReleasePages() called when mhandles==NULL, nothing to release");
+		LOG(LOG_MISC,LOG_NORMAL)("MEMORY: MEM_ReleasePages() called when mhandles==NULL, nothing to release");
 		return;
 	}
 
@@ -617,6 +618,7 @@ public:
 					"     Above %d MB are NOT recommended.",memsize,SAFE_MEMORY - 1);
 			LOG_MSG("MEM: Stick with the default values unless you are absolutely certain.\n");
 		}
+		nCurrent_Memory = section->Get_int("memsize");
 		MemBase = new(std::nothrow) Bit8u[memsize*1024ul*1024ul];
 		if (!MemBase) E_Exit("Can't allocate main memory of %d MB",memsize);
 		/* Clear the memory, as new doesn't always give zeroed memory

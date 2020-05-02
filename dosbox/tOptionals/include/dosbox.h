@@ -53,7 +53,8 @@ enum MachineType {
 	MCH_TANDY,
 	MCH_PCJR,
 	MCH_EGA,
-	MCH_VGA
+	MCH_VGA,
+	MCH_AMSTRAD
 };
 
 enum SVGACards {
@@ -73,6 +74,27 @@ extern bool mono_cga;
 extern bool CPU_FastForward;
 
 extern int nCurrentDisplay;
+
+/* Für die Intros */
+extern int nCurrent_Memory;
+extern int nCurrent_VidSize_S3Trio;
+extern int nCurrent_VidSize_S3ET3K;
+extern int nCurrent_VidSize_S3ET4K;
+extern int nCurrent_VidSize_PVGA1A;
+extern std::string nCurrentVBEMode;
+extern std::string nCurrentCPUCore;
+extern std::string nCurrentCPUType;
+extern std::string nCurrent_Voodoo;
+extern std::string nCurrent_SBType;
+extern std::string nCurrentGUSType;
+extern std::string nCurrentInnovtn;
+extern std::string nCurrentSnTandy;
+extern std::string nCurrent_Disney;
+extern std::string nCurrent_Ps1SND;
+extern std::string nCurrent_Ne2000;
+
+
+
 
 extern bool bVoodooInUse;
 extern bool bVoodooOpen;

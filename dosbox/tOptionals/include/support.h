@@ -39,6 +39,7 @@
 #endif
 
 void strreplace(char * str,char o,char n);
+char *sReplace(char const * const original, char const * const pattern, char const * const replacement);
 char *ltrim(char *str);
 char *rtrim(char *str);
 char *trim(char * str);

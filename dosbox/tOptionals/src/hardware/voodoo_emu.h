@@ -82,7 +82,9 @@ struct SDL_Block_Voodoo {
 		int   gl_wrap_s;		
 		int   gl_wrap_t;
 		int   nLFBMode;		
-		
+		int   LogCntY;			
+		int   LogCntX;	
+
 		bool  compatibleFlag;
 		bool  glScissor_flag;
 		bool  glP_Smoth_flag;
@@ -96,14 +98,15 @@ struct SDL_Block_Voodoo {
 		bool  gl_QuadsDraw;
 		bool  voodoo_aspect;
 		bool  sh_FbzcpCca_Sw2;		
-		bool  gl_PointSize_use;
 		bool  bLFBFixBack;
 		bool  bLFBFixFrnt;
 		bool  bLFBDebugLg;
-		float gl_PointSize_num;
+		
 		float Anisotropic_Level;		
 		float gl_ortho_zNear;
 		float gl_ortho_zFar;
+		float CoordsY;
+		float CoordsX;	
 	
 		void *framebuf;
 	}opengl;

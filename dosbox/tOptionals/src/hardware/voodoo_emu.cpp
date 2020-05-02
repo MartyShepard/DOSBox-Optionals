@@ -319,23 +319,6 @@ void raster_generic(UINT32 TMUS, UINT32 TEXMODE0, UINT32 TEXMODE1, void *destbas
 		/* handle alpha mask */
 		APPLY_ALPHAMASK(v, stats, v->reg[fbzMode].u, c_other.rgb.a);
 
-
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
 		/* compute a_local */
 		switch (FBZCP_CCA_LOCALSELECT(v->reg[fbzColorPath].u))
 		{
@@ -695,8 +678,7 @@ void vGet_Configuration(void){
 			 pciW = extVoodoo.pciW;
 			 pciH = extVoodoo.pciH;		 
 		}
-	
-	LOG(LOG_VOODOO,LOG_WARN)("Voodoo Emu: Display Index %d", displaynumber);
+
 }
 	
 void init_fbi(voodoo_state *v, fbi_state *f, int fbmem)
@@ -1849,32 +1831,29 @@ void register_w(UINT32 offset, UINT32 data) {
 					CPU_Core_Dyn_X86_SaveDHFPUState();
 					int hvis, vvis, htotal, vtotal, hbp, vbp;
 					
-					//attoseconds_t refresh = v->screen->frame_period().attoseconds();
+					/*
+					attoseconds_t refresh = v->screen->frame_period().attoseconds();
+					*/
 					
 					attoseconds_t stdperiod, medperiod, vgaperiod;
 					attoseconds_t stddiff, meddiff, vgadiff;
 					rectangle visarea;
 					
-					htotal = ((v->reg[hSync].u >> 16) & 0x3ff) + 1 + (v->reg[hSync].u & 0xff) + 1;
-					vtotal = ((v->reg[vSync].u >> 16) & 0xfff) + (v->reg[vSync].u & 0xfff);
-					hvis = v->reg[videoDimensions].u & 0x3ff;
-					vvis = (v->reg[videoDimensions].u >> 16) & 0x3ff;
-					hbp = (v->reg[backPorch].u & 0xff) + 2;
-					vbp = (v->reg[backPorch].u >> 16) & 0xff;
-
 					
-					LOG_MSG("Voodoo: Screen Mode Note: ==============");						
-					LOG_MSG("Voodoo: Vertical   Visible:  (%d, 0x%x)",vvis,vvis);						
-					LOG_MSG("Voodoo: Horizontal Visible:  (%d, 0x%x)",hvis,hvis);					
-					LOG_MSG("Voodoo: Vertical   Total  :  (%d, 0x%x)",vtotal,vtotal);						
-					LOG_MSG("Voodoo: Horizontal Total  :  (%d, 0x%x)",htotal,htotal);										
-					LOG_MSG("Voodoo: Horizontal BP     :  (%d, 0x%x)",hbp,hbp);		
-					LOG_MSG("Voodoo: Vertical   BP     :  (%d, 0x%x)\n\n",vbp,vbp);		
+					htotal 	= ((v->reg[hSync].u >> 16) & 0x3ff) + 1 + (v->reg[hSync].u & 0xff ) + 1;
+					vtotal 	= ((v->reg[vSync].u >> 16) & 0xfff)     + (v->reg[vSync].u & 0xfff);
 					
+					hvis 	=  v->reg[videoDimensions].u        & 0x3ff;
+					vvis 	= (v->reg[videoDimensions].u >> 16) & 0x3ff;
 					
+					hbp	 	= (v->reg[backPorch].u & 0xff) + 2;
+					vbp 	= (v->reg[backPorch].u >> 16) & 0xff;
+														
 					
+					/*
+					attoseconds_t refresh = video_screen_get_frame_period(v->screen).attoseconds;
+					*/
 					
-//					attoseconds_t refresh = video_screen_get_frame_period(v->screen).attoseconds;
 					attoseconds_t refresh = 0;
 					
 					/* create a new visarea */
@@ -1889,24 +1868,34 @@ void register_w(UINT32 offset, UINT32 data) {
 
 					/* compute the new period for standard res, medium res, and VGA res */
 
-
-
-
 					stdperiod = HZ_TO_ATTOSECONDS(15750) * vtotal;
 					medperiod = HZ_TO_ATTOSECONDS(25000) * vtotal;
 					vgaperiod = HZ_TO_ATTOSECONDS(31500) * vtotal;
 
+					LOG(LOG_VOODOO,LOG_WARN)("Voodoo: Screen Mode Note: ==============");						
+					LOG(LOG_VOODOO,LOG_WARN)(" - Vertical   Visible     :  (%d, 0x%x)",vvis,vvis);						// 480, 0x1e0						
+					LOG(LOG_VOODOO,LOG_WARN)(" - Horizontal Visible     :  (%d, 0x%x)",hvis,hvis);						// 639, 0x27f					
+					LOG(LOG_VOODOO,LOG_WARN)(" - Vertical   Total       :  (%d, 0x%x)",vtotal,vtotal);					// 525, 0x20d						
+					LOG(LOG_VOODOO,LOG_WARN)(" - Horizontal Total       :  (%d, 0x%x)",htotal,htotal);					// 802, 0x322										
+					LOG(LOG_VOODOO,LOG_WARN)(" - Horizontal BP          :  (%d, 0x%x)",hbp,hbp);						// 40, 0x28	
+					LOG(LOG_VOODOO,LOG_WARN)(" - Vertical   BP          :  (%d, 0x%x)",vbp,vbp);						// 25, 0x19
+					LOG(LOG_VOODOO,LOG_WARN)(" - Horiz: (Min)%d-(Max)%d :  (%d total)",visarea.min_x, visarea.max_x,htotal);
+					LOG(LOG_VOODOO,LOG_WARN)(" - Vert : (Min)%d-(Max)%d :  (%d total)",visarea.min_y, visarea.max_y,vtotal);
+					LOG(LOG_VOODOO,LOG_WARN)(" - Horizontal Sync        :  (%d, %08X)",v->reg[hSync].u,v->reg[hSync].u);
+					LOG(LOG_VOODOO,LOG_WARN)(" - Vertical   Sync        :  (%d, %08X)",v->reg[vSync].u,v->reg[vSync].u);
+					LOG(LOG_VOODOO,LOG_WARN)(" - BackPorch              :  (%d, %08X)",v->reg[backPorch].u,v->reg[backPorch].u);
+					LOG(LOG_VOODOO,LOG_WARN)(" - Video Dimensions       :  (%d, %08X)",v->reg[videoDimensions].u,v->reg[videoDimensions].u);					
+					LOG(LOG_VOODOO,LOG_WARN)(" - Display Index          :   %d", sdlVoodoo.displaynumber);
+					LOG(LOG_VOODOO,LOG_WARN)("Voodoo: Screen Mode Note: ===========END\n\n");						
+
+					
 					/* compute a diff against the current refresh period */
 					stddiff = stdperiod - refresh;
 					if (stddiff < 0) stddiff = -stddiff;
 					meddiff = medperiod - refresh;
 					if (meddiff < 0) meddiff = -meddiff;
 					vgadiff = vgaperiod - refresh;
-					if (vgadiff < 0) vgadiff = -vgadiff;
-
-					//LOG_MSG("Voodoo: Horiz: %d-%d (%d total)  Vert: %d-%d (%d total)", visarea.min_x, visarea.max_x, htotal, visarea.min_y, visarea.max_y, vtotal);
-					//LOG_MSG("Voodoo: hSync=%08X  vSync=%08X  backPorch=%08X  videoDimensions=%08X\n",v->reg[hSync].u, v->reg[vSync].u);
-					//LOG_MSG("Voodoo: backPorch=%08X  Video Dimensions=%08X\n",v->reg[backPorch].u, v->reg[videoDimensions].u);					
+					if (vgadiff < 0) vgadiff = -vgadiff;			
 
 					/* configure the screen based on which one matches the closest */
 					if (stddiff < meddiff && stddiff < vgadiff)
@@ -1926,13 +1915,16 @@ void register_w(UINT32 offset, UINT32 data) {
 					}
 
 					/* configure the new framebuffer info */
-					UINT32 new_width = ((UINT32)hvis+1u) & ~1u;
+					UINT32 new_width  = ((UINT32)hvis+1u) & ~1u;
 					UINT32 new_height = ((UINT32)vvis+1u) & ~1u;
-					if ((v->fbi.width != new_width) || (v->fbi.height != new_height)) {
-						v->fbi.width = new_width;
-						v->fbi.height = new_height;
-						v->ogl_dimchange = true;
+					
+					if ( (v->fbi.width != new_width) || (v->fbi.height != new_height) )
+					{
+						v->fbi.width 	= new_width;
+						v->fbi.height 	= new_height;
+						v->ogl_dimchange= true;
 					}
+					
 //					v->fbi.xoffs = hbp;
 //					v->fbi.yoffs = vbp;
 //					v->fbi.vsyncscan = (v->reg[vSync].u >> 16) & 0xfff;

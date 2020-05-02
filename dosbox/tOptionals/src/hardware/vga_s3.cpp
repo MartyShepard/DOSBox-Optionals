@@ -23,6 +23,8 @@
 #include "mem.h"
 #include "control.h"
 
+int nCurrent_VidSize_S3Trio;
+
 void SVGA_S3_WriteCRTC(Bitu reg,Bitu val,Bitu iolen) {
 	switch (reg) {
 	case 0x31:	/* CR31 Memory Configuration */
@@ -576,6 +578,7 @@ void SVGA_Setup_S3Trio(void) {
 			}
 		}	
 		
+	nCurrent_VidSize_S3Trio = vga.vmemsize/1024;		
 	LOG_MSG("VGA S3: Memory Size: (%dkb)\n",vga.vmemsize/1024 );	
 	
 	

@@ -27,7 +27,7 @@
 #include "control.h"
 #include "setup.h"
 #include "..\gui\version.h"
-
+	
 #define _EGA_HALF_CLOCK		0x0001
 #define _EGA_LINE_DOUBLE	0x0002
 #define _VGA_PIXEL_DOUBLE	0x0004
@@ -46,14 +46,26 @@
 #define ATT_REGS 0x15
 
 enum VESAResolutions {
-	_512x384, _640x350, _640x400, _640x480, _720x480,
-	_800x600, _1024x768, _1188x344, _1188x400, _1188x480,
-	_1152x864, _1280x960, _1280x1024, _1600x1200
+	_512x384,
+	_640x350,
+	_640x400,
+	_640x480,
+	_720x480,
+	_800x600,
+	_1024x768,
+	_1188x344,
+	_1188x400,
+	_1188x480,
+	_1152x864,
+	_1280x960,
+	_1280x1024,
+	_1600x1200
 };
 
 extern void GFX_CaptureMouse(void);
 extern void GFX_CaptureMouse_Mousecap_on(void);
 extern bool mouselocked;
+std::string nCurrentVBEMode = "";
 
 //#define MODES_DEBUG 1
 
@@ -87,7 +99,7 @@ extern bool mouselocked;
    user says that the VBE 1.2 modes are 32bpp,
  *instead the redefinitions in the next block will apply to allow M_LIN32.
  To use the 24bpp modes here, you must set 'vesa vbe 1.2 modes are 32bpp=false' */
- 
+
 
 VideoModeBlock ModeList_VGA[]={
 /* mode  ,type     ,sw  ,sh  ,tw ,th ,cw,ch ,pt,pstart  ,plength,htot,vtot,hde,vde special flags */
@@ -152,6 +164,7 @@ VideoModeBlock ModeList_VGA[]={
 { 0x108  ,M_TEXT   ,640 ,480,  80,60, 8,  8 ,2 ,0xB8000 ,0x4000, 100 ,525 ,80 ,480 ,0   }, /* VESA text modes */ 
 { 0x109  ,M_TEXT   ,1056,400, 132,25, 8, 16, 1 ,0xB8000 ,0x2000, 160, 449, 132,400, 0   },
 { 0x10A  ,M_TEXT   ,1056,688, 132,43, 8,  8, 1 ,0xB8000 ,0x4000, 160, 806, 132,688, 0   }, /*  449, 132,344, */
+{ 0x10A  ,M_TEXT   ,1056,688, 132,43, 8,  8, 1 ,0xB8000 ,0x4000, 160, 806, 132,688, 0   },
 { 0x10B  ,M_TEXT   ,1056,400, 132,50, 8,  8, 1 ,0xB8000 ,0x4000, 160, 449, 132,400, 0   },
 { 0x10C  ,M_TEXT   ,1056,480, 132,60, 8,  8, 2 ,0xB8000 ,0x4000, 160, 531, 132,480, 0   },
 { 0x10D  ,M_LIN15  ,320 ,200 ,40 ,25 ,8 ,8  ,1 ,0xA0000 ,0x10000,100 ,449 ,80 ,400 , _VGA_PIXEL_DOUBLE | _EGA_LINE_DOUBLE}, /* VESA High Color Modes */
@@ -842,6 +855,7 @@ extern bool en_int33;
 bool INT10_SetVideoMode_OTHER(Bit16u mode,bool clearmem) {
 	switch (machine) {
 	case MCH_CGA:
+	case MCH_AMSTRAD:
 		if (mode>6) return false;
 	case TANDY_ARCH_CASE:
 		if (mode>0xa) return false;
@@ -942,6 +956,8 @@ bool INT10_SetVideoMode_OTHER(Bit16u mode,bool clearmem) {
 
 		real_writeb(BIOSMEM_SEG,BIOSMEM_CURRENT_MSR,0x29); // attribute controls blinking
 		break;
+	case MCH_AMSTRAD:
+		IO_WriteB( 0x3d9, 0x0f );		
 	case MCH_CGA:
 		mode_control=mode_control_list[CurMode->mode];
 		if (CurMode->mode == 0x6) color_select=0x3f;
@@ -1201,6 +1217,14 @@ bool INT10_SetVideoMode(Bit16u mode) {
 	 *      other VGA/SVGA emulation cases, just not S3 Trio emulation. */
 	if (svgaCard != SVGA_S3Trio)
 		vga.config.compatible_chain4 = true; // this may be changed by SVGA chipset emulation	
+
+	if( machine==MCH_AMSTRAD )
+	{
+		vga.amstrad.mask_plane = 0x07070707;
+		vga.amstrad.write_plane = 0x0F;
+		vga.amstrad.read_plane = 0x00;
+		vga.amstrad.border_color = 0x00;
+	}
 
 	/* Program CRTC */
 	/* First disable write protection */
@@ -2004,21 +2028,13 @@ Bitu VideoModeMemSize(Bitu mode) {
         return 0;
 
 	switch(vmodeBlock->type) {
-	case M_LIN4:
-		return vmodeBlock->swidth*vmodeBlock->sheight/2;
-	case M_LIN8:
-		return vmodeBlock->swidth*vmodeBlock->sheight;
+	case M_LIN4: return vmodeBlock->swidth*vmodeBlock->sheight/2;
+	case M_LIN8: return vmodeBlock->swidth*vmodeBlock->sheight;
 	case M_LIN15:
-	case M_LIN16:	
-		return vmodeBlock->swidth*vmodeBlock->sheight*2;
-/* Custom S3 VGA ////////////////////////////////////////////////////////////////*/			
-	case M_LIN24:
-		return vmodeBlock->swidth*vmodeBlock->sheight*3;		
-/* Custom S3 VGA ////////////////////////////////////////////////////////////////*/			
-	case M_LIN32:
-		return vmodeBlock->swidth*vmodeBlock->sheight*4;
-	case M_TEXT:
-		return vmodeBlock->twidth*vmodeBlock->theight*2;
+	case M_LIN16:return vmodeBlock->swidth*vmodeBlock->sheight*2;		
+	case M_LIN24:return vmodeBlock->swidth*vmodeBlock->sheight*3;		
+	case M_LIN32:return vmodeBlock->swidth*vmodeBlock->sheight*4;
+	case M_TEXT: return vmodeBlock->twidth*vmodeBlock->theight*2;
 	default:
 		//LOG_MSG("Enumeration value(%u) not handled in switch " __FILE__ ":%d", vmodeBlock->type, __LINE__);
 		break;		
@@ -2028,6 +2044,17 @@ Bitu VideoModeMemSize(Bitu mode) {
 }
 /* Custom S3 VGA ////////////////////////////////////////////////////////////////*/	
 void vesa_refresh_Init(Section* sec){
+
+	Section_prop *sectvga = static_cast<Section_prop *>(control->GetSection("dosbox"));	
+	if (sectvga->Get_bool("VesaVbe1.2_32Bit_Modes") == true)
+	{
+		nCurrentVBEMode = "VGA BIOS Extension: VBE Version 1.2 (32Bit)";
+	}
+	else
+	{
+		nCurrentVBEMode = "VGA BIOS Extension: VBE Version 1.2 (24Bit)";
+	}
+	
 	Section_prop * section=static_cast<Section_prop *>(sec);
 	int10.vesa_refresh[_512x384] = section->Get_int("Vesa_Graphic_Mode_512x384");
 	int10.vesa_refresh[_640x350] = section->Get_int("Vesa_Graphic_Mode_640x350");

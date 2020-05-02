@@ -46,6 +46,7 @@
 #include "dosbox.h"
 #include "video.h"
 #include "ide.h"
+#include "isa.h"
 #include "mouse.h"
 #include "pic.h"
 #include "timer.h"
@@ -152,7 +153,6 @@ struct SDL_Block {
 	bool update_display_contents;
 	bool update_window;
 	bool automaticheight;
-	bool bOpenGLStartupInfo;
 	bool bVoodooScreenRequest;
 	bool hSystemMenu;
 	bool wait_on_error;	
@@ -187,7 +187,7 @@ struct SDL_Block {
 		bool lazy_fullscreen;
 		bool lazy_fullscreen_req;
 		bool vsync;
-		bool borderless;		
+		bool borderless;
 		SCREEN_TYPES type;
 		SCREEN_TYPES want_type;
 	} desktop;
@@ -254,6 +254,10 @@ struct SDL_Block {
 	// Time when sdl regains focus (alt-tab) in windowed mode
 	Bit32u focus_ticks;
 #endif
+
+	bool SystemKeyDisable;
+	bool SystemKeysLocked;	
+		
 	// state of alt-keys for certain special handlings
 	SDL_EventType laltstate;
 	SDL_EventType raltstate;
@@ -337,6 +341,8 @@ static void SDL_Quit_Wrapper(void)
 	bool 	bVoodooInUse;
 	bool 	bVoodooOpen;
 	
+	int 	bOpenGLStartupInfo;
+	
 	ExtVoodooMaschine extVoodoo;
 
 	extern const char* RunningProgram;
@@ -418,6 +424,139 @@ static void PrefsEditDirect(HWND hwnd, std::string prgEdit) {
 
 /* ----------------------------------------------------------------------------------------------------- */
 
+/****** Block Key ***************************************************************************************************/
+#include <windows.h>
+//link against user32.lib when compiling in MSVC
+#ifdef _MSC_VER
+	#pragma comment(lib, "User32.lib")
+#endif
+
+class DisableKeys {
+public:
+    DisableKeys():mHKeyboardHook(NULL) {}
+    //to avoid leaking the hook procedure handle
+    ~DisableKeys(){ Unblock(); }
+    //hook callback function (called on every system-wide key press)
+    static LRESULT CALLBACK LowLevelKeyboardProc(int nCode,WPARAM wParam, LPARAM lParam) {
+		
+		SDL_SysWMinfo system_info;
+		SDL_VERSION(&system_info.version);
+		SDL_GetWindowWMInfo(sdl.window,&system_info);
+		
+        if(nCode == HC_ACTION) {
+			
+			HWND DOSBoxHWND = system_info.info.win.window;
+			/* LOG_MSG("SDL: DOSBoxHWND %d",DOSBoxHWND); */
+			
+			 if ( GetFocus() == DOSBoxHWND ) {
+				 
+				 /*
+					Nur im Windows 95/98 Modus
+				*/
+				 
+				 KBDLLHOOKSTRUCT *p = (KBDLLHOOKSTRUCT*)lParam;
+				 /* LOG_MSG("SDL: Disable Keys %d (0x%x)(File: %s, Line %d)",p->vkCode,p->vkCode,__FILE__,__LINE__ ); */
+				
+				if (p->vkCode == VK_TAB && p->flags & LLKHF_ALTDOWN)
+				{
+					return 1;
+				}
+				 
+				if (p->vkCode == VK_ESCAPE && p->flags & LLKHF_ALTDOWN)
+				{
+					return 1;
+				}
+				
+				if (p->vkCode == VK_SPACE && p->flags & LLKHF_ALTDOWN)
+				{
+					return 1;
+				}
+				
+				if (p->vkCode == VK_PRINT && p->flags & LLKHF_ALTDOWN)
+				{
+					return 1;
+				}				
+					
+
+				bool CtrlIsDown = GetAsyncKeyState (VK_CONTROL) >> ((sizeof(SHORT) * 8) - 1);
+				if (p->vkCode == VK_ESCAPE && CtrlIsDown)
+				{
+					return 1;
+				}				
+				
+				 switch (p->vkCode)
+				 {
+					 case VK_LWIN: 			// Left Windows key (Tigger Start menu)	
+						KEYBOARD_AddKey(KBD_lwindows, true);
+						KEYBOARD_AddKey(KBD_lwindows, false);					
+						return 1;
+					 case VK_RWIN:			 // Right Windows key (Triggers Start menu)
+						KEYBOARD_AddKey(KBD_lwindows, true);
+						KEYBOARD_AddKey(KBD_lwindows, false);
+						return 1;
+					 //case VK_APPS:   		///myabe ....
+					 case VK_VOLUME_MUTE:
+						KEYBOARD_AddKey(KBD_audiomute, true);
+						KEYBOARD_AddKey(KBD_audiomute, false);
+						return 1;
+					 case VK_VOLUME_DOWN:
+						KEYBOARD_AddKey(KBD_volumedown, true);
+						KEYBOARD_AddKey(KBD_volumedown, false);
+						return 1;						
+					 case VK_VOLUME_UP:		
+						KEYBOARD_AddKey(KBD_volumeup, true);
+						KEYBOARD_AddKey(KBD_volumeup, false);
+						return 1;
+					 case VK_PRINT:
+						KEYBOARD_AddKey(KBD_printscreen, true);
+						KEYBOARD_AddKey(KBD_printscreen, false);					
+						return 1;						
+					}
+				 
+				 
+			 }			
+        }
+        //this is not a message we are interested in
+		//LOG_MSG("SDL: CallNextHookEx (File: %s, Line %d)",__FILE__,__LINE__ );
+        return CallNextHookEx(NULL, //ignored paramater
+                              nCode,
+                              wParam,
+                              lParam);
+    }
+    void Block(){
+/* 		LOG_MSG("SDL: System Keys [Blocked]\n"
+		        "     (File: %s, Line %d)\n",__FILE__,__LINE__ ); */
+		sdl.SystemKeysLocked = true;		
+        mHKeyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, //low-level keyboard hool
+                                          &LowLevelKeyboardProc, //callback
+                                          GetModuleHandle(NULL), 
+                                          0);
+										  
+        // flush out and handle pending keyboard I/O
+        {
+            MSG msg;
+
+            while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+                TranslateMessage(&msg);
+                DispatchMessage(&msg);
+            }
+        }										  
+    }
+    void Unblock(){
+/* 		LOG_MSG("SDL: System Keys [Unblocked]\n"
+				"     (File: %s, Line %d)\n",__FILE__,__LINE__ ); */
+		sdl.SystemKeysLocked = false;		
+        if(mHKeyboardHook) UnhookWindowsHookEx(mHKeyboardHook);
+        mHKeyboardHook = NULL;
+    }
+
+private:
+    HHOOK mHKeyboardHook;
+};
+DisableKeys DisableKeys;
+
+/****** Block Key ***************************************************************************************************/
+
 void GFX_SetTitle(Bit32s cycles,int frameskip,bool paused){
 	char strWinTitle  [256];	
 	char title        [200]={0};
@@ -446,6 +585,8 @@ void GFX_SetTitle(Bit32s cycles,int frameskip,bool paused){
 		if(strcmp(GFX_Type, (const char*)"svga_et3000"	) == 0){ strcpy(strWinTitle,"Tseng ET3000"		);}	
 		if(strcmp(GFX_Type, (const char*)"svga_paradise") == 0){ strcpy(strWinTitle,"Paradise"			);}
 		if(strcmp(GFX_Type, (const char*)"vgaonly"		) == 0){ strcpy(strWinTitle,"VGA"				);}
+		if(strcmp(GFX_Type, (const char*)"vga"			) == 0){ strcat(strWinTitle,"VGA"				);}
+		if(strcmp(GFX_Type, (const char*)"svga"			) == 0){ strcat(strWinTitle,"S3 Trio"			);}			
 
 		if (strlen(sDriveLabel) != 0){
 			sprintf(strDriveLabel,"%s, ",sDriveLabel);
@@ -515,6 +656,8 @@ void GFX_SetTitle(Bit32s cycles,int frameskip,bool paused){
 		if(strcmp(GFX_Type, (const char*)"svga_et3000"	) == 0){ strcat(strWinTitle,"/ Tseng ET3000)"				);}	
 		if(strcmp(GFX_Type, (const char*)"svga_paradise") == 0){ strcat(strWinTitle,"/ Paradise)"					);}
 		if(strcmp(GFX_Type, (const char*)"vgaonly"		) == 0){ strcat(strWinTitle,"/ VGA)"						);}
+		if(strcmp(GFX_Type, (const char*)"vga"			) == 0){ strcat(strWinTitle,"/ VGA)"						);}
+		if(strcmp(GFX_Type, (const char*)"svga"			) == 0){ strcat(strWinTitle,"/ S3 Trio)"					);}		
 			
 		strcat(strWinTitle,", [ Volume %2d% (Ctrl+Alt+F9/10) ], [ %s ], %s (Program: %4s)");		
 																																						 
@@ -549,6 +692,7 @@ static unsigned char logo[32*32*4]= {
 #include "dosbox_logo.h"
 };
 
+
 static void GFX_SetIcon() {
 #if !defined(MACOSX)
 	/* Set Icon (must be done before any sdl_setvideomode call) */
@@ -570,7 +714,10 @@ static void GFX_SetIcon() {
 }
 
 static void KillSwitch(bool pressed) {
-	/* Code not Finished: DisableKeys.Unblock();*/
+	
+	if (sdl.SystemKeysLocked == true)
+		DisableKeys.Unblock();
+	
 	if (!pressed)
 		return;
 	throw 1;
@@ -783,10 +930,19 @@ void GFX_ForceFullscreenExit(void) {
 }
 
 void GFX_UpdateResolution(int w, int h, bool windowed){
-				
+		
 	if (windowed == true){
 				
-		if ( ( sdl.desktop.window.width != w ) || ( sdl.desktop.window.height != h ) ){		
+		if ( sdl.desktop.window.width != w && sdl.desktop.window.height != h ) 
+		{		
+	
+			if ( w == 0 && h == 0 )
+			{
+				SDL_DisplayMode displayMode;
+				SDL_GetDesktopDisplayMode(nCurrentDisplay, &displayMode);		
+				w = displayMode.w;
+				h = displayMode.h;	
+			}	
 			extVoodoo.bForceWindowUpdate= true;		 	
 			sdl.desktop.window.width 	= w;
 			sdl.desktop.window.height 	= h;	
@@ -798,7 +954,15 @@ void GFX_UpdateResolution(int w, int h, bool windowed){
 		
 	}else{	
 	
-		if ( ( sdl.desktop.full.width != w ) || ( sdl.desktop.full.height != h ) ){		
+		if ( sdl.desktop.full.width != w && sdl.desktop.full.height != h )
+		{		
+			if ( w == 0 && h == 0 )
+			{
+				SDL_DisplayMode displayMode;
+				SDL_GetDesktopDisplayMode(nCurrentDisplay, &displayMode);		
+				w = displayMode.w;
+				h = displayMode.h;	
+			}
 			extVoodoo.bForceFullSnUpdate= true;	
 			sdl.desktop.full.width		= w;
 			sdl.desktop.full.height		= h;	
@@ -817,86 +981,7 @@ static int int_log2 (int val) {
 }
 
 
-/****** Block Key ***************************************************************************************************/
-#include <windows.h>
-//link against user32.lib when compiling in MSVC
-#ifdef _MSC_VER
-#pragma comment(lib, "User32.lib")
-#endif
 
-class DisableKeys {
-public:
-    DisableKeys():mHKeyboardHook(NULL) {}
-    //to avoid leaking the hook procedure handle
-    ~DisableKeys(){ Unblock(); }
-    //hook callback function (called on every system-wide key press)
-    static LRESULT CALLBACK LowLevelKeyboardProc(int nCode,WPARAM wParam, LPARAM lParam) {
-		
-		SDL_SysWMinfo system_info;
-		SDL_VERSION(&system_info.version);
-		SDL_GetWindowWMInfo(sdl.window,&system_info);
-		
-        if(nCode == HC_ACTION) {
-			
-			HWND DOSBoxHWND = system_info.info.win.window;
-			LOG_MSG("SDL: DOSBoxHWND %d",DOSBoxHWND);
-			
-			 if ( GetFocus() == DOSBoxHWND ) {
-				 
-				 LOG_MSG("SDL: Disable Keys, DOSBox in Focus (File: %s, Line %d)",__FILE__,__LINE__ );
-				 
-				 KBDLLHOOKSTRUCT *p = (KBDLLHOOKSTRUCT*)lParam;
-				 switch (p->vkCode) {
-					 case VK_LWIN:   							// Left Windows key (Tigger Start menu)
-					 case VK_RWIN:   							// Right Windows key (Triggers Start menu)
-					 case VK_APPS:   							
-					 case VK_VOLUME_MUTE:
-					 case VK_VOLUME_DOWN:
-					 case VK_VOLUME_UP:		
-						LOG_MSG("SDL: PostMessage, DOSBox in Focus Key: 0x%x (File: %s, Line %d)",p->vkCode,__FILE__,__LINE__ );
-						PostMessage(DOSBoxHWND, (UINT)wParam, p->vkCode, lParam);
-                        return 1;					 											 
-				 }
-				 
-				 
-			 }			
-        }
-        //this is not a message we are interested in
-		LOG_MSG("SDL: CallNextHookEx (File: %s, Line %d)",__FILE__,__LINE__ );
-        return CallNextHookEx(NULL, //ignored paramater
-                              nCode,
-                              wParam,
-                              lParam);
-    }
-    void Block(){
-		LOG_MSG("SDL: Disable Keys Block (File: %s, Line %d)",__FILE__,__LINE__ );
-        mHKeyboardHook = SetWindowsHookEx(WH_KEYBOARD_LL, //low-level keyboard hool
-                                          &LowLevelKeyboardProc, //callback
-                                          GetModuleHandle(NULL), 
-                                          0);
-										  
-        // flush out and handle pending keyboard I/O
-        {
-            MSG msg;
-
-            while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
-                TranslateMessage(&msg);
-                DispatchMessage(&msg);
-            }
-        }										  
-    }
-    void Unblock(){
-		LOG_MSG("SDL: Disable Keys Unblock (File: %s, Line %d)",__FILE__,__LINE__ );
-        if(mHKeyboardHook) UnhookWindowsHookEx(mHKeyboardHook);
-        mHKeyboardHook = NULL;
-    }
-
-private:
-    HHOOK mHKeyboardHook;
-};
-//DisableKeys DisableKeys;
-
-/****** Block Key ***************************************************************************************************/
 
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
@@ -1744,15 +1829,16 @@ dosurface:
 		retFlags = GFX_CAN_32 | GFX_SCALING;
 		retFlags |= GFX_HARDWARE;
 						
-		if (sdl.bOpenGLStartupInfo);
+		if (bOpenGLStartupInfo == 0);
 		{
 		LOG_MSG("SDL : OpenGL\n"
 		        "      Vendor  : %s\n"
 				"      Renderer: %s\n"
 				"      Version : %s\n"
 				"      Shader  : %s\n\n", glGetString(GL_VENDOR), glGetString(GL_RENDERER), glGetString(GL_VERSION), glGetString(GL_SHADING_LANGUAGE_VERSION));
-		sdl.bOpenGLStartupInfo = false;
+		bOpenGLStartupInfo +1;
 		}
+		
 		SDL_ShowWindow(sdl.window);			
 	break;
 		}//OPENGL
@@ -1788,20 +1874,32 @@ void GFX_GetCaptureMouse(void){}
 void GFX_CaptureMouse(void) {
 	sdl.mouse.locked=!sdl.mouse.locked;
 	
-	if (sdl.mouse.locked) {
-		SDL_SetRelativeMouseMode(SDL_TRUE);
-		/* Code not Finished: DisableKeys.Block();*/
-		SDL_ShowCursor(SDL_DISABLE);
+	if (sdl.mouse.locked)
+	{
+		SDL_SetRelativeMouseMode(SDL_TRUE);		
+		SDL_ShowCursor(SDL_DISABLE);		
 		if (sdl.desktop.fullscreen){
 			SDL_SetWindowGrab(sdl.window, SDL_TRUE);
 		}
+	
+		if (sdl.SystemKeyDisable == true)	
+			DisableKeys.Block();
+		
 	} else {
-		/* Code not Finished: DisableKeys.Unblock();*/
+
 		SDL_SetRelativeMouseMode(SDL_FALSE);
-		if (!sdl.desktop.fullscreen){
+		if (!sdl.desktop.fullscreen)
+		{
 			SDL_SetWindowGrab(sdl.window, SDL_FALSE);
-		}		
-		if (sdl.mouse.autoenable || !sdl.mouse.autolock) SDL_ShowCursor(SDL_ENABLE);
+		}
+		
+		if (sdl.mouse.autoenable || !sdl.mouse.autolock)
+		{
+			SDL_ShowCursor(SDL_ENABLE);
+			
+			if (sdl.SystemKeyDisable == true)
+				DisableKeys.Unblock();
+		}
 	}
     mouselocked=sdl.mouse.locked;		
 	GFX_SetTitle(-1,-1,false);	
@@ -2194,7 +2292,6 @@ static void GUI_StartUp(Section * sec) {
 	sdl.updating=false;
 	sdl.update_window=true;
 	sdl.update_display_contents=true;
-	sdl.bOpenGLStartupInfo = true;
 	GFX_SetIcon();
 
 	sdl.desktop.lazy_fullscreen=false;
@@ -2340,6 +2437,8 @@ static void GUI_StartUp(Section * sec) {
 	
 	/* Setup Mouse correctly if fullscreen */
 	if(sdl.desktop.fullscreen) GFX_CaptureMouse();
+	
+	sdl.SystemKeyDisable=section->Get_bool("DisableSystemKeys");
 	
 	std::string output=section->Get_string("output");
 	if (output == "surface") {
@@ -2579,9 +2678,11 @@ static void HandleMouseButton(SDL_MouseButtonEvent * button) {
 
 void GFX_LosingFocus(void) {
 	sdl.laltstate=SDL_KEYUP;
-	sdl.raltstate=SDL_KEYUP;	
+	sdl.raltstate=SDL_KEYUP;
 	MAPPER_LosingFocus();
-	/* Code not Finished: DisableKeys.Unblock(); */
+	
+	if (sdl.SystemKeysLocked == true)	
+		DisableKeys.Unblock();
 }
 
 void GFX_HandleVideoResize(int width, int height) {
@@ -2720,21 +2821,20 @@ void GFX_Events() {
 						if (sdl.desktop.fullscreen && !sdl.mouse.locked){
 							GFX_CaptureMouse();
 						}
+						
 						SetPriority(sdl.priority.focus);
-						CPU_Disable_SkipAutoAdjust();						
+						CPU_Disable_SkipAutoAdjust();	
 						break;
 						
 						
 					}	
 					case SDL_WINDOWEVENT_FOCUS_LOST:
-					{																	
+					{							
 						if (sdl.mouse.locked) {
-	#ifdef WIN32
 							if (sdl.desktop.fullscreen) {							
 								VGA_KillDrawing();
 								GFX_ForceFullscreenExit();
 							}
-	#endif
 							//GFX_CaptureMouse();
 						}
 						SetPriority(sdl.priority.nofocus);
@@ -2806,13 +2906,12 @@ void GFX_Events() {
 												 * problems with the app running in the DOSBox.
 												 */
 												KEYBOARD_AddKey(KBD_leftalt, false);
-												KEYBOARD_AddKey(KBD_rightalt, false);																				
+												KEYBOARD_AddKey(KBD_rightalt, false);		
 												if (ev.window.event == SDL_WINDOWEVENT_RESTORED) {
 													
 													// We may need to re-create a texture and more
 													GFX_ResetVoodoo();
-													LOG(LOG_MISC,LOG_WARN)("SDL : Update Screen \n(File %s:, Line: %d)\n\n",__FILE__,__LINE__);											
-													LOG(LOG_MISC,LOG_WARN)("SDL : Update Screen \n(File %s:, Line: %d)\n\n",__FILE__,__LINE__);												
+													LOG(LOG_MISC,LOG_WARN)("SDL : Update Screen \n(File %s:, Line: %d)\n\n",__FILE__,__LINE__);														LOG(LOG_MISC,LOG_WARN)("SDL : Update Screen \n(File %s:, Line: %d)\n\n",__FILE__,__LINE__);												
 												}
 										}
 										break;
@@ -2824,6 +2923,11 @@ void GFX_Events() {
 				break;
 			
 			}
+			
+/* 									KEYBOARD_AddKey(KBD_lwindows,true);
+						KEYBOARD_AddKey(KBD_lwindows,false);break;
+						KEYBOARD_AddKey(KBD_rwindows,true);
+						KEYBOARD_AddKey(KBD_rwindows,false); break;	 */
 			case SDL_MOUSEMOTION:
 				HandleMouseMotion(&event.motion);
 				break;
@@ -2831,9 +2935,9 @@ void GFX_Events() {
 			case SDL_MOUSEBUTTONUP:
 				HandleMouseButton(&event.button);
 				break;
-	#ifdef WIN32
-			case SDL_KEYDOWN:			
-			case SDL_KEYUP:				
+			case SDL_KEYDOWN:;				
+			case SDL_KEYUP:
+						
 				// ignore event alt+tab
 				if (event.key.keysym.sym==SDLK_LALT){
 					sdl.laltstate = (SDL_EventType)event.key.type;
@@ -2855,20 +2959,17 @@ void GFX_Events() {
 				if (event.key.keysym.sym == SDLK_F4 && event.key.keysym.mod == SDLK_LALT){						
 					KillSwitch(true);
 					break;	
-				}				
-	#endif
-	#if defined (MACOSX)
-			case SDL_KEYDOWN:
-			case SDL_KEYUP:
-				/* On macs CMD-Q is the default key to close an application */
-				if (event.key.keysym.sym == SDLK_q &&
-					(event.key.keysym.mod == KMOD_RGUI ||
-					 event.key.keysym.mod == KMOD_LGUI)
-					) {
-					KillSwitch(true);
-					break;
 				}
-	#endif
+
+/* 				if (event.key.keysym.sym==102){
+					LOG_MSG("TEST %d",event.key.keysym.sym);
+					sdl.lwindows = (SDL_EventType)event.key.type;					
+				}
+
+				if ( (event.key.keysym.sym==102) && (sdl.lwindows==SDL_KEYDOWN) ){	
+					break;
+				} */
+			
 			default:
 				void MAPPER_CheckEvent(SDL_Event * event);
 				MAPPER_CheckEvent(&event);
@@ -2959,21 +3060,12 @@ void Config_Add_SDL() {
 
 	Pbool = sdl_sec->Add_bool("windowborderless",Property::Changeable::Always, false);
 	Pbool->Set_help(  "================================================================================================\n"
-	                  "Remove the border in Window mode");					  
-	const char* outputs[] = {
-		"surface",
-		"texture",
-		"texturenb",
-		"texturebest",
-#if C_OPENGL
-		"opengl", "openglnb",
-#endif
-		0 };
-#if C_OPENGL && defined(MACOSX)
+	                  "Remove the border in Window mode");
+
+					  
+	const char* outputs[] = {"surface", "texture", "texturenb", "texturebest", "opengl", "openglnb", 0 };
+	
 	Pstring = sdl_sec->Add_string("output",Property::Changeable::Always,"opengl");
-#else		
-	Pstring = sdl_sec->Add_string("output",Property::Changeable::Always,"texturenb");
-#endif
 	Pstring->Set_help("================================================================================================\n"
 	                  "What video system to use for output.\n"
 					  "Info DOSBox SDL1  -  DOSBox SDL2\n"
@@ -2995,18 +3087,9 @@ void Config_Add_SDL() {
 	                  "\"gl.shpath\" For shader file naming convention, suppose that you have a pair of shader files ready:\n"
 	                  "mysample.vert and mysample.frag. Then shader=mysample should be set.");
 
-	const char* renderers[] = {
-		"auto",
-#ifdef WIN32
-		"direct3d",	
-		"direct3d11",
-#endif
-		"opengl",
-		"opengles",
-		"opengles2",		
-		"software",
-		"vulkan",
-		0 };
+
+	const char* renderers[] = { "auto", "direct3d",	"direct3d11", "opengl", "opengles", "opengles2", "software", "vulkan",0 };
+	
 	Pstring = sdl_sec->Add_string("texture.renderer",Property::Changeable::Always,"opengl");		
 	Pstring->Set_help("================================================================================================\n"
 	                  "Choose a renderer driver if output=texture or output=texturenb. Use output=auto for an automatic\n"
@@ -3031,6 +3114,10 @@ void Config_Add_SDL() {
 	Pmulti->SetValue("100");
 	Pmulti->Set_help(   "================================================================================================\n"
 	                  "Mouse sensitivity. The optional second parameter specifies vertical sensitivity (e.g. 100,-50).");
+
+	Pbool = sdl_sec->Add_bool("DisableSystemKeys",Property::Changeable::Always,false);
+	Pbool->Set_help(   "================================================================================================\n"
+					   "Lock System Keys in Windows 95/98 Mode (ALT-Tab, ALT-Esc, CTRL-Esc, Win-Keys) if Mouse is Captured.");
 
 	Pint = Pmulti->GetSection()->Add_int("xsens",Property::Changeable::Always,100);
 	Pint->SetMinMax(-1000,1000);

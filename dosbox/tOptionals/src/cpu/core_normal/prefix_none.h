@@ -1169,7 +1169,9 @@
 				break;
 			default:
 				LOG(LOG_CPU,LOG_ERROR)("CPU:GRP5:Illegal Call %2X",which);
-				goto illegal_opcode;
+				//goto illegal_opcode;
+				CPU_Exception(6,0);
+				continue;
 			}
 			break;
 		}

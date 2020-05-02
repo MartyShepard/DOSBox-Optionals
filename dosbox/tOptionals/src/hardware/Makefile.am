@@ -12,5 +12,6 @@ libhardware_a_SOURCES = adlib.cpp dma.cpp gameblaster.cpp hardware.cpp iohandler
 			vga.cpp vga_attr.cpp vga_crtc.cpp vga_dac.cpp vga_draw.cpp vga_gfx.cpp vga_other.cpp \
 			vga_memory.cpp vga_misc.cpp vga_seq.cpp vga_xga.cpp vga_s3.cpp vga_tseng.cpp vga_paradise.cpp \
 			cmos.cpp disney.cpp gus.cpp mpu401.cpp ipx.cpp ipxserver.cpp dbopl.cpp ne2000.cpp nukedopl.cpp innova.cpp \
-			voodoo.cpp voodoo_interface.cpp voodoo_emu.cpp voodoo_vogl.cpp voodoo_opengl.cpp ide.cpp
+			voodoo.cpp voodoo_interface.cpp voodoo_emu.cpp voodoo_vogl.cpp voodoo_opengl.cpp ide.cpp isa.cpp ps1_sound.cpp \
+			mame/sn76496_Ps1.h
 

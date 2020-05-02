@@ -21,52 +21,53 @@
 
 #if (C_DYNAMIC_X86)
 
-#include <assert.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <string.h>
-#include <stddef.h>
-#include <stdlib.h>
+	#include <assert.h>
+	#include <stdarg.h>
+	#include <stdio.h>
+	#include <string.h>
+	#include <stddef.h>
+	#include <stdlib.h>
 
-#if defined (WIN32)
-#include <windows.h>
-#include <winbase.h>
-#endif
+	#if defined (WIN32)
+		#include <windows.h>
+		#include <winbase.h>
+	#endif
 
-#if (C_HAVE_MPROTECT)
-#include <sys/mman.h>
+	#if (C_HAVE_MPROTECT)
+		#include <sys/mman.h>
 
-#include <limits.h>
-#ifndef PAGESIZE
-#define PAGESIZE 4096
-#endif
-#endif /* C_HAVE_MPROTECT */
+		#include <limits.h>
+		#ifndef PAGESIZE
+			#define PAGESIZE 4096
+		#endif
+	#endif /* C_HAVE_MPROTECT */
 
-#include "callback.h"
-#include "regs.h"
-#include "mem.h"
-#include "cpu.h"
-#include "debug.h"
-#include "paging.h"
-#include "inout.h"
-#include "fpu.h"
+	#include "callback.h"
+	#include "regs.h"
+	#include "mem.h"
+	#include "cpu.h"
+	#include "debug.h"
+	#include "paging.h"
+	#include "inout.h"
+	#include "fpu.h"
+	#include "mmx.h"
 
-#define CACHE_MAXSIZE	(4096*3)
-#define CACHE_TOTAL		(1024*1024*8)
-#define CACHE_PAGES		(512)
-#define CACHE_BLOCKS	(64*1024)
-#define CACHE_ALIGN		(16)
-#define DYN_HASH_SHIFT	(4)
-#define DYN_PAGE_HASH	(4096>>DYN_HASH_SHIFT)
-#define DYN_LINKS		(16)
+	#define CACHE_MAXSIZE	(4096*3)
+	#define CACHE_TOTAL		(1024*1024*8)
+	#define CACHE_PAGES		(512)
+	#define CACHE_BLOCKS	(64*1024)
+	#define CACHE_ALIGN		(16)
+	#define DYN_HASH_SHIFT	(4)
+	#define DYN_PAGE_HASH	(4096>>DYN_HASH_SHIFT)
+	#define DYN_LINKS		(16)
 
 //#define DYN_LOG 1 //Turn logging on
 
 
-#if C_FPU
-#define CPU_FPU 1                                               //Enable FPU escape instructions
-#define X86_DYNFPU_DH_ENABLED
-#endif
+	#if C_FPU
+		#define CPU_FPU 1                                               //Enable FPU escape instructions
+		#define X86_DYNFPU_DH_ENABLED
+	#endif
 
 enum {
 	G_EAX,G_ECX,G_EDX,G_EBX,
@@ -192,11 +193,11 @@ static struct dyn_dh_fpu {
 #define X86_64      0x02
 
 #if C_TARGETCPU == X86_64
-#include "core_dyn_x86/risc_x64.h"
+	#include "core_dyn_x86/risc_x64.h"
 #elif C_TARGETCPU == X86
-#include "core_dyn_x86/risc_x86.h"
+	#include "core_dyn_x86/risc_x86.h"
 #else
-#error DYN_X86 core not supported for this CPU target.
+	#error DYN_X86 core not supported for this CPU target.
 #endif
 
 struct DynState {

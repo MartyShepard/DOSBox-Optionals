@@ -28,35 +28,40 @@
 #include "fpu.h"
 #include "paging.h"
 #include "mmx.h"
+#include "control.h"
+
+bool CPUMMXN = false;
+
 #if defined(C_DEBUG)
-#include "debug.h"
+	#include "debug.h"
 #endif
 
+
 #if (!C_CORE_INLINE)
-#define LoadMb(off) mem_readb(off)
-#define LoadMw(off) mem_readw(off)
-#define LoadMd(off) mem_readd(off)
-#define LoadMq(off) ((Bit64u)((Bit64u)mem_readd(off+4)<<32 | (Bit64u)mem_readd(off)))
-#define SaveMb(off,val)	mem_writeb(off,val)
-#define SaveMw(off,val)	mem_writew(off,val)
-#define SaveMd(off,val)	mem_writed(off,val)
-#define SaveMq(off,val) {mem_writed(off,val&0xffffffff);mem_writed(off+4,(val>>32)&0xffffffff);}
+	#define LoadMb(off) mem_readb(off)
+	#define LoadMw(off) mem_readw(off)
+	#define LoadMd(off) mem_readd(off)
+	#define LoadMq(off) ((Bit64u)((Bit64u)mem_readd(off+4)<<32 | (Bit64u)mem_readd(off)))
+	#define SaveMb(off,val)	mem_writeb(off,val)
+	#define SaveMw(off,val)	mem_writew(off,val)
+	#define SaveMd(off,val)	mem_writed(off,val)
+	#define SaveMq(off,val) {mem_writed(off,val&0xffffffff);mem_writed(off+4,(val>>32)&0xffffffff);}
 #else 
-#include "paging.h"
-#define LoadMb(off) mem_readb_inline(off)
-#define LoadMw(off) mem_readw_inline(off)
-#define LoadMd(off) mem_readd_inline(off)
-#define LoadMq(off) ((Bit64u)((Bit64u)mem_readd_inline(off+4)<<32 | (Bit64u)mem_readd_inline(off)))
-#define SaveMb(off,val)	mem_writeb_inline(off,val)
-#define SaveMw(off,val)	mem_writew_inline(off,val)
-#define SaveMd(off,val)	mem_writed_inline(off,val)
-#define SaveMq(off,val) {mem_writed_inline(off,val&0xffffffff);mem_writed_inline(off+4,(val>>32)&0xffffffff);}
+	#include "paging.h"
+	#define LoadMb(off) mem_readb_inline(off)
+	#define LoadMw(off) mem_readw_inline(off)
+	#define LoadMd(off) mem_readd_inline(off)
+	#define LoadMq(off) ((Bit64u)((Bit64u)mem_readd_inline(off+4)<<32 | (Bit64u)mem_readd_inline(off)))
+	#define SaveMb(off,val)	mem_writeb_inline(off,val)
+	#define SaveMw(off,val)	mem_writew_inline(off,val)
+	#define SaveMd(off,val)	mem_writed_inline(off,val)
+	#define SaveMq(off,val) {mem_writed_inline(off,val&0xffffffff);mem_writed_inline(off+4,(val>>32)&0xffffffff);}
 #endif
 
 extern Bitu cycle_count;
 
 #if C_FPU
-#define CPU_FPU	1						//Enable FPU escape instructions
+	#define CPU_FPU	1						//Enable FPU escape instructions
 #endif
 
 #define CPU_PIC_CHECK 1
@@ -160,11 +165,17 @@ Bits CPU_Core_Normal_Run(void) {
 		cycle_count++;
 #endif
 restart_opcode:
-		switch (core.opcode_index+Fetchb()) {
-		#include "core_normal/prefix_none.h"
-		#include "core_normal/prefix_0f.h"
-		#include "core_normal/prefix_66.h"
-		#include "core_normal/prefix_66_0f.h"
+
+		switch (core.opcode_index+Fetchb())
+		{
+			#include "core_normal/prefix_none.h"
+			#include "core_normal/prefix_0f.h"
+			#include "core_normal/prefix_66.h"
+			#include "core_normal/prefix_66_0f.h"									
+			if ( CPU_Support_MMX == true )
+			{
+				#include "core_normal/prefix_0f_mmx.h"
+			}
 		default:
 		illegal_opcode:
 #if defined(C_DEBUG)	
@@ -214,6 +225,5 @@ Bits CPU_Core_Normal_Trap_Run(void) {
 
 
 void CPU_Core_Normal_Init(void) {
-
 }
 

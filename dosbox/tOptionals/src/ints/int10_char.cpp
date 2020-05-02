@@ -328,7 +328,7 @@ void INT10_SetActivePage(Bit8u page) {
 
 void INT10_SetCursorShape(Bit8u first,Bit8u last) {
 	real_writew(BIOSMEM_SEG,BIOSMEM_CURSOR_TYPE,last|(first<<8));
-	if (machine==MCH_CGA) goto dowrite;
+	if (machine==MCH_CGA || machine==MCH_AMSTRAD) goto dowrite;
 	if (IS_TANDY_ARCH) goto dowrite;
 	/* Skip CGA cursor emulation if EGA/VGA system is active */
 	if (!(real_readb(BIOSMEM_SEG,BIOSMEM_VIDEO_CTL) & 0x8)) {
@@ -607,6 +607,7 @@ void INT10_WriteChar(Bit8u chr,Bit8u attr,Bit8u page,Bit16u count,bool showattr)
 				break;
 			case MCH_CGA:
 			case MCH_PCJR:
+			case MCH_AMSTRAD:
 				page=0;
 				pospage=0;
 				break;

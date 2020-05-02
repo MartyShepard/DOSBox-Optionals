@@ -374,13 +374,42 @@ static void slave_startIRQ(){
 	const Bit8u max = slave.special?8:slave.active_irq;
 	for(Bit8u i = 0,s = 1;i < max;i++, s<<=1){
 		if (p&s){
+			if (PIC_IRQ_hax[i+8] == PIC_irq_hack_cs_equ_ds)
+				if (!IRQ_hack_check_cs_equ_ds(i+8))
+					continue; // skip IRQ			
 			pic1_irq = i;
 			break;
 		}
 	}
 	// Maybe change the E_Exit to a return
-	if (GCC_UNLIKELY(pic1_irq == 8)) E_Exit("irq 2 is active, but no irq active on the slave PIC.");
+	/*
+		if (GCC_UNLIKELY(pic1_irq == 8)) E_Exit("irq 2 is active, but no irq active on the slave PIC.");
+	*/
 
+	if (GCC_UNLIKELY(pic1_irq == 8)) {
+		/*
+			bugfix: when the PIC has an IRQ 2 signal without a slave IRQ 8-15
+
+			signal, log an error and clear IRQ 2 instead of calling E_Exit(). Added
+			reminder to self to test what actual Sound Blaster 16 PnP cards do when
+			assigned IRQ 2 vs IRQ 9. Remember that on the ISA bus, the 8-bit
+			connector had an IRQ 2 (reserved) pin (PC/XT) that was reassigned to IRQ
+			9 on AT and later systems, and thus the ISA but doesn't really have IRQ
+			2 (but it's faked as IRQ 2 by DOS or the BIOS).
+
+			prior to this fix, running my Sound Blaster test program with
+			sbtype=sb16vibra and using the program to reassign the card to IRQ 2
+			caused DOSBox to E_Exit() with a complaint about IRQ 2 with no slave
+			IRQ, which imho is not an appropriate way to handle the error.
+		
+			we have an IRQ routing problem. this code is supposed to emulate the fact that
+			what was once IRQ 2 on PC/XT is routed to IRQ 9 on AT systems, because IRQ 8-15
+			cascade to IRQ 2 on such systems. but it's nothing to E_Exit() over. */
+			LOG(LOG_PIC,LOG_ERROR)("ISA PIC problem: IRQ 2 is active on master PIC without active IRQ 8-15 on slave PIC.");
+			slave.lower_irq(2); /* clear it */
+		return;
+	}
+	
 	slave.start_irq(pic1_irq);
 	master.start_irq(2);
 	CPU_HW_Interrupt(slave.vector_base + pic1_irq);
@@ -400,6 +429,10 @@ void PIC_runIRQs(void) {
 	const Bit8u max = master.special?8:master.active_irq;
 	for(Bit8u i = 0,s = 1;i < max;i++, s<<=1){
 		if (p&s){
+			if (PIC_IRQ_hax[i] == PIC_irq_hack_cs_equ_ds)
+				if (!IRQ_hack_check_cs_equ_ds(i))
+					continue; // skip IRQ
+			
 			if (i==2) { //second pic
 				slave_startIRQ();
 			} else {

@@ -29,6 +29,7 @@
 #include "dos_inc.h"
 #include "drives.h"
 #include "cross.h"
+#include "pinhacks.h"
 
 #define DOS_FILESTART 4
 
@@ -557,6 +558,11 @@ bool DOS_OpenFile(char const * name,Bit8u flags,Bit16u * entry,bool fcb) {
 	//if (flags>2) LOG_MSG("Special file open command %X file %s",flags,name);
 	//else LOG_MSG("file open command %X file %s",flags,name);	
 
+	if ( pinhack.enabled && pinhack.specifichack.pinballdreams.enabled ) {	
+		if ( !strcmp(name,"flippers.spr") ) { printf("PINHACK: pinhackpd: flippers.spr loaded, hack should trigger on next resolution change.\n");
+		pinhack.specifichack.pinballdreams.trigger=true; };
+	}
+	
 	DOS_PSP psp(dos.psp());
 	Bit16u attr = 0;
 	Bit8u devnum = DOS_FindDevice(name);

@@ -797,6 +797,186 @@ public:
 	}
 };
 
+class VGA_AMS_Handler : public PageHandler {
+public:
+	template< bool wrapping>
+	void writeHandler(PhysPt start, Bit8u val) {
+		vga.tandy.mem_base[ start ] = val;
+#ifdef DIJDIJD
+		Bit32u data=ModeOperation(val);
+		/* Update video memory and the pixel buffer */
+		VGA_Latch pixels;
+		pixels.d=((Bit32u*)vga.mem.linear)[start];
+		pixels.d&=vga.config.full_not_map_mask;
+		pixels.d|=(data & vga.config.full_map_mask);
+		((Bit32u*)vga.mem.linear)[start]=pixels.d;
+		Bit8u * write_pixels=&vga.mem.linear[VGA_CACHE_OFFSET+(start<<3)];
+
+		Bit32u colors0_3, colors4_7;
+		VGA_Latch temp;temp.d=(pixels.d>>4) & 0x0f0f0f0f;
+			colors0_3 = 
+			Expand16Table[0][temp.b[0]] |
+			Expand16Table[1][temp.b[1]] |
+			Expand16Table[2][temp.b[2]] |
+			Expand16Table[3][temp.b[3]];
+		*(Bit32u *)write_pixels=colors0_3;
+		temp.d=pixels.d & 0x0f0f0f0f;
+		colors4_7 = 
+			Expand16Table[0][temp.b[0]] |
+			Expand16Table[1][temp.b[1]] |
+			Expand16Table[2][temp.b[2]] |
+			Expand16Table[3][temp.b[3]];
+		*(Bit32u *)(write_pixels+4)=colors4_7;
+		if (wrapping && GCC_UNLIKELY( start < 512)) {
+			*(Bit32u *)(write_pixels+512*1024)=colors0_3;
+			*(Bit32u *)(write_pixels+512*1024+4)=colors4_7;
+		}
+#endif
+	}
+//	template< bool wrapping>
+	Bit8u readHandler(PhysPt start) {
+		return vga.tandy.mem_base[ start ];
+	}
+
+public:
+	VGA_AMS_Handler() {
+		//flags=PFLAG_READABLE|PFLAG_WRITEABLE;
+		flags=PFLAG_NOCODE;
+	}
+	inline PhysPt wrAddr( PhysPt addr )
+	{
+		if( vga.mode != M_AMSTRAD )
+		{
+			addr -= 0xb8000;
+			Bitu phys_page = addr >> 12;
+			//test for a unaliged bank, then replicate 2x16kb
+			if (vga.tandy.mem_bank & 1) 
+				phys_page&=0x03;
+			return ( phys_page * 4096 ) + ( addr & 0x0FFF );
+		}
+		return ( (PAGING_GetPhysicalAddress(addr) & 0xffff) - 0x8000 ) & ( 32*1024-1 );
+	}
+
+	void writeb(PhysPt addr,Bitu val) {
+		addr = wrAddr( addr );
+		Bitu plane = vga.mode==M_AMSTRAD ? vga.amstrad.write_plane : 0x01; // 0x0F?
+//		MEM_CHANGED( addr << 3 );
+		if( plane & 0x08 ) writeHandler<false>(addr+49152,(Bit8u)(val >> 0));
+		if( plane & 0x04 ) writeHandler<false>(addr+32768,(Bit8u)(val >> 0));
+		if( plane & 0x02 ) writeHandler<false>(addr+16384,(Bit8u)(val >> 0));
+		if( plane & 0x01 ) writeHandler<false>(addr+0,(Bit8u)(val >> 0));
+	}
+	void writew(PhysPt addr,Bitu val) {
+		addr = wrAddr( addr );
+		Bitu plane = vga.mode==M_AMSTRAD ? vga.amstrad.write_plane : 0x01; // 0x0F?
+//		MEM_CHANGED( addr << 3 );
+		if( plane & 0x01 )
+		{
+			writeHandler<false>(addr+0,(Bit8u)(val >> 0));
+			writeHandler<false>(addr+1,(Bit8u)(val >> 8));
+		}
+		addr += 16384;
+		if( plane & 0x02 )
+		{
+			writeHandler<false>(addr+0,(Bit8u)(val >> 0));
+			writeHandler<false>(addr+1,(Bit8u)(val >> 8));
+		}
+		addr += 16384;
+		if( plane & 0x04 )
+		{
+			writeHandler<false>(addr+0,(Bit8u)(val >> 0));
+			writeHandler<false>(addr+1,(Bit8u)(val >> 8));
+		}
+		addr += 16384;
+		if( plane & 0x08 )
+		{
+			writeHandler<false>(addr+0,(Bit8u)(val >> 0));
+			writeHandler<false>(addr+1,(Bit8u)(val >> 8));
+		}
+
+	}
+	void writed(PhysPt addr,Bitu val) {
+		addr = wrAddr( addr );
+		Bitu plane = vga.mode==M_AMSTRAD ? vga.amstrad.write_plane : 0x01; // 0x0F?
+		//MEM_CHANGED( addr << 3 );
+		if( plane & 0x01 )
+		{
+			writeHandler<false>(addr+0,(Bit8u)(val >> 0));
+			writeHandler<false>(addr+1,(Bit8u)(val >> 8));
+			writeHandler<false>(addr+2,(Bit8u)(val >> 16));
+			writeHandler<false>(addr+3,(Bit8u)(val >> 24));
+		}
+		addr += 16384;
+		if( plane & 0x02 )
+		{
+			writeHandler<false>(addr+0,(Bit8u)(val >> 0));
+			writeHandler<false>(addr+1,(Bit8u)(val >> 8));
+			writeHandler<false>(addr+2,(Bit8u)(val >> 16));
+			writeHandler<false>(addr+3,(Bit8u)(val >> 24));
+		}
+		addr += 16384;
+		if( plane & 0x04 )
+		{
+			writeHandler<false>(addr+0,(Bit8u)(val >> 0));
+			writeHandler<false>(addr+1,(Bit8u)(val >> 8));
+			writeHandler<false>(addr+2,(Bit8u)(val >> 16));
+			writeHandler<false>(addr+3,(Bit8u)(val >> 24));
+		}
+		addr += 16384;
+		if( plane & 0x08 )
+		{
+			writeHandler<false>(addr+0,(Bit8u)(val >> 0));
+			writeHandler<false>(addr+1,(Bit8u)(val >> 8));
+			writeHandler<false>(addr+2,(Bit8u)(val >> 16));
+			writeHandler<false>(addr+3,(Bit8u)(val >> 24));
+		}
+
+	}
+	Bitu readb(PhysPt addr) {
+		addr = wrAddr( addr ) + ( vga.amstrad.read_plane * 16384 );
+		addr &= (64*1024-1);
+		return readHandler(addr);
+	}
+	Bitu readw(PhysPt addr) {
+		addr = wrAddr( addr ) + ( vga.amstrad.read_plane * 16384 );
+		addr &= (64*1024-1);
+		return 
+			(readHandler(addr+0) << 0) |
+			(readHandler(addr+1) << 8);
+	}
+	Bitu readd(PhysPt addr) {
+		addr = wrAddr( addr ) + ( vga.amstrad.read_plane * 16384 );
+		addr &= (64*1024-1);
+		return 
+			(readHandler(addr+0) << 0)  |
+			(readHandler(addr+1) << 8)  |
+			(readHandler(addr+2) << 16) |
+			(readHandler(addr+3) << 24);
+	}
+
+/*
+	HostPt GetHostReadPt(Bitu phys_page)
+	{
+		if( vga.mode!=M_AMSTRAD )
+		{
+			phys_page-=0xb8;
+			//test for a unaliged bank, then replicate 2x16kb
+			if (vga.tandy.mem_bank & 1) 
+				phys_page&=0x03;
+			return vga.tandy.mem_base + (phys_page * 4096);
+		}
+		phys_page-=0xb8;
+		return vga.tandy.mem_base + (phys_page*4096) + (vga.amstrad.read_plane * 16384) ;
+	}
+*/
+/*
+	HostPt GetHostWritePt(Bitu phys_page) {
+		return GetHostReadPt( phys_page );
+	}
+*/
+};
+
+
 class VGA_Empty_Handler : public PageHandler {
 public:
 	VGA_Empty_Handler() {
@@ -826,6 +1006,7 @@ static struct vg {
 	VGA_LFB_Handler				lfb;
 	VGA_LFBChanges_Handler		lfbchanges;
 	VGA_MMIO_Handler			mmio;
+	VGA_AMS_Handler				ams;	
 	VGA_Empty_Handler			empty;
 } vgaph;
 
@@ -892,6 +1073,9 @@ void VGA_SetupHandlers(void) {
 		}
 		goto range_done;
 //		MEM_SetPageHandler(vga.tandy.mem_bank<<2,vga.tandy.is_32k_mode ? 0x08 : 0x04,range_handler);
+	case MCH_AMSTRAD: // Memory handler.
+		MEM_SetPageHandler( 0xb8, 8, &vgaph.ams );
+		goto range_done;
 	case EGAVGA_ARCH_CASE:
 		break;
 	default:
@@ -937,7 +1121,10 @@ void VGA_SetupHandlers(void) {
 			newHandler = &vgaph.cega;
 		else
 			newHandler = &vgaph.uega;
-		break;	
+		break;
+	case M_AMSTRAD:	
+		newHandler = &vgaph.map;
+		break;		
 	case M_TEXT:
 		/* Check if we're not in odd/even mode */
 		if (vga.gfx.miscellaneous & 0x2) newHandler = &vgaph.map;
@@ -945,7 +1132,7 @@ void VGA_SetupHandlers(void) {
 		break;
 	case M_CGA4:
 	case M_CGA2:
-		newHandler = &vgaph.map;
+		newHandler = &vgaph.map;	
 		break;
 	}
 	switch ((vga.gfx.miscellaneous >> 2) & 3) {
@@ -990,6 +1177,7 @@ range_done:
 	PAGING_ClearTLB();
 }
 
+/*
 void VGA_StartUpdateLFB(void) {
 	vga.lfb.page = vga.s3.la_window << 4;
 	vga.lfb.addr = vga.s3.la_window << 16;
@@ -1000,6 +1188,47 @@ void VGA_StartUpdateLFB(void) {
 #endif
 	MEM_SetLFB(vga.s3.la_window << 4 ,vga.vmemsize/4096, vga.lfb.handler, &vgaph.mmio);
 }
+*/
+
+void VGA_StartUpdateLFB(void) {
+	/* please obey the Linear Address Window Size register!
+	 * Windows 3.1 S3 driver will reprogram the linear framebuffer down to 0xA0000 when entering a DOSBox
+	 * and assuming the full VRAM size will cause a LOT of problems! */
+	Bitu winsz = 0x10000;
+
+	switch (vga.s3.reg_58&3) {
+		case 1:
+			winsz = 1 << 20;	//1MB
+			break;
+		case 2:
+			winsz = 2 << 20;	//2MB
+			break;
+		case 3:
+			winsz = 4 << 20;	//4MB
+			break;
+		// FIXME: What about the 8MB window?
+	}
+
+	/* if the DOS application or Windows 3.1 driver attempts to put the linear framebuffer
+	 * below the top of memory, then we're probably entering a DOS VM and it's probably
+	 * a 64KB window. If it's not a 64KB window then print a warning. */
+	if ((unsigned long)(vga.s3.la_window << 4UL) < (unsigned long)MEM_TotalPages()) {
+		if (winsz != 0x10000) // 64KB window normal for entering a DOS VM in Windows 3.1 or legacy bank switching in DOS
+			LOG(LOG_MISC,LOG_WARN)("S3 warning: Window size != 64KB and address conflict with system RAM!");
+
+		vga.lfb.page = vga.s3.la_window << 4;
+		vga.lfb.addr = vga.s3.la_window << 16;
+		vga.lfb.handler = NULL;
+		MEM_SetLFB(0,0,NULL,NULL);
+	}
+	else {
+		vga.lfb.page = vga.s3.la_window << 4;
+		vga.lfb.addr = vga.s3.la_window << 16;
+		vga.lfb.handler = &vgaph.lfb;
+		MEM_SetLFB(vga.s3.la_window << 4 ,vga.vmemsize/4096, vga.lfb.handler, &vgaph.mmio);
+	}
+}
+
 
 static void VGA_Memory_ShutDown(Section * /*sec*/) {
 	delete[] vga.mem.linear_orgptr;

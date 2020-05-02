@@ -219,13 +219,46 @@ static void write_latch(Bitu port,Bitu val,Bitu /*iolen*/) {
 		break;
 	}
 	if (p->bcd==true) BCD2BIN(p->write_latch);
-   	if (p->write_state != 0) {
-		if (p->write_latch == 0) {
-			if (p->bcd == false) p->cntr = 0x10000;
-			else p->cntr=9999;
+	
+   	if (p->write_state != 0)
+	{
+		LOG(LOG_PIT,LOG_NORMAL)("PIT: Write Latch %d",p->write_latch);
+		LOG(LOG_PIT,LOG_NORMAL)("PIT: Write Mode  %d",p->mode);			
+		if (p->write_latch == 0)
+		{
+			if (p->bcd == false)
+				p->cntr = 0x10000;
+			else
+				p->cntr=9999;
+		
+		/* ========================================= BEGIN ===  */
+		/*
+		  - PC speaker:
+			Mode 3 (square wave) and a counter value
+			of 1 produces a low frequency square wave. Ulrasonic
+			frequencies do not begin until count == 2. This fixes
+			helicopter noises in Paratrooper.		
+		*/
+		}	
+		
+		else if (p->write_latch == 1 && p->mode == 3)
+		{ 	
+			/* 
+				counter==1 and mode==3
+				makes a low frequency buzz (Paratrooper)
+			*/
+			
+            if (p->bcd == false)
+                p->cntr=0x10001;
+            else
+                p->cntr=10000;			
+
+		/* =========================================== END ===  */
+		
 		} else p->cntr = p->write_latch;
 
 		if ((!p->new_mode) && (p->mode == 2) && (counter == 0)) {
+			
 			// In mode 2 writing another value has no direct effect on the count
 			// until the old one has run out. This might apply to other modes too.
 			// This is not fixed for PIT2 yet!!

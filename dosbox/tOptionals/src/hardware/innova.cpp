@@ -28,6 +28,8 @@
 #define SID_FREQ 1022727
 //#define SID_FREQ 985248
 
+std::string nCurrentInnovtn = "";
+		
 static struct {
 	SID* sid;
 	Bitu rate;
@@ -77,15 +79,22 @@ private:
 public:
 	INNOVA(Section* configuration):Module_base(configuration) {
 		Section_prop * section=static_cast<Section_prop *>(configuration);
-		if(!section->Get_bool("innova")) return;
-		innova.rate = section->Get_int("samplerate");
-		innova.basePort = section->Get_hex("sidbase");
-		sampling_method method = SAMPLE_FAST;
+			
+		if(!section->Get_bool("innova"))
+			return;
+		
+		nCurrentInnovtn = "1989 Innovation Computer Corporation (SSI2001/SID)";
+		
+		innova.rate 			= section->Get_int("samplerate");
+		innova.basePort 		= section->Get_hex("sidbase");
+		
+		sampling_method method 	= SAMPLE_FAST;
 		int m = section->Get_int("quality");
-		switch(m) {
-		case 1: method = SAMPLE_INTERPOLATE; break;
-		case 2: method = SAMPLE_RESAMPLE_FAST; break;
-		case 3: method = SAMPLE_RESAMPLE_INTERPOLATE; break;
+		switch(m)
+		{
+			case 1: method = SAMPLE_INTERPOLATE; break;
+			case 2: method = SAMPLE_RESAMPLE_FAST; break;
+			case 3: method = SAMPLE_RESAMPLE_INTERPOLATE; break;
 		}
 
 		LOG_MSG("INNOVA: Initializing Innovation SSI-2001 (SID) emulation...");

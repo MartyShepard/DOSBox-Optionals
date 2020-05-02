@@ -33,6 +33,7 @@
 #include "shell.h"
 #include "math.h"
 #include "regs.h"
+#include "adlib.h"
 using namespace std;
 
 
@@ -102,15 +103,12 @@ static bool gus_warn_irq_conflict 	= false;
 static bool gus_warn_dma_conflict 	= false;
 static bool gus_Reg89_Silent 		= false;
 static bool gus_StereoMix 			= false;
-static bool gus_ForceDetect			= false;
 
 static bool dma_enable_on_dma_control_polling = false;
 
 class GUSChannels;
 static void CheckVoiceIrq(void);
 
-std::string nCurrentGUSType = "";
-		
 struct GFGus {
 	/*
 		gRegSelectData:
@@ -853,7 +851,9 @@ static void GUSReset(void)
 
     if (GUS_reset_reg ^ p_GUS_reset_reg)
 	{
-        LOG(LOG_MISC,LOG_NORMAL)("GUS reset with 0x%04X",myGUS.gRegData);
+		#if LOG_GUS			
+			LOG(LOG_MISC,LOG_NORMAL)("GUS reset with 0x%04X",myGUS.gRegData);
+		#endif
 	}
 
 
@@ -1228,12 +1228,10 @@ static void ExecuteGlobRegister(void) {
 	switch(myGUS.gRegSelect)
 	{
 		case 0x0:  // Channel voice control register
-			gus_chan->FillUp();
 			if(curchan) curchan->WriteWaveCtrl((Bit16u)myGUS.gRegData>>8);
 			break;
 			
 		case 0x1:  // Channel frequency control register
-			gus_chan->FillUp();
 			if(curchan) curchan->WriteWaveFreq(myGUS.gRegData);
 			break;
 			
@@ -1270,7 +1268,6 @@ static void ExecuteGlobRegister(void) {
 			break;
 			
 		case 0x6:  // Channel volume ramp rate register
-			gus_chan->FillUp();
 			if(curchan != NULL)
 			{
 				Bit8u tmpdata = (Bit16u)myGUS.gRegData>>8;
@@ -1304,7 +1301,6 @@ static void ExecuteGlobRegister(void) {
 			break;
 			
 		case 0xA:  // Channel MSW current address register
-			gus_chan->FillUp();		
 			if(curchan != NULL)
 			{
 				Bit32u tmpaddr = (Bit32u)(myGUS.gRegData & 0x1fff) << 16; /* upper 13 bits of integer portion */
@@ -1313,7 +1309,6 @@ static void ExecuteGlobRegister(void) {
 			break;
 			
 		case 0xB:  // Channel LSW current address register
-			gus_chan->FillUp();		
 			if(curchan != NULL)
 			{
 				Bit32u tmpaddr = (Bit32u)(myGUS.gRegData & 0xffff); /* lower 7 bits of integer portion, and all 9 bits of fractional portion */
@@ -1322,17 +1317,14 @@ static void ExecuteGlobRegister(void) {
 			break;
 			
 		case 0xC:  // Channel pan pot register
-			gus_chan->FillUp();		
 			if(curchan) curchan->WritePanPot((Bit16u)myGUS.gRegData>>8);
 			break;
 			
 		case 0xD:  // Channel volume control register
-			gus_chan->FillUp();		
 			if(curchan) curchan->WriteRampCtrl((Bit16u)myGUS.gRegData>>8);
 			break;
 			
 		case 0xE:  // Set active channel register
-			gus_chan->FillUp();		
 			myGUS.gRegSelect = myGUS.gRegData>>8;		//JAZZ Jackrabbit seems to assume this?
 			myGUS.ActiveChannelsUser = 1+((myGUS.gRegData>>8) & 31); // NTS: The GUS SDK documents this field as bits 5-0, which is wrong, it's bits 4-0. 5-0 would imply 64 channels.
 
@@ -1372,7 +1364,7 @@ static void ExecuteGlobRegister(void) {
 			myGUS.ActiveMask=0xffffffffU >> (32-myGUS.ActiveChannels);
 			myGUS.basefreq = (Bit32u)(0.5 + 1000000.0 / (1.619695497 * (double)(myGUS.ActiveChannels)));
 			
-			//gus_chan->FillUp();
+			gus_chan->FillUp();
 			if (!myGUS.fixed_sample_rate_output)
 			{
 				gus_chan->SetFreq(myGUS.basefreq);
@@ -1852,6 +1844,16 @@ public:
 } GUS_CS4231;
 
 
+static Adlib::Module* module = 0;
+
+static Bitu Adlib_OPL_Read(Bitu port,Bitu iolen) {
+	return module->PortRead( port, iolen );
+}
+
+void Adlib_OPL_Write(Bitu port,Bitu val,Bitu iolen) {
+	module->PortWrite( port, val, iolen );
+}
+
 static Bitu read_gus_cs4231(Bitu port,Bitu iolen) {
     (void)iolen;//UNUSED	
 	if (myGUS.gUltraMAXControl & 0x40/*codec enable*/)
@@ -1868,116 +1870,102 @@ static void write_gus_cs4231(Bitu port,Bitu val,Bitu iolen) {
 
 static Bitu read_gus(Bitu port,Bitu iolen) {
 	Bit16u reg16;
+	(void)iolen;//UNUSED	
+   	
+	switch(port - GUS_BASE)
+	{			
+		case 0x206:
+			if (myGUS.clearTCIfPollingIRQStatus) {
+				double t = PIC_FullIndex();
 
-    //(void)iolen;//UNUSED	
-#if LOG_GUS	
-	//LOG(LOG_MISC,LOG_NORMAL)("read from gus port %x, iolen %x",port, iolen);
-#endif	
-
-	switch(port - GUS_BASE) {
-	break;
-	case 0x206:
-		if (myGUS.clearTCIfPollingIRQStatus) {
-			double t = PIC_FullIndex();
-
-			/* Hack: "Warcraft II" by Blizzard entertainment.
-			 *
-			 * If you configure the game to use the Gravis Ultrasound for both music and sound, the GUS support code for digital
-			 * sound will cause the game to hang if music is playing at the same time within the main menu. The bug is that there
-			 * is code (in real mode no less) that polls the IRQ status register (2X6) and handles each IRQ event to clear it,
-			 * however there is no condition to handle clearing the DMA Terminal Count IRQ flag. The routine will not terminate
-			 * until all bits are cleared, hence, the game hangs after starting a sound effect. Most often, this is visible to
-			 * the user as causing the game to hang when you click on a button on the main menu.
-			 *
-			 * This hack attempts to detect the bug by looking for rapid polling of this register in a short period of time.
-			 * If detected, we clear the DMA IRQ flag to help the loop terminate so the game continues to run. */
-			if (t < (myGUS.lastIRQStatusPollAt + 0.1/*ms*/)) {
-				myGUS.lastIRQStatusPollAt = t;
-				myGUS.lastIRQStatusPollRapidCount++;
-				if (myGUS.clearTCIfPollingIRQStatus && (myGUS.IRQStatus & 0x80) && myGUS.lastIRQStatusPollRapidCount >= 500) {
-					LOG(LOG_MISC,LOG_NORMAL)("GUS: Clearing DMA TC IRQ status, DOS application appears to be stuck");
-					myGUS.lastIRQStatusPollRapidCount = 0;
+				/* Hack: "Warcraft II" by Blizzard entertainment.
+				 *
+				 * If you configure the game to use the Gravis Ultrasound for both music and sound, the GUS support code for digital
+				 * sound will cause the game to hang if music is playing at the same time within the main menu. The bug is that there
+				 * is code (in real mode no less) that polls the IRQ status register (2X6) and handles each IRQ event to clear it,
+				 * however there is no condition to handle clearing the DMA Terminal Count IRQ flag. The routine will not terminate
+				 * until all bits are cleared, hence, the game hangs after starting a sound effect. Most often, this is visible to
+				 * the user as causing the game to hang when you click on a button on the main menu.
+				 *
+				 * This hack attempts to detect the bug by looking for rapid polling of this register in a short period of time.
+				 * If detected, we clear the DMA IRQ flag to help the loop terminate so the game continues to run. */
+				if (t < (myGUS.lastIRQStatusPollAt + 0.1/*ms*/)) {
 					myGUS.lastIRQStatusPollAt = t;
-					myGUS.IRQStatus &= 0x7F;
-					GUS_CheckIRQ();
+					myGUS.lastIRQStatusPollRapidCount++;
+					if (myGUS.clearTCIfPollingIRQStatus && (myGUS.IRQStatus & 0x80) && myGUS.lastIRQStatusPollRapidCount >= 500) {
+						LOG(LOG_MISC,LOG_NORMAL)("GUS: Clearing DMA TC IRQ status, DOS application appears to be stuck");
+						myGUS.lastIRQStatusPollRapidCount = 0;
+						myGUS.lastIRQStatusPollAt = t;
+						myGUS.IRQStatus &= 0x7F;
+						GUS_CheckIRQ();
+					}
+				}
+				else {
+					myGUS.lastIRQStatusPollAt = t;
+					myGUS.lastIRQStatusPollRapidCount = 0;
 				}
 			}
-			else {
-				myGUS.lastIRQStatusPollAt = t;
-				myGUS.lastIRQStatusPollRapidCount = 0;
+
+			/* NTS: Contrary to some false impressions, GUS hardware does not report "one at a time", it really is a bitmask.
+			 * I had the funny idea you read this register "one at a time" just like reading the IRQ reason bits of the RS-232 port --J.C. */
+			return GUS_EffectiveIRQStatus();
+		case 0x208:
+			Bit8u tmptime;
+			tmptime = 0;
+			if (myGUS.timers[0].reached) tmptime |= (1 << 6);
+			if (myGUS.timers[1].reached) tmptime |= (1 << 5);
+			if (tmptime & 0x60) tmptime |= (1 << 7);
+			if (myGUS.IRQStatus & 0x04) tmptime|=(1 << 2);
+			if (myGUS.IRQStatus & 0x08) tmptime|=(1 << 1);
+			return tmptime;
+		case 0x20a:
+			return adlib_commandreg;
+		case 0x20f:
+			if (gus_type >= GUS_MAX || gus_ics_mixer)
+				return 0x02; /* <- FIXME: What my GUS MAX returns. What does this mean? */
+			return ~0ul; // should not happen	
+		case 0x302:
+			return myGUS.gRegSelectData;
+		case 0x303:
+			return myGUS.gRegSelectData;
+		case 0x304:
+			if (iolen==2) reg16 = ExecuteReadRegister() & 0xffff;
+			else reg16 = ExecuteReadRegister() & 0xff;
+
+			if (gus_type < GUS_INTERWAVE) // Versions prior to the Interwave will reflect last I/O to 3X2-3X5 when read back from 3X3
+				myGUS.gRegSelectData = reg16 & 0xFF;
+
+
+			return reg16;
+		case 0x305:
+			reg16 = ExecuteReadRegister() >> 8;
+
+			if (gus_type < GUS_INTERWAVE) // Versions prior to the Interwave will reflect last I/O to 3X2-3X5 when read back from 3X3
+				myGUS.gRegSelectData = reg16 & 0xFF;
+
+
+			return reg16;
+		case 0x307:
+			if((myGUS.gDramAddr & myGUS.gDramAddrMask) < myGUS.memsize) {
+				return GUSRam[myGUS.gDramAddr & myGUS.gDramAddrMask];
+			} else {
+				return 0;
 			}
-		}
-
-		/* NTS: Contrary to some false impressions, GUS hardware does not report "one at a time", it really is a bitmask.
-		 * I had the funny idea you read this register "one at a time" just like reading the IRQ reason bits of the RS-232 port --J.C. */
-		return GUS_EffectiveIRQStatus();
-	case 0x208:
-		Bit8u tmptime;
-		tmptime = 0;
-		if (myGUS.timers[0].reached) tmptime |= (1 << 6);
-		if (myGUS.timers[1].reached) tmptime |= (1 << 5);
-		if (tmptime & 0x60) tmptime |= (1 << 7);
-		if (myGUS.IRQStatus & 0x04) tmptime|=(1 << 2);
-		if (myGUS.IRQStatus & 0x08) tmptime|=(1 << 1);
-		return tmptime;
-	case 0x20a:
-		return adlib_commandreg;
-	case 0x20f:
-		if (gus_type >= GUS_MAX || gus_ics_mixer)
-			return 0x02; /* <- FIXME: What my GUS MAX returns. What does this mean? */
-		return ~0ul; // should not happen	
-	case 0x302:
-		return myGUS.gRegSelectData;
-	case 0x303:
-		return myGUS.gRegSelectData;
-	case 0x304:
-		if (iolen==2) reg16 = ExecuteReadRegister() & 0xffff;
-		else reg16 = ExecuteReadRegister() & 0xff;
-
-		if (gus_type < GUS_INTERWAVE) // Versions prior to the Interwave will reflect last I/O to 3X2-3X5 when read back from 3X3
-			myGUS.gRegSelectData = reg16 & 0xFF;
-
-
-		return reg16;
-	case 0x305:
-		reg16 = ExecuteReadRegister() >> 8;
-
-		if (gus_type < GUS_INTERWAVE) // Versions prior to the Interwave will reflect last I/O to 3X2-3X5 when read back from 3X3
-			myGUS.gRegSelectData = reg16 & 0xFF;
-
-
-		return reg16;
-	case 0x307:
-		if((myGUS.gDramAddr & myGUS.gDramAddrMask) < myGUS.memsize) {
-			return GUSRam[myGUS.gDramAddr & myGUS.gDramAddrMask];
-		} else {
-			return 0;
-		}
-	case 0x306:
-	case 0x706:
-		if (gus_type >= GUS_MAX)
-			return 0x0B; /* UltraMax with CS4231 codec */
-		else if (gus_ics_mixer)
-			return 0x06; /* revision 3.7+ with ICS-2101 mixer */
-		else
-			return 0xFF;
-		break;
-	case 0x348:	
+		case 0x306:
+		case 0x706:
+			if (gus_type >= GUS_MAX)
+				return 0x0B; /* UltraMax with CS4231 codec */
+			else if (gus_ics_mixer)
+				return 0x06; /* revision 3.7+ with ICS-2101 mixer */
+			else
+				return 0xFF;
+			break;	
 	
-		if (gus_ForceDetect == true){			
-				/* Ultrainit, GUsInstall need this ?*/
-				
-			//#if LOG_GUS
-				LOG(LOG_MISC,LOG_NORMAL)("ULTRASND: Read [ 0x348 ]");
-			//#endif				
-		return adlib_commandreg;
-		}
-		break;			
-	default:
-#if LOG_GUS
-		LOG(LOG_MISC,LOG_NORMAL)("ULTRASND: Read GUS at port 0x%x", port);
-#endif
-		break;
+		default:
+		//#if LOG_GUS
+			LOG(LOG_MISC,LOG_NORMAL)("ULTRASND: Read GUS at port 0x%x", port);
+		//#endif
+			break;
 	}
 
 	return 0xff;
@@ -2071,12 +2059,20 @@ static void write_gus(Bitu port,Bitu val,Bitu iolen) {
 				//     "If both channels are sharing an IRQ, channel 2's IRQ must be set to 0 and turn on bit 6. A
 				//      bus conflict will occur if both latches are programmed with the same IRQ #."
 				if (irqtable[val & 0x7] != 0)
+				{
 					myGUS.irq1 = irqtable[val & 0x7];
+				}
 
-				if (val & 0x40) // "Combine both IRQs"
+				if (val & 0x40)
+				{ 	/*
+						"Combine both IRQs"
+					*/
 					myGUS.irq2 = myGUS.irq1;
+				}
 				else if (((val >> 3) & 7) != 0)
+				{					
 					myGUS.irq2 = irqtable[(val >> 3) & 0x7];
+				}
 
 				LOG(LOG_MISC,LOG_NORMAL)("GUS IRQ reprogrammed: GF1 IRQ %d, MIDI IRQ %d",(int)myGUS.irq1,(int)myGUS.irq2);
 
@@ -2135,6 +2131,8 @@ static void write_gus(Bitu port,Bitu val,Bitu iolen) {
 			LOG(LOG_MISC,LOG_NORMAL)("GUS warning: Port 2XB register control %02xh written (unknown control reg) val=%02xh",(int)myGUS.gRegControl,(int)val);
 		}
 		break;
+	//case 0x300:/*MIDI control*/
+	//case 0x301:/*MIDI data*/
 	case 0x302:
 		myGUS.gCurChannel = val & 31;
 		if (gus_type < GUS_INTERWAVE) // Versions prior to the Interwave will reflect last I/O to 3X2-3X5 when read back from 3X3
@@ -2199,16 +2197,13 @@ static void write_gus(Bitu port,Bitu val,Bitu iolen) {
 			else if ((port - GUS_BASE) == 0x706)
 				GUS_ICS2101.addressWrite(val&0xFF);
 		}
-		break;	
+		break;
 	case 0x348:	
-		if (gus_ForceDetect == true){
-				//#if LOG_GUS
-					LOG(LOG_MISC,LOG_NORMAL)("ULTRASND: Write [ 0x348 ]");
-				//#endif				
-				/* Ultrainit, GUsInstall need this ?*/
-				adlib_commandreg = (Bit8u)val;
-				break;	
-		}	
+		{	
+			/* Ultrainit, GUsInstall need this */
+			adlib_commandreg = (Bit8u)val;
+		}
+		break;	
 	default:
 #if LOG_GUS
 		LOG(LOG_MISC,LOG_NORMAL)("ULTRASND: Write GUS at port 0x%x with %x", port, val);
@@ -2652,8 +2647,8 @@ static void MakeTables(void) {
 
 class GUS:public Module_base{
 private:
-	IO_ReadHandleObject ReadHandler[13];
-	IO_WriteHandleObject WriteHandler[13];
+	IO_ReadHandleObject ReadHandler[14];
+	IO_WriteHandleObject WriteHandler[14];
 	IO_ReadHandleObject ReadCS4231Handler[4];
 	IO_WriteHandleObject WriteCS4231Handler[4];
 	AutoexecObject autoexecline[4];
@@ -2674,37 +2669,28 @@ public:
 		gus_ics_mixer = false;
 		
 		string s_gustype = section->Get_string("gustype");
-		if (s_gustype == "classic")
-		{
+		if (s_gustype == "classic") {
 			LOG(LOG_MISC,LOG_NORMAL)("UltraSound: Classic emulation");
 			gus_type = GUS_CLASSIC;
-			nCurrentGUSType = "1992 Gravis UltraSound (Classic)";
 		}
-		else if (s_gustype == "classic37")
-		{
+		else if (s_gustype == "classic37") {
 			LOG(LOG_MISC,LOG_NORMAL)("GUS: Classic emulation");
 			gus_type = GUS_CLASSIC;
 			gus_ics_mixer = true;
-			nCurrentGUSType = "1992 Gravis UltraSound (revisions 3.7)";
 		}		
-		else if (s_gustype == "max")
-		{
+		else if (s_gustype == "max") {
 			// UltraMAX cards do not have the ICS mixer
 			LOG(LOG_MISC,LOG_NORMAL)("UltraSound: MAX emulation");
 			gus_type = GUS_MAX;
-			nCurrentGUSType = "1994 Gravis UltraSound MAX";			
 		}
-		else if (s_gustype == "interwave")
-		{
+		else if (s_gustype == "interwave") {
 			// Neither do Interwave cards
 			LOG(LOG_MISC,LOG_NORMAL)("UltraSound: Interwave PnP emulation");
 			gus_type = GUS_INTERWAVE;
-			nCurrentGUSType = "1995 AMD InterWave (GFA1)";				}
-		else
-		{
+		}
+		else {
 			LOG(LOG_MISC,LOG_NORMAL)("GUS: Classic emulation by default");
 			gus_type = GUS_CLASSIC;
-			nCurrentGUSType = "1992 Gravis UltraSound (Classic)";
 		}
 					
 		string s_pantable = section->Get_string("Pantable");
@@ -2749,7 +2735,6 @@ public:
 		ultradir 		= section->Get_string("ultradir");
         gus_Reg89_Silent= section->Get_bool("R89Silent");
         gus_StereoMix	= section->Get_bool("MonoMixed");		
-		gus_ForceDetect = section->Get_bool("ForceDetect");
 
 		dma_enable_on_dma_control_polling = section->Get_bool("EnCPolling");
 		 
@@ -2835,8 +2820,10 @@ public:
 		// Board Only 
 	
 		WriteHandler[7].Install(0x200 + GUS_BASE,write_gus,IO_MB);
+		
 		ReadHandler[7].Install(0x20A + GUS_BASE,read_gus,IO_MB);
 		WriteHandler[8].Install(0x20B + GUS_BASE,write_gus,IO_MB);
+	
 
 		if (gus_type >= GUS_MAX || gus_ics_mixer/*classic with 3.7 mixer*/) {
 			/* "This register is only valid for UltraSound boards that are at or above revision 3.4. It is not valid for boards which
@@ -2852,8 +2839,14 @@ public:
 			WriteHandler[10].Install(0x306 + GUS_BASE,write_gus,IO_MB); // Mixer control
 			WriteHandler[11].Install(0x706 + GUS_BASE,write_gus,IO_MB); // Mixer data / GUS UltraMAX Control register			
 		}
-	
-		if (gus_type >= GUS_MAX) {
+		
+		//ReadHandler[12].Install(0x388,read_gus,IO_MB);
+		//WriteHandler[12].Install(0x388,write_gus,IO_MB);	
+		
+		//WriteHandler[0].Install(0x388,Adlib_OPL_Write,IO_MB, 4 );
+		//ReadHandler[0].Install(0x388,Adlib_OPL_Read,IO_MB, 4 );		
+		
+	if (gus_type >= GUS_MAX) {
 			LOG(LOG_MISC,LOG_WARN)("GUS caution: CS4231 UltraMax emulation is new and experimental at this time and it is not guaranteed to work.");
 			LOG(LOG_MISC,LOG_WARN)("GUS caution: CS4231 UltraMax emulation as it exists now may cause applications to hang or malfunction attempting to play through it.");
 			
@@ -2865,12 +2858,7 @@ public:
 			}
 		}
 		
-		if ( gus_ForceDetect == true ){					
-			WriteHandler[12].Install(0x388,write_gus,IO_MB);
-			ReadHandler[12].Install(0x388,read_gus,IO_MB);
-		}
-		
-	//	DmaChannels[myGUS.dma1]->Register_TC_Callback(GUS_DMA_TC_Callback);
+		//DmaChannels[myGUS.dma1]->Register_TC_Callback(GUS_DMA_TC_Callback);
 	
 		MakeTables();
 	
@@ -2980,8 +2968,7 @@ public:
 		if(!section->Get_bool("gus"))
 		{
 			return;
-		}
-	
+		}	
 		myGUS.gRegData	= 0x1;
 		GUSReset();
 		myGUS.gRegData	= 0x0;

@@ -41,6 +41,7 @@
 #include "dma.h"
 #include "mousedrv.h"
 #include "ide.h"
+#include "isa.h"
 
 
 

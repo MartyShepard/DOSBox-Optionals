@@ -171,6 +171,8 @@ void CPU_Push32(Bitu value);
 
 void CPU_SetFlags(Bitu word,Bitu mask);
 
+extern bool CPU_Support_MMX;
+
 
 #define EXCEPTION_UD			6
 #define EXCEPTION_TS			10

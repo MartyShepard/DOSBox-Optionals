@@ -1024,6 +1024,125 @@ bool Config::SaveConfig_Intg( std::string sSection, std::string sProperty,  int 
 	return true;
 }
 
+/*
+   Read Float Value on The Fly
+*/
+float Config::ReadConfig_Float( std::string sSection, std::string sProperty )
+{
+		std::string sConfigFile = getDosboxConfig();
+		char  sfloat[45];
+		float nfloat;
+
+		GetPrivateProfileString(sSection.c_str(), sProperty.c_str(), "0.00", sfloat, 32, sConfigFile.c_str());		
+		
+		nfloat = atof(sfloat);
+		
+		return nfloat;
+}
+
+bool Config::ExistsProperty(std::string sSection, std::string sProperty)
+{
+	std::string val;	
+	Section* sec = control->GetSection(sSection.c_str());
+	if (sec)
+	{
+		Bitu i = 0;
+		Section_prop* psec = dynamic_cast <Section_prop*>(sec);
+		while(true)
+		{
+			// list the properties
+			Property* p = psec->Get_prop(i++);
+			if (p==NULL) return false;
+				
+			if ( strcmp(p->propname.c_str(), sProperty.c_str()) == 0 )
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+	return false;
+	
+}
+
+std::string GetValueFromProp(std::string sSection, std::string sProperty)
+{
+	
+	std::string val;	
+	Section* sec = control->GetSection(sSection.c_str());
+	if (sec)
+	{
+		Bitu i = 0;
+		Section_prop* psec = dynamic_cast <Section_prop*>(sec);
+		while(true)
+		{
+			// list the properties
+			Property* p = psec->Get_prop(i++);
+			if (p==NULL) return ("Property '%s' Not Found",p->propname.c_str() );
+				
+			if ( strcmp(p->propname.c_str(), sProperty.c_str()) == 0 )
+			{
+				val = p->GetValue().ToString().c_str();
+				return val;
+			}
+		}
+		return ("Value Not Found in the Dosbox Config");
+	}
+	return ("Section '[%s]' Not Found",sSection);
+}
+
+UINT Config::CHECKMARK(std::string sSection, std::string sProperty)
+{
+	
+	std::string val = GetValueFromProp(sSection, sProperty);
+
+	if (val.compare("true") == 0)
+	{
+			return MFS_CHECKED;		
+	}
+	return MFS_UNCHECKED;
+}
+
+bool Config::ChangeOnTheFly(std::string sSection, std::string sProperty, std::string sValue)
+{
+	Section* OTF = control->GetSection(sSection.c_str());
+	
+	std::string Handle;
+	std::string OldVal = GetValueFromProp(sSection, sProperty);
+
+	if (sValue.compare("BOOL") == 0)
+	{
+		UINT uCheck = CHECKMARK(sSection.c_str(), sProperty.c_str());
+		if (uCheck == MFS_CHECKED)
+			sValue = "false";
+		
+		if (uCheck == MFS_UNCHECKED)
+			sValue = "true";		
+	}
+	
+	Handle += sProperty;
+	Handle += "=";
+	Handle += sValue;
+							
+	OTF->ExecuteDestroy(false);
+	bool r = OTF->HandleInputline(Handle.c_str());
+	if (r)
+	{				
+		LOG_MSG("Config : [%s]\n"
+				" - Old : %s=%s\n"
+				" - New : %s=%s\n"
+				"Config : Temporary Changed - Not Real Saved\n\n",sSection.c_str(), sProperty.c_str(),OldVal.c_str(), sProperty.c_str(), sValue.c_str());
+	}
+	else
+	{
+		LOG_MSG("Config : [%s]\n"
+				" - Old : %s=%s\n"
+				" ERROR : %s\n"
+				"Config : Temporary Changed - Not Real Saved\n\n",sSection.c_str(), OldVal.c_str(), sProperty.c_str(), sValue.c_str());
+	}
+	OTF->ExecuteInit(false);	
+}
+
 Section_prop* Config::AddSection_prop(char const * const _name,void (*_initfunction)(Section*),bool canchange) {
 	Section_prop* blah = new Section_prop(_name);
 	blah->AddInitFunction(_initfunction,canchange);

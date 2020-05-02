@@ -19,6 +19,7 @@
 
 #include <string.h>
 #include <math.h>
+#include <cstdio>
 #include "dosbox.h"
 #include "video.h"
 #include "render.h"
@@ -27,6 +28,7 @@
 #include "pic.h"
 #include "control.h"
 #include "..\ints\int10.h"
+#include "pinhacks.h"
 
 //#undef C_DEBUG
 //#define C_DEBUG 1
@@ -39,6 +41,30 @@ typedef Bit8u * (* VGA_Line_Handler)(Bitu vidstart, Bitu line);
 
 static VGA_Line_Handler VGA_DrawLine;
 static Bit8u TempLine[SCALER_MAXWIDTH * 4];
+
+static Bit8u * VGA_Draw_AMS_4BPP_Line(Bitu vidstart, Bitu line) {
+    const Bit8u *base = vga.tandy.draw_base + ((line & vga.tandy.line_mask) << vga.tandy.line_shift);
+    const Bit8u *lbase;
+    Bit32u *draw = (Bit32u *)TempLine;
+    for (Bitu x=vga.draw.blocks;x>0;x--, vidstart++) {
+        lbase = &base[ vidstart & (8 * 1024 -1) ];
+        Bitu val0 = lbase[ 0 ];
+        Bitu val1 = lbase[ 16384 ];
+        Bitu val2 = lbase[ 32768 ];
+        Bitu val3 = lbase[ 49152 ];
+        
+        *draw++=( ( CGA_2_Table[ val0 >> 4 ] << 0 ) | 
+            ( CGA_2_Table[ val1 >> 4 ] << 1 ) |
+            ( CGA_2_Table[ val2 >> 4 ] << 2 ) |
+            ( CGA_2_Table[ val3 >> 4 ] << 3 ) ) & vga.amstrad.mask_plane;
+        *draw++=( ( CGA_2_Table[ val0 & 0x0F ] << 0 ) | 
+            ( CGA_2_Table[ val1 & 0x0F ] << 1 ) |
+            ( CGA_2_Table[ val2 & 0x0F ] << 2 ) |
+            ( CGA_2_Table[ val3 & 0x0F ] << 3 ) ) & vga.amstrad.mask_plane;
+    }
+    return TempLine;
+}
+
 
 static Bit8u * VGA_Draw_1BPP_Line(Bitu vidstart, Bitu line) {
 	const Bit8u *base = vga.tandy.draw_base + ((line & vga.tandy.line_mask) << vga.tandy.line_shift);
@@ -822,14 +848,16 @@ static void VGA_DrawPart(Bitu lines) {
 			vga.draw.address+=vga.draw.address_add;
 		}
 		vga.draw.lines_done++;
-		if (vga.draw.split_line==vga.draw.lines_done) {
+        if (pinhack.trigger == false) {		
+			if (vga.draw.split_line==vga.draw.lines_done) {
 #ifdef VGA_KEEP_CHANGES
-			VGA_ChangesEnd( );
+				VGA_ChangesEnd( );
 #endif
-			VGA_ProcessSplit();
+				VGA_ProcessSplit();
 #ifdef VGA_KEEP_CHANGES
-			vga.changes.start = vga.draw.address >> VGA_CHANGE_SHIFT;
+				vga.changes.start = vga.draw.address >> VGA_CHANGE_SHIFT;
 #endif
+			}
 		}
 	}
 	if (--vga.draw.parts_left) {
@@ -916,6 +944,7 @@ static void VGA_VerticalTimer(Bitu /*val*/) {
 		PIC_AddEvent(VGA_Other_VertInterrupt, (float)vga.draw.delay.vrstart, 1);
 		PIC_AddEvent(VGA_Other_VertInterrupt, (float)vga.draw.delay.vrend, 0);
 		// fall-through
+	case MCH_AMSTRAD:
 	case MCH_CGA:
 	case MCH_HERC:
 		// MC6845-powered graphics: Loading the display start latch happens somewhere
@@ -1021,9 +1050,13 @@ static void VGA_VerticalTimer(Bitu /*val*/) {
 			|| !vga.draw.blinking) ? true:false;
 		break;
 	case M_HERC_GFX:
-	case M_CGA4:case M_CGA2:
-		vga.draw.address=(vga.draw.address*2)&0x1fff;
+	case M_CGA4:
+	case M_CGA2:
+		vga.draw.address=(vga.draw.address*2u)&0x1fffu;
 		break;
+	case M_AMSTRAD: // Base address: No difference?
+		vga.draw.address=(vga.draw.address*2u)&0xffffu;
+		break;		
 	case M_CGA16:
 	case M_TANDY2:case M_TANDY4:case M_TANDY16:
 		vga.draw.address *= 2;
@@ -1094,8 +1127,12 @@ void VGA_CheckScanLength(void) {
 	case M_CGA2:
 	case M_CGA4:
 	case M_CGA16:
-		vga.draw.address_add=80;
-		return;
+	case M_AMSTRAD:	// Next line.
+        if (IS_EGAVGA_ARCH)
+            vga.draw.address_add=vga.config.scan_len*(unsigned int)(2u<<vga.config.addr_shift);
+        else
+            vga.draw.address_add=vga.draw.blocks;
+        break;
 	case M_TANDY2:
 		vga.draw.address_add=vga.draw.blocks/4;
 		break;
@@ -1289,6 +1326,9 @@ void VGA_SetupDrawing(Bitu /*val*/) {
 		vbend = vtotal;
 		vga.draw.double_scan=false;
 		switch (machine) {
+		case MCH_AMSTRAD:
+            clock=(16000000/2)/8;
+            break;			
 		case MCH_CGA:
 		case TANDY_ARCH_CASE:
 			clock=((vga.tandy.mode_control & 1) ? 14318180 : (14318180/2))/8;
@@ -1707,6 +1747,18 @@ case M_VGA:
 		width<<=3;
 		VGA_DrawLine=VGA_TEXT_Herc_Draw_Line;
 		break;
+	case M_AMSTRAD: // Probably OK?
+		pix_per_char = 16;
+		vga.draw.blocks=width*2;
+		VGA_DrawLine=VGA_Draw_AMS_4BPP_Line;
+/*
+		VGA_DrawLine=VGA_Draw_4BPP_Line;
+		doubleheight=true;
+		vga.draw.blocks = 2*width; width<<=4;
+		vga.draw.linear_base = vga.mem.linear + VGA_CACHE_OFFSET;
+		vga.draw.linear_mask = 512 * 1024 - 1;
+*/
+		break;		
 	default:
 		if (int10.bExtraVGA_Debug){	LOG(LOG_VGAMISC,LOG_NORMAL)("VGA: Mode Switched -> [UNK %d      ] --- ( File %s, Line %d)",__FILE__,__LINE__);}
 		#if defined(C_DEBUG)
@@ -1734,6 +1786,49 @@ case M_VGA:
 			height/=2;
 		}
 	}
+	
+	if (pinhack.enabled)
+	{
+		LOG_MSG("\tPINHACK"); /* Check for tirggering preconditions... */
+	
+		if ( !pinhack.specifichack.pinballdreams.enabled || pinhack.specifichack.pinballdreams.trigger )
+		{
+			
+			if ( height >= pinhack.triggerheight.min && height <= pinhack.triggerheight.max )
+			{
+				
+				if ( pinhack.triggerwidth.min <= width && width <= pinhack.triggerwidth.max )
+				{
+					
+					LOG_MSG("\tPINHACK: Triggered Successfull-> ");
+					pinhack.trigger = true;
+					
+					LOG_MSG("\tPINHACK: Original Size: %dx%d. Expanding to: %dx%d.\n",
+							width,height,pinhack.expand.width  ? pinhack.expand.width : width,
+										 pinhack.expand.height ? pinhack.expand.height: height);
+										 
+					/* If width or height not set, do not expand! */
+					if ( pinhack.expand.height )
+						 height = pinhack.expand.height;
+					 
+					if ( pinhack.expand.width )
+						 width = pinhack.expand.width;					 
+				}				
+			}
+			
+			if ( pinhack.specifichack.pinballdreams.trigger )
+				 pinhack.specifichack.pinballdreams.trigger = false; /* On next resolution change, return to normal */
+			
+			aspect_ratio = pinhack.aspectratio;
+			
+		}
+		else
+		{
+			pinhack.trigger = false;
+            LOG_MSG("\tPINHACK: Trigger Values Evalueted but not Triggered!\n\tPINHACK: Current resolution: %dx%d\n",width,height);
+		};
+	}
+	
 	vga.draw.lines_total=height;
 	vga.draw.parts_lines=vga.draw.lines_total/vga.draw.parts_total;
 	vga.draw.line_length = width * ((bpp + 1) / 8);
@@ -1885,6 +1980,11 @@ case M_VGA:
 
 		vga.draw.width = width;
 		vga.draw.height = height;
+       if ( pinhack.trigger ) {
+               if ( pinhack.doublewidth == "yes" ) doublewidth=true;
+               if ( pinhack.doublewidth == "no" ) doublewidth=false;
+               printf("PINHACK: Doublewidth: %s\n",pinhack.doublewidth);
+       }		
 		vga.draw.doublewidth = doublewidth;
 		vga.draw.doubleheight = doubleheight;
 		vga.draw.aspect_ratio = aspect_ratio;

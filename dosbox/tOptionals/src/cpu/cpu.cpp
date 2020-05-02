@@ -91,6 +91,9 @@ void CPU_Core_Dynrec_Cache_Init(bool enable_cache);
 void CPU_Core_Dynrec_Cache_Close(void);
 #endif
 
+std::string nCurrentCPUCore = "";
+std::string nCurrentCPUType = "";
+		
 /* In debug mode exceptions are tested and dosbox exits when 
  * a unhandled exception state is detected. 
  * USE CHECK_EXCEPT to raise an exception in that case to see if that exception
@@ -2550,36 +2553,61 @@ public:
 			CPU_CycleAutoAdjust=false;
 		}
 
-		CPU_CycleUp=section->Get_int("cycleup");
-		CPU_CycleDown=section->Get_int("cycledown");
+		CPU_CycleUp		=section->Get_int("cycleup");
+		CPU_CycleDown	=section->Get_int("cycledown");
+		
 		std::string core(section->Get_string("core"));
+		
 		cpudecoder=&CPU_Core_Normal_Run;
-		if (core == "normal") {
+		
+		if (core == "normal")
+		{
+			nCurrentCPUCore = "Normal";
 			cpudecoder=&CPU_Core_Normal_Run;
-		} else if (core =="simple") {
+		}
+		else if (core =="simple")
+		{			
+			nCurrentCPUCore = "Simple";
 			cpudecoder=&CPU_Core_Simple_Run;
-		} else if (core == "full") {
+		}
+		else if (core == "full")
+		{
+			nCurrentCPUCore = "Full";			
 			cpudecoder=&CPU_Core_Full_Run;
-		} else if (core == "auto") {
+		}
+		else if (core == "auto")
+		{
+			nCurrentCPUCore = "Auto Mode";	
 			cpudecoder=&CPU_Core_Normal_Run;
+			
 #if (C_DYNAMIC_X86)
 			CPU_AutoDetermineMode|=CPU_AUTODETERMINE_CORE;
 		}
-		else if (core == "dynamic") {
+
+		else if (core == "dynamic")
+		{
+			nCurrentCPUCore = "Dynamic with FPU";
 			cpudecoder=&CPU_Core_Dyn_X86_Run;
 			CPU_Core_Dyn_X86_SetFPUMode(true);
-		} else if (core == "dynamic_nodhfpu") {
+		}
+		else if (core == "dynamic_nodhfpu")
+		{
+			nCurrentCPUCore = "Dynamic NoFPU";
 			cpudecoder=&CPU_Core_Dyn_X86_Run;
 			CPU_Core_Dyn_X86_SetFPUMode(false);
+			
 #elif (C_DYNREC)
 			CPU_AutoDetermineMode|=CPU_AUTODETERMINE_CORE;
 		}
-		else if (core == "dynamic") {
+		else if (core == "dynamic")
+		{
 			cpudecoder=&CPU_Core_Dynrec_Run;
 #else
 
 #endif
 		}
+		
+			
 
 #if (C_DYNAMIC_X86)
 		CPU_Core_Dyn_X86_Cache_Init((core == "dynamic") || (core == "dynamic_nodhfpu"));
@@ -2588,42 +2616,98 @@ public:
 #endif
 
 		CPU_ArchitectureType = CPU_ARCHTYPE_MIXED;
+		
 		std::string cputype(section->Get_string("cputype"));
-		if (cputype == "auto") {
-			CPU_ArchitectureType = CPU_ARCHTYPE_MIXED;
-		} else if (cputype == "386") {
+		if (cputype == "auto")
+		{
+			nCurrentCPUType = "Automatic";
+			CPU_ArchitectureType = CPU_ARCHTYPE_MIXED;		
+		}
+		else if (cputype == "386")
+		{
+			nCurrentCPUType = "80386";
 			CPU_ArchitectureType = CPU_ARCHTYPE_386FAST;
-		} else if (cputype == "386_prefetch") {
+		}
+		
+		else if (cputype == "386_prefetch")
+		{			
 			CPU_ArchitectureType = CPU_ARCHTYPE_386FAST;
-			if (core == "normal") {
+			if (core == "normal")
+			{
+				nCurrentCPUType = "80386 16-Bit Fast Mode";
 				cpudecoder=&CPU_Core_Prefetch_Run;
 				CPU_PrefetchQueueSize = 16;
-			} else if (core == "auto") {
+			}
+			else if (core == "auto")
+			{
+				nCurrentCPUType = "80386 16-Bit Fast Auto";				
 				cpudecoder=&CPU_Core_Prefetch_Run;
 				CPU_PrefetchQueueSize = 16;
 				CPU_AutoDetermineMode&=(~CPU_AUTODETERMINE_CORE);
-			} else {
-				E_Exit("prefetch queue emulation requires the normal core setting.");
 			}
-		} else if (cputype == "386_slow") {
+			else
+			{
+				LOG_MSG("CPU: Prefetch Queue Emulation Requires The Normal Core Setting.\n"
+				        "     CPU Core Changed to Normal Core...");
+					
+				cpudecoder=&CPU_Core_Prefetch_Run;
+				CPU_PrefetchQueueSize = 16;
+						
+			}
+			
+		}
+		
+		else if (cputype == "386_slow")
+		{
+			nCurrentCPUType = "80386 16-Bit Protected Auto";
 			CPU_ArchitectureType = CPU_ARCHTYPE_386SLOW;
-		} else if (cputype == "486_slow") {
+		}
+		
+		else if (cputype == "486_slow")
+		{
+			nCurrentCPUType = "80486 Protected Mode";
 			CPU_ArchitectureType = CPU_ARCHTYPE_486NEWSLOW;
-		} else if (cputype == "486_prefetch") {
+		}
+		
+		else if (cputype == "486_prefetch")
+		{
 			CPU_ArchitectureType = CPU_ARCHTYPE_486NEWSLOW;
-			if (core == "normal") {
+			
+			if (core == "normal")
+			{
+				nCurrentCPUType = "80486 32-Bit Fast Mode";				
 				cpudecoder=&CPU_Core_Prefetch_Run;
 				CPU_PrefetchQueueSize = 32;
-			} else if (core == "auto") {
+			}
+			
+			else if (core == "auto")
+			{
+				nCurrentCPUType = "80486 32-Bit Fast Auto";					
 				cpudecoder=&CPU_Core_Prefetch_Run;
 				CPU_PrefetchQueueSize = 32;
 				CPU_AutoDetermineMode&=(~CPU_AUTODETERMINE_CORE);
-			} else {
-				E_Exit("prefetch queue emulation requires the normal core setting.");
 			}
-		} else if (cputype == "pentium_slow") {
+			else
+			{
+				LOG_MSG("CPU: Prefetch Queue Emulation Requires The Normal Core Setting.\n"
+				        "     CPU Core Changed to Normal Core...");
+					
+				cpudecoder=&CPU_Core_Prefetch_Run;
+				CPU_PrefetchQueueSize = 32;
+			}
+		
+		}
+		
+		else if (cputype == "pentium_slow")
+		{
+			nCurrentCPUType = "Intel(R) Pentium(R)";
 			CPU_ArchitectureType = CPU_ARCHTYPE_PENTIUMSLOW;
-		} else if (cputype == "pentiumpro_slow") {
+			
+		}
+		
+		else if (cputype == "pentiumpro_slow")
+		{
+			nCurrentCPUType = "Intel(R) Pentium(R) Pro";			
 			CPU_ArchitectureType = CPU_ARCHTYPE_PPROSLOW;			
 		}
 

@@ -23,6 +23,7 @@
 #include "inout.h"
 #include "mem.h"
 
+int nCurrent_VidSize_PVGA1A;
 typedef struct {
 	Bitu PR0A;
 	Bitu PR0B;
@@ -220,16 +221,22 @@ void SVGA_Setup_ParadisePVGA1A(void) {
 	if (vga.vmemsize == 0)
 		vga.vmemsize = 512*1024;
 
-	if (vga.vmemsize < 512*1024)	{
+	if (vga.vmemsize < 512*1024)
+	{
 		vga.vmemsize = 256*1024;
 		pvga1a.PR1 = 1<<6;
-	} else if (vga.vmemsize > 512*1024) {
+	}
+	else if (vga.vmemsize > 512*1024)
+	{
 		vga.vmemsize = 1024*1024;
 		pvga1a.PR1 = 3<<6;
-	} else {
+	}
+	else
+	{
 		pvga1a.PR1 = 2<<6;
 	}
-
+	
+	nCurrent_VidSize_PVGA1A = vga.vmemsize/1024;
 	// Paradise ROM signature
 	PhysPt rom_base=PhysMake(0xc000,0);
 	phys_writeb(rom_base+0x007d,'V');

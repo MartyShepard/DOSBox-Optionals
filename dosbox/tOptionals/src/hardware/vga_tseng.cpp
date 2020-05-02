@@ -24,6 +24,10 @@
 #include "inout.h"
 #include "mem.h"
 #include <cstdlib>
+
+int nCurrent_VidSize_S3ET3K;
+int nCurrent_VidSize_S3ET4K;
+
 // Tseng ET4K data
 typedef struct {
 	Bit8u extensionsEnabled;
@@ -445,11 +449,15 @@ void SVGA_Setup_TsengET4K(void) {
 
 	if (vga.vmemsize < 512*1024)
 		vga.vmemsize = 256*1024;
+	
 	else if (vga.vmemsize < 1024*1024)
 		vga.vmemsize = 512*1024;
+	
 	else
 		vga.vmemsize = 1024*1024;
 
+	nCurrent_VidSize_S3ET4K = vga.vmemsize/1024;
+	
 	// Tseng ROM signature
 	PhysPt rom_base=PhysMake(0xc000,0);
 	phys_writeb(rom_base+0x0075,' ');
@@ -735,8 +743,7 @@ void FinishSetMode_ET3K(Bitu crtc_base, VGA_ModeExtraData* modeData) {
 	// Verified on functioning (at last!) hardware: Tseng ET3000 is the same as ET4000 when
 	// it comes to chain4 architecture
     vga.config.compatible_chain4 = false;
-	vga.vmemwrap = vga.vmemsize;
-
+	vga.vmemwrap = vga.vmemsize;	
 	VGA_SetupHandlers();
 }
 
@@ -794,6 +801,7 @@ void SVGA_Setup_TsengET3K(void) {
 	IO_RegisterWriteHandler(0x3cd,write_p3cd_et3k,IO_MB);
 
 	vga.vmemsize = 512*1024; // Cannot figure how this was supposed to work on the real card
+	nCurrent_VidSize_S3ET3K = vga.vmemsize/1024;
 
 	// Tseng ROM signature
 	PhysPt rom_base=PhysMake(0xc000,0);

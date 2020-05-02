@@ -28,6 +28,8 @@
 
 #define DISNEY_SIZE 128
 
+std::string nCurrent_Disney = "";
+
 typedef struct _dac_channel {
 	Bit8u buffer[DISNEY_SIZE];	// data buffer
 	Bitu used;					// current data buffer level
@@ -364,9 +366,12 @@ private:
 	//MixerObject MixerChan;
 public:
 	DISNEY(Section* configuration):Module_base(configuration) {
-		Section_prop * section=static_cast<Section_prop *>(configuration);
-		if(!section->Get_bool("disney")) return;
 	
+		Section_prop * section=static_cast<Section_prop *>(configuration);
+		if(!section->Get_bool("disney"))
+			return;
+	
+		nCurrent_Disney = "Disney Sound Source (Covox Speech Thing)";
 		WriteHandler.Install(DISNEY_BASE,disney_write,IO_MB,3);
 		ReadHandler.Install(DISNEY_BASE,disney_read,IO_MB,3);
 	

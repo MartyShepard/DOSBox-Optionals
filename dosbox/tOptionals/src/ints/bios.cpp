@@ -17,6 +17,7 @@
  */
 
 #include <assert.h>
+#include <time.h>
 #include "dosbox.h"
 #include "mem.h"
 #include "bios.h"
@@ -31,7 +32,10 @@
 #include "mouse.h"
 #include "setup.h"
 #include "serialport.h"
-#include <time.h>
+#include "isa.h"
+#include "vga.h"
+
+extern bool PS1AudioCard;
 
 #if defined(DB_HAVE_CLOCK_GETTIME) && ! defined(WIN32)
 //time.h is already included
@@ -719,6 +723,60 @@ static Bitu INT14_Handler(void) {
 
 static Bitu INT15_Handler(void) {
 	static Bit16u biosConfigSeg=0;
+	
+	if( ( machine==MCH_AMSTRAD ) && ( reg_ah<0x07 ) ) {
+		switch(reg_ah) {
+			case 0x00:
+				// Read/Reset Mouse X/Y Counts.
+				// CX = Signed X Count.
+				// DX = Signed Y Count.
+				// CC.
+			case 0x01:
+				// Write NVR Location.
+				// AL = NVR Address to be written (0-63).
+				// BL = NVR Data to be written.
+
+				// AH = Return Code.
+				// 00 = NVR Written Successfully.
+				// 01 = NVR Address out of range.
+				// 02 = NVR Data write error.
+				// CC.
+			case 0x02:
+				// Read NVR Location.
+				// AL = NVR Address to be read (0-63).
+
+				// AH = Return Code.
+				// 00 = NVR read successfully.
+				// 01 = NVR Address out of range.
+				// 02 = NVR checksum error.
+				// AL = Byte read from NVR.
+				// CC.
+			default:
+				LOG(LOG_BIOS,LOG_NORMAL)("INT15 Unsupported PC1512 Call %02X",reg_ah);
+				return CBRET_NONE;
+			case 0x03:
+				// Write VDU Colour Plane Write Register.
+				vga.amstrad.write_plane = reg_al & 0x0F;
+				CALLBACK_SCF(false);
+				break;
+			case 0x04:
+				// Write VDU Colour Plane Read Register.
+				vga.amstrad.read_plane = reg_al & 0x03;
+				CALLBACK_SCF(false);
+				break;
+			case 0x05:
+				// Write VDU Graphics Border Register.
+				vga.amstrad.border_color = reg_al & 0x0F;
+				CALLBACK_SCF(false);
+				break;
+			case 0x06:
+				// Return ROS Version Number.
+				reg_bx = 0x0001;
+				CALLBACK_SCF(false);
+				break;
+		}
+	}
+	
 	switch (reg_ah) {
 	case 0x06:
 	case 0xC0:	/* Get Configuration*/
@@ -739,8 +797,13 @@ static Bitu INT15_Handler(void) {
 				/* Tandy doesn't have a 2nd PIC, left as is for now */
 				mem_writeb(data+5,(1<<6)|(1<<5)|(1<<4));	// Feature Byte 1
 			} else {
-				mem_writeb(data+2,0xFC);					// Model ID (PC)
-				mem_writeb(data+3,0x00);					// Submodel ID
+				if( PS1AudioCard ) {
+					mem_writeb(data+2,0xFC);					// Model ID (PC)
+					mem_writeb(data+3,0x0B);					// Submodel ID (PS/1).
+				} else {
+					mem_writeb(data+2,0xFC);					// Model ID (PC)
+					mem_writeb(data+3,0x00);					// Submodel ID
+				}				
 				mem_writeb(data+4,0x01);					// Bios Revision
 				mem_writeb(data+5,(1<<6)|(1<<5)|(1<<4));	// Feature Byte 1
 			}
@@ -1049,7 +1112,7 @@ static Bitu INT15_Handler(void) {
 		LOG(LOG_BIOS,LOG_ERROR)("INT15:Unknown call %4X",reg_ax);
 		reg_ah=0x86;
 		CALLBACK_SCF(true);
-		if ((IS_EGAVGA_ARCH) || (machine==MCH_CGA)) {
+		if ((IS_EGAVGA_ARCH) || (machine==MCH_CGA) || (machine==MCH_AMSTRAD)) {
 			/* relict from comparisons, as int15 exits with a retf2 instead of an iret */
 			CALLBACK_SZF(false);
 		}
@@ -1299,7 +1362,7 @@ public:
 		phys_writeb(Real2Phys(BIOS_DEFAULT_HANDLER_LOCATION),0xcf);	/* bios default interrupt vector location -> IRET */
 		phys_writew(Real2Phys(RealGetVec(0x12))+0x12,0x20); //Hack for Jurresic
 
-		if (machine==MCH_TANDY) phys_writeb(0xffffe,0xff)	;	/* Tandy model */
+		if (machine==MCH_TANDY || machine==MCH_AMSTRAD) phys_writeb(0xffffe,0xff)	;	/* Tandy model */
 		else if (machine==MCH_PCJR) phys_writeb(0xffffe,0xfd);	/* PCJr model */
 		else phys_writeb(0xffffe,0xfc);	/* PC */
 
@@ -1431,6 +1494,7 @@ public:
 		case EGAVGA_ARCH_CASE:
 		case MCH_CGA:
 		case TANDY_ARCH_CASE:
+		case MCH_AMSTRAD:
 			//Startup 80x25 color
 			config|=0x20;
 			break;
@@ -1509,7 +1573,15 @@ void BIOS_SetComPorts(Bit16u baseaddr[]) {
 static BIOS* test;
 
 void BIOS_Destroy(Section* /*sec*/){
-	delete test;
+		/*
+			if (ISAPNP_SysDevNodes[i] != NULL) delete ISAPNP_SysDevNodes[i];
+			ISAPNP_SysDevNodes[i] = NULL;
+		*/
+		
+		if (test != NULL) {
+			delete test;
+			test = NULL;
+		}
 }
 
 void BIOS_Init(Section* sec) {

@@ -113,9 +113,14 @@ public:
 	bool SecureMode() const { return secure_mode; }
 	void SwitchToSecureMode() { secure_mode = true; }//can't be undone
 	
-	bool SaveConfig_ResX( int w, int h, bool bWindowed );
-	bool SaveConfig_Bool( std::string sSection, std::string sProperty, bool b );
-	bool SaveConfig_Intg( std::string sSection, std::string sProperty,  int i );	
+	bool  SaveConfig_ResX( int w, int h, bool bWindowed );
+	bool  SaveConfig_Bool( std::string sSection, std::string sProperty, bool b );
+	bool  SaveConfig_Intg( std::string sSection, std::string sProperty,  int i );	
+	bool  ChangeOnTheFly(std::string sSection, std::string sProperty, std::string sValue);
+	bool  ExistsProperty(std::string sSection, std::string sProperty);
+	
+	float ReadConfig_Float(std::string sSection, std::string sProperty);
+	UINT  CHECKMARK(std::string sSection, std::string sProperty);
 	
 public:
 	std::string opt_editconf,opt_opensaves,opt_opencaptures,opt_lang;

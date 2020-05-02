@@ -2,11 +2,17 @@
 
 #ifdef C_NE2000
 
+#include <iomanip>
+#include <stdlib.h>
+#include <math.h> 
+#include <assert.h>
+#include <iostream>     // std::cout, std::ios
+#include <sstream>      // std::ostringstream
+#include <string.h>
+#include <stdio.h>
 
 #include "dosbox.h"
 #include "programs.h"
-#include <string.h>
-#include <stdio.h>
 #include "support.h"
 #include "inout.h"
 #include "setup.h"
@@ -15,8 +21,7 @@
 #include "pic.h"
 #include "cpu.h"
 #include "programs.h"
-
-
+#include "control.h"
 
 
 /* Couldn't find a real spec for the NE2000 out there, hence this is adapted heavily from Bochs */
@@ -67,7 +72,7 @@ static void NE2000_TX_Event(Bitu val);
 #define pcap_freealldevs(A)				PacketFreealldevs(A)
 #define pcap_open(A,B,C,D,E,F)			PacketOpen(A,B,C,D,E,F)
 #define pcap_next_ex(A,B,C)				PacketNextEx(A,B,C)
-#define pcap_findalldevs_ex(A,B,C,D)	PacketFindALlDevsEx(A,B,C,D)
+#define pcap_findalldevs_ex(A,B,C,D)	PacketFindALlDevsEx((char*)A,B,C,(char*)D)
 
 int (*PacketSendPacket)(pcap_t *, const u_char *, int) = 0;
 void (*PacketClose)(pcap_t *) = 0;
@@ -85,11 +90,13 @@ int (*PacketFindALlDevsEx)(char *, struct pcap_rmtauth *, pcap_if_t **, char *) 
 #define LOG_THIS theNE2kDevice->
 //#define BX_DEBUG 
 //#define BX_INFO 
-#define BX_NULL_TIMER_HANDLE NULL
+#define BX_NULL_TIMER_HANDLE 0
 #define BX_PANIC 
 #define BX_ERROR 
 #define BX_RESET_HARDWARE 0
 #define BX_RESET_SOFTWARE 1
+
+std::string nCurrent_Ne2000 = "";
 
 bx_ne2k_c* theNE2kDevice = NULL;
 
@@ -1426,6 +1433,7 @@ static void NE2000_Poller(void) {
 #include <windows.h>
 #endif
 
+
 class NE2K: public Module_base {
 private:
 	// Data
@@ -1460,7 +1468,7 @@ public:
 		HINSTANCE pcapinst;
 		pcapinst = LoadLibrary("WPCAP.DLL");
 		if(pcapinst==NULL) {
-			LOG_MSG("WinPcap has to be installed for the NE2000 to work.");
+			LOG_MSG("NE2K: WinPcap has to be installed for the NE2000 to work.");
 			load_success = false;
 			return;
 		}
@@ -1501,28 +1509,69 @@ public:
 
 		// get irq and base
 		Bitu irq = section->Get_int("nicirq");
-		if(!(irq==3 || irq==4  || irq==5  || irq==6 ||irq==7 ||
-			irq==9 || irq==10 || irq==11 || irq==12 ||irq==14 ||irq==15)) {
+		if(!(irq==3 || 
+			 irq==4 ||
+			 irq==5 ||
+			 irq==6 ||
+			 irq==7 ||
+			 irq==9 ||
+			 irq==10||
+			 irq==11||
+			 irq==12||
+			 irq==14||
+			 irq==15))
+		{
 			irq=3;
 		}
+		
 		Bitu base = section->Get_hex("nicbase");
-		if(!(base==0x260||base==0x27F||base==0x280||base==0x300||base==0x320||base==0x340||base==0x380)) {
+		if(!(base==0x260||
+			 base==0x27F||
+			 base==0x280||
+			 base==0x300||
+			 base==0x320||
+			 base==0x340||
+			 base==0x380))
+		{
 			base=0x300;
 		}
 
 		// mac address
 		const char* macstring=section->Get_string("macaddr");
-		Bitu macint[6];
-		Bit8u mac[6];
+		Bitu 	macint[6];
+		Bit8u 	mac[6];
+		
 		if(sscanf(macstring,"%02x:%02x:%02x:%02x:%02x:%02x",
-			&macint[0],&macint[1],&macint[2],&macint[3],&macint[4],&macint[5]) != 6) {
-			mac[0]=0xac;mac[1]=0xde;mac[2]=0x48;
-			mac[3]=0x88;mac[4]=0xbb;mac[5]=0xaa;
-		} else {
-			mac[0]=macint[0]; mac[1]=macint[1];
-			mac[2]=macint[2]; mac[3]=macint[3];
-			mac[4]=macint[4]; mac[5]=macint[5];
+			&macint[0],
+			&macint[1],
+			&macint[2],
+			&macint[3],
+			&macint[4],
+			&macint[5]) != 6)
+		{
+			mac[0]=0xac;
+			mac[1]=0xde;
+			mac[2]=0x48;
+			mac[3]=0x88;
+			mac[4]=0xbb;
+			mac[5]=0xaa;
 		}
+		else
+		{
+			mac[0]=macint[0];
+			mac[1]=macint[1];
+			mac[2]=macint[2];
+			mac[3]=macint[3];
+			mac[4]=macint[4];
+			mac[5]=macint[5];
+		}
+
+		std::ostringstream RawBase;
+		RawBase << "" << std::setw(3) << std::hex << base;
+		nCurrent_Ne2000 = "Novell 2000 Ethernet Network card\n"
+		                  "\t\t\t     Configured Base:" + RawBase.str() + "\n"
+						  "\t\t\t     Configured IRQ :" + std::to_string(irq)+"\n"
+						  "\t\t\t     Configured MAC :" + macstring;
 
 		// find out which pcap device to use
 		const char* realnicstring=section->Get_string("realnic");
@@ -1536,25 +1585,43 @@ public:
 		if (pcap_findalldevs(&alldevs, errbuf) == -1)
 #endif
  		{
-			LOG_MSG("\nNE2000 - Cannot enumerate network interfaces: %s\n", errbuf);
+			LOG_MSG("\nNE2K: Can't Enumerate Network Interfaces: %s\n", errbuf);
 			load_success = false;
 			return;
 		}
-		if (!strcasecmp(realnicstring,"list")) {
+		
+		char * pch;
+					
+		if (!strcasecmp(realnicstring,"list"))
+		{
 			// print list and quit
 			Bitu i = 0;
 			
-			LOG_MSG("\nNE2000 - Network Interface List \n-----------------------------------");
+			LOG_MSG("\nNET : NE2000 - Network Interface Adpater on Local Host [ Get List ] \n"
+			        "      ---------------------------------------------------------------");
 			
-			for(currentdev=alldevs; currentdev!=NULL; currentdev=currentdev->next) {
-				const char* desc = "no description"; 
-				if(currentdev->description) desc=currentdev->description;
+			for(currentdev=alldevs; currentdev!=NULL; currentdev=currentdev->next)
+			{
+				const char* desc = "No Description"; 
+	
+				if(currentdev->description)
+					desc=currentdev->description;
+				
 				i++;
-				LOG_MSG("Nr: %2d. %s\n    (%s)\n",i,currentdev->name,desc);
+			
+				desc = sReplace(desc, "Network adapter", "");
+				desc = sReplace(desc, "\'", "");
+				desc = sReplace(desc, "on local host", "");				
+												
+				LOG_MSG("%4d: %s\n"
+							"   %s\n",i,desc,currentdev->name);					
 			}
+			
 			pcap_freealldevs(alldevs);
 			load_success = false;
+			LOG_MSG("-----------------------------------------------------------LIST END-");			
 			return;
+			
 		} else if(1==sscanf(realnicstring,"%u",&userdev)) {
 			// user passed us a number
 			Bitu i = 0;
@@ -1577,15 +1644,25 @@ public:
 		}
 
 		if(currentdev==NULL) {
-			LOG_MSG("Unable to find network interface - check realnic parameter\n");
+			LOG_MSG("NE2K: Unable to Find network interface\n"
+			        "      * Check RealNIC Parameter\n");
 			load_success = false;
 			pcap_freealldevs(alldevs);
 			return;
 		}
+		
 		// print out which interface we are going to use
-        const char* desc = "no description"; 
-		if(currentdev->description) desc=currentdev->description;
-		LOG_MSG("Using Network interface:\n%s\n(%s)\n",currentdev->name,desc);
+        const char* desc = "No Description"; 
+		if(currentdev->description)
+			desc=currentdev->description;
+		
+			desc = sReplace(desc, "Network adapter ", "");
+			desc = sReplace(desc, "\'", "");
+			desc = sReplace(desc, "on local host", "");		
+				
+			LOG_MSG("\nNE2K: Using Network Interface Adpater from Local Host:\n"
+					"      * %s\n"
+					"      * %s\n",desc,currentdev->name);
 		
 		// attempt to open it
 #ifdef WIN32
@@ -1612,7 +1689,8 @@ public:
 
 #endif        
         {
-				LOG_MSG("\nUnable to open the interface: %s.", errbuf);
+			LOG_MSG("NE2K: Unable to Open the Network Interface Adpater:\n"
+						"    * %s", errbuf);
         	pcap_freealldevs(alldevs);
 			load_success = false;
 			return;

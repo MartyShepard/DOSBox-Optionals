@@ -14,6 +14,7 @@
 #include "mem.h"
 #include "cpu.h"
 #include "ide.h"
+#include "isa.h"
 #include "mixer.h"
 #include "timer.h"
 #include "setup.h"

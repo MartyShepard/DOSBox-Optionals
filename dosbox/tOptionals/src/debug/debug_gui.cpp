@@ -226,37 +226,39 @@ static void LOG_Init(Section * sec) {
 
 void LOG_StartUp(void) {
 	/* Setup logging groups */
-	loggrp[LOG_ALL].front="ALL";
-	loggrp[LOG_VGA].front="VGA";
-	loggrp[LOG_VGAGFX].front="VGAGFX";
-	loggrp[LOG_VGAMISC].front="VGAMISC";
-	loggrp[LOG_INT10].front="INT10";
-	loggrp[LOG_SB].front="SBLASTER";
-	loggrp[LOG_DMACONTROL].front="DMA_CONTROL";
+	loggrp[LOG_ALL].		front="ALL";
+	loggrp[LOG_VGA].		front="VGA";
+	loggrp[LOG_VGAGFX].		front="VGAGFX";
+	loggrp[LOG_VGAMISC].	front="VGAMISC";
+	loggrp[LOG_INT10].		front="INT10";
+	loggrp[LOG_SB].			front="SBLASTER";
+	loggrp[LOG_DMACONTROL].	front="DMA_CONTROL";
+	loggrp[LOG_PS1].		front="IBM_PS1";
 	
-	loggrp[LOG_FPU].front="FPU";
-	loggrp[LOG_CPU].front="CPU";
-	loggrp[LOG_PAGING].front="PAGING";
+	loggrp[LOG_FPU].		front="FPU";
+	loggrp[LOG_CPU].		front="CPU";
+	loggrp[LOG_PAGING].		front="PAGING";
 
-	loggrp[LOG_FCB].front="FCB";
-	loggrp[LOG_FILES].front="FILES";
-	loggrp[LOG_IOCTL].front="IOCTL";
-	loggrp[LOG_EXEC].front="EXEC";
-	loggrp[LOG_DOSMISC].front="DOSMISC";
+	loggrp[LOG_FCB].		front="FCB";
+	loggrp[LOG_FILES].		front="FILES";
+	loggrp[LOG_IOCTL].		front="IOCTL";
+	loggrp[LOG_EXEC].		front="EXEC";
+	loggrp[LOG_DOSMISC].	front="DOSMISC";
 
-	loggrp[LOG_PIT].front="PIT";
-	loggrp[LOG_KEYBOARD].front="KEYBOARD";
-	loggrp[LOG_PIC].front="PIC";
+	loggrp[LOG_PIT].		front="PIT";
+	loggrp[LOG_KEYBOARD].	front="KEYBOARD";
+	loggrp[LOG_PIC].		front="PIC";
 
-	loggrp[LOG_MOUSE].front="MOUSE";
-	loggrp[LOG_BIOS].front="BIOS";
-	loggrp[LOG_GUI].front="GUI";
-	loggrp[LOG_MISC].front="MISC";
+	loggrp[LOG_MOUSE].		front="MOUSE";
+	loggrp[LOG_BIOS].		front="BIOS";
+	loggrp[LOG_GUI].		front="GUI";
+	loggrp[LOG_MISC].		front="MISC";
+	loggrp[LOG_MSCDEX].		front="MSCDEX";
 
-	loggrp[LOG_IO].front="IO";
-	loggrp[LOG_PCI].front="PCI";
+	loggrp[LOG_IO].			front="IO";
+	loggrp[LOG_PCI].		front="PCI";
 	
-	loggrp[LOG_VOODOO].front="SST";	
+	loggrp[LOG_VOODOO].		front="SST";	
 	/* Register the log section */
 	Section_prop * sect=control->AddSection_prop("log",LOG_Init);
 	Prop_string* Pstring = sect->Add_string("logfile",Property::Changeable::Always,"");

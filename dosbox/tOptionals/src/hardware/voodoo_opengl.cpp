@@ -2237,6 +2237,202 @@ void Voodoo_OGL_LOG_LFB_RegisterMode(INT16 LFBReg){
 }
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+void Voodoo_OGL_LOG_LFB_XY_Coords(GLint x, GLint y, int ViewPortW, int ViewPortH ){
+			
+		LOG_MSG("Coords: (x)%d X (y)%d  ([2]=%d X [3]=%d)  SetX= %f / SetY= %f",
+																					x,y, ViewPortW,ViewPortH,
+																					sdlVoodoo.opengl.CoordsX,
+																					sdlVoodoo.opengl.CoordsY);	
+		
+}
+
+#define LFB_LOGGER 0
+/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+float Voodoo_OGL_LFB_Get_Scale_Height(int ViewPortHeight)
+{
+	/* 
+		This are Hardcoded Values, I doesn't found a "Automatic"
+		function to set corrct values.
+	*/
+	#if defined C_HEAVY_DEBUG && LFB_LOGGER >= 1	
+	if ( sdlVoodoo.opengl.CoordsY != 0.000000 )
+			return sdlVoodoo.opengl.CoordsY;
+	#endif
+	
+	switch ( ViewPortHeight )
+	{
+		case 480:
+				/*  640x480 */
+				return 1;
+		case 600:
+				/*  800x600 */	
+				return 3.950f;	
+		case 664:
+				/* 1176x664 */
+				return 2.585f;
+		case 720:
+				/* 1280x720 */
+				return 1.985f;
+		case 768:
+				/* 1024x768 */
+				/* 1280x768 */
+				/* 1360x768 */								
+				/* 1366x768 */								
+				return 1.660f;
+		case 800:
+				/* 1280x800 */
+				return 1.495f;
+		case 864:
+				/* 1152x864 */
+				return 1.245f;
+		case 900:
+				/* 1440x900 */
+				/* 1600x900 */
+				return 1.138f;
+		case 960:
+				/* 1280x960 */
+				return 2.0f;								
+		case 992:
+				/* 1768x992 */
+				return 28.000f;							
+		case 1024:
+				/* 1280x1024 */
+				/* 1600x1024 */
+				return 14.4f;
+		case 1050:
+				/* 1680x1050 */							
+				return 9.836f;				
+		case 1080:
+				/* 1920x1080 */								
+				return 7.850f;
+		case 1200:
+				/* 1600x1200 */								
+				return 3.950f;
+		case 1440:
+				/* 1920*1440 */
+				return 384.0f;
+		case 1536:
+				/* 2048x1536 */
+				return 14.5f;
+		case 1600:
+				/* 2560x1600 */
+				return 8.8f;
+		case 2160:
+				/* 3840x2160 */
+				return 7.85f;
+		case 4320:
+				/* 7680x4320 */
+				return 448.0f;				
+		default:
+				return 1.000f;		
+	}	
+}
+
+/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+float Voodoo_OGL_LFB_Get_Scale_Width(int ViewPortWidth)
+{
+
+	#if defined C_HEAVY_DEBUG && LFB_LOGGER >= 1		
+	if ( sdlVoodoo.opengl.CoordsX != 0.000000 )	
+			return sdlVoodoo.opengl.CoordsX;		
+	#endif
+	
+	switch ( ViewPortWidth )
+	{
+		case 480:
+				/*  640x480 */
+				return 1;
+		case 800:
+				/*  800x600 */	
+				return 3.980f;
+		case 885:
+				/*  885x664 */	
+				return 2.626f;	
+		case 960:
+				/*  960x720 */	
+				return 2.0f;
+		case 1024:
+				/* 1024x768 */
+				return 1.660f;
+		case 1067:
+				/* 1067x800 */							
+				return 1.490f;				
+		case 1152:
+				/* 1152x864 */
+				return 1.245f;
+		case 1176:
+				/* 1176x664 */
+				return 1.190f;
+		case 1200:
+				/* 1200x900 */
+				return 1.14f;					
+		case 1280:
+				/* 1280x720 */
+				/* 1280x768 */
+				/* 1280x800 */
+				/* 1280x1024*/
+				return 500.0f;	
+		case 1323:
+				/* 1323x992 */
+				return 32.4f;				
+		case 1360:
+				/* 1360x768 */
+				return 15.5f;
+		case 1365:
+				/* 1365x1024 */
+				return 14.7f;				
+		case 1366:
+				/* 1366x768 */
+				return 14.7f;
+		case 1400:
+				/* 1400*1050 */
+				return 10.4f;				
+		case 1440:
+				/* 1440*900 */
+				return 7.8f;
+		case 1600:
+				/* 1600*900 */
+				/* 1600x1024*/
+				/* 1600x1200*/
+				return 3.950f;				
+		case 1680:
+				/* 1680x1050 */
+				return 3.150f;
+		case 1768:
+				/* 1768x992 */
+				return 2.586f;
+		case 1920:
+				/* 1920x1080 */
+				/* 1920x1200 */
+				/* 1920*1440 */
+				return 256.0f;
+		case 2048:
+				/* 2048x1536 */
+				return 14.0f;
+		case 2133:
+				/* 2133x1600 */
+				return 8.6f;				
+		case 2560:
+				/* 2560x1440 */
+				return 256.0f;
+		case 2880:
+				/* 2880x2160 */
+				return 256.0f;				
+		case 3840:
+				/* 3840x2160 */
+				return 256.0f;
+		case 5760:
+				/* 5760x4320 */
+				return 256.0f;				
+		case 7860:
+				/* 7860x4320 */
+				return 256.0f;			
+		default:
+				return 1.000f;				
+	}	
+}
+
+/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 UINT32 voodoo_ogl_read_pixel(GLint x, GLint y) {
 		
 	
@@ -2259,6 +2455,7 @@ UINT32 voodoo_ogl_read_pixel(GLint x, GLint y) {
                 			
 	UINT32 data[2]; GLsizei w; GLsizei h; INT16 LFBReg = v->reg[lfbMode].u; GLenum Format = GL_RGBA;int xy;int nShift=0;
 	
+	
 	if ((x >= (GLsizei)v->fbi.width<<1) || (y >= (GLsizei)v->fbi.height<<1)){
 		return 0xffff;
 	}
@@ -2267,8 +2464,24 @@ UINT32 voodoo_ogl_read_pixel(GLint x, GLint y) {
 		 
 		 sdlVoodoo.opengl.nLFBMode = LFBMODE_READ_BUFFER_SELECT(v->reg[lfbMode].u);
 	}
-	 	
-	if (sdlVoodoo.fullscreen){ w = sdlVoodoo.pciFSW; h = sdlVoodoo.pciFSH;} else {w = sdlVoodoo.pciW; 	h = sdlVoodoo.pciH;}
+	 				
+	if (sdlVoodoo.fullscreen)
+	{
+		SDL_DisplayMode displayMode;
+		/*
+			w = sdlVoodoo.pciFSW; 
+			h = sdlVoodoo.pciFSH;
+		*/
+				
+		SDL_GetDesktopDisplayMode(sdlVoodoo.desktop.Index, &displayMode);		
+		w = displayMode.w;
+		h = displayMode.h;
+		
+	}
+	else
+	{	w = sdlVoodoo.pciW;
+		h = sdlVoodoo.pciH;
+	}
 
 	if (sdlVoodoo.opengl.bLFBFixFrnt == true || sdlVoodoo.opengl.bLFBFixBack == true){
 		nShift = 1;
@@ -2289,8 +2502,9 @@ UINT32 voodoo_ogl_read_pixel(GLint x, GLint y) {
 			switch(LFBReg){
 				case 0:
 				case 16:	/* <-- Road To India 				*/					
-				case 18:	/* Freespace 2 						*/					
-				case 272:	/* <-- Incubation, Game Match & Net */	
+				case 18:	/* Freespace 2 						*/
+				case 261:	/* <-- Tomb Raider                  */					
+				case 272:	/* <-- Incubation, Game Match & Net */
 				case 8208:  /* <-- Die By The Sword 			*/				
 				{				
 				
@@ -2299,13 +2513,42 @@ UINT32 voodoo_ogl_read_pixel(GLint x, GLint y) {
 						/*
 							This fix is just in work. Not Final.
 						*/  						
-						x = x << nShift;
-						y = y << nShift;
-						GLsizei Width  = v->fbi.width  <<nShift;
-						GLsizei Height = v->fbi.height <<nShift;
+											
+						if (( w == 640 && h == 480 ) ||  ( w == 1280 && h == 960 ))
+						{
+							/* 640x480 */
+							/* 1280x960 */
+							x = x << nShift;
+							y = y << nShift;
+							GLsizei Width  = v->fbi.width  <<nShift;
+							GLsizei Height = v->fbi.height <<nShift;
+							
+							Voodoo_OGL_Read_Front(0, y, Width, Height, Format);								
+														
+						}
+						else						
+						{												
+							x = ( (x-1) * ( w / v->fbi.width  ) ) + x * ( w / v->fbi.width )/Voodoo_OGL_LFB_Get_Scale_Width( w);	
+							y = ( (y-1) * ( h / v->fbi.height ) ) + y * ( h / v->fbi.height)/Voodoo_OGL_LFB_Get_Scale_Height(h);
 						
-						Voodoo_OGL_Read_Front(0, y, Width, Height, Format);						
-						
+							#if defined C_HEAVY_DEBUG && LFB_LOGGER >= 1
+							if (sdlVoodoo.opengl.LogCntY != y)
+							{
+								sdlVoodoo.opengl.LogCntY = y;
+								Voodoo_OGL_LOG_LFB_XY_Coords(x, y, w, h);
+							}			
+							#endif
+							
+							if ( sdlVoodoo.opengl.voodoo_aspect == true )
+							{
+								Voodoo_OGL_Read_Front(0, y, w, h, Format);	
+							}
+							else
+							{
+								Voodoo_OGL_Read_Front(x, y, w, h, Format);
+							}
+						}									
+
 					} else {
 						Voodoo_OGL_Read_Front(0, y, v->fbi.width, v->fbi.height, Format);																	
 					}
@@ -2341,33 +2584,61 @@ UINT32 voodoo_ogl_read_pixel(GLint x, GLint y) {
 				{			
 												
 					if (sdlVoodoo.opengl.bLFBFixBack == true){	
-						/*
-							This fix is just in work. Not Final.
-						*/  
 					
 						/*
+							This fix is just in work. Not Final.
+						*/  						
+											
+						if (( w == 640 && h == 480 ) ||  ( w == 1280 && h == 960 ))
+						{
+							/* 640x480 */
+							/* 1280x960 */
 							x = x << nShift;
-							y = y << nShift;			
-							GLsizei Width  = v->fbi.width << nShift;
-							GLsizei Height = v->fbi.height<< nShift;
-						*/
-						x = ( (x-1)*(w / v->fbi.width ) ) +1;
-						y = ( (y-1)*(h / v->fbi.height )) +1;;
+							y = y << nShift;
+							GLsizei Width  = v->fbi.width  <<nShift;
+							GLsizei Height = v->fbi.height <<nShift;
+
+							Voodoo_OGL_Read_Back(0, y, Width, Height, Format);							
+														
+						}
+						else						
+						{			
+					
+							x = ( (x-1) * ( w / v->fbi.width  ) ) + x * ( w / v->fbi.width )/Voodoo_OGL_LFB_Get_Scale_Width( w);	
+							y = ( (y-1) * ( h / v->fbi.height ) ) + y * ( h / v->fbi.height)/Voodoo_OGL_LFB_Get_Scale_Height(h);
 						
-							
-						GLsizei Width  = w;		//v->fbi.width << nShift;
-						GLsizei Height = h;		//->fbi.height<< nShift;	
-						Voodoo_OGL_Read_Back(0, y, Width, Height, Format);																	
+							#if defined C_HEAVY_DEBUG && LFB_LOGGER >= 1
+							if (sdlVoodoo.opengl.LogCntY != y)
+							{
+								sdlVoodoo.opengl.LogCntY = y;								
+								Voodoo_OGL_LOG_LFB_XY_Coords(x, y, w, h);
+							}			
+							#endif						
+							if ( sdlVoodoo.opengl.voodoo_aspect == true )
+							{	
 						
+								if (sdlVoodoo.fullscreen)
+								{
+									Voodoo_OGL_Read_Back(0, y, w, h, Format);
+								}
+								else
+								{
+									Voodoo_OGL_Read_Back(0, y, w, h, Format);
+								}
+								
+							}
+							else
+							{
+								Voodoo_OGL_Read_Back(x, y, w, h, Format);
+							}
+						}																									
+					
 					} else {
 						Voodoo_OGL_Read_Back(0, y, v->fbi.width, v->fbi.height, Format);																						
 					}
 					
 					data[0] = Cache.Line.Back.Buffer[x+2];	
-					data[1] = Cache.Line.Back.Buffer[x+4];						
-						
-					//LOG_MSG("X = %d, Y = %d, Weite = %d, Hoehe = %d",x,y,w,h);
-					//SDL_Delay(25);						
+					data[1] = Cache.Line.Back.Buffer[x+4];																	
 				}
 				break;
 				default:
@@ -2401,6 +2672,7 @@ UINT32 voodoo_ogl_read_pixel(GLint x, GLint y) {
 			break;
 	}	
 		
+	
 		
 	return ((RGB_BLUE(data[0])>>3)<<11) | ((RGB_GREEN(data[0])>>2)<<5)  |  (RGB_RED(data[0])>>3) |
 	       ((RGB_BLUE(data[1])>>3)<<27) | ((RGB_GREEN(data[1])>>2)<<21) | ((RGB_RED(data[1])>>3)<<16);
@@ -2878,8 +3150,6 @@ void vPCI_Get_Configuration(void){
 			case 5:{ sdlVoodoo.opengl.sfiltering = "testmode"	;};break;			
 		}
 	}	
-
-	LOG_MSG("FILTER: %d",sdlVoodoo.opengl.GL_filtering);	
 	
 	sdlVoodoo.opengl.GL_ShadeModel=0;
 	if (!strcasecmp(sdlVoodoo.opengl.sglshademdl,"none"))
@@ -2942,9 +3212,7 @@ void vPCI_Get_Configuration(void){
 	sdlVoodoo.opengl.a_ClipLowYHigh		=  section->Get_bool ("a_ClipLowYHigh");
 	sdlVoodoo.opengl.n_ClipLowYHigh   	=  section->Get_int  ("n_ClipLowYHigh");
 	sdlVoodoo.opengl.compatibleFlag		=  section->Get_bool ("compatible_flag");
-	sdlVoodoo.opengl.glScissor_flag   	=  section->Get_bool ("glScissor_flag");
-	sdlVoodoo.opengl.gl_PointSize_num 	=  section->Get_float("gl_PointSize_num");		
-	sdlVoodoo.opengl.gl_PointSize_use 	=  section->Get_bool ("gl_PointSize_use");	
+	sdlVoodoo.opengl.glScissor_flag   	=  section->Get_bool ("glScissor_flag");	
 	sdlVoodoo.opengl.gl_QuadsDraw     	=  section->Get_bool ("gl_QuadsDraw_use");		
 	sdlVoodoo.opengl.glP_Smoth_flag		=  section->Get_bool ("glP_Smoth_flag");
 	sdlVoodoo.opengl.glL_Smoth_flag		=  section->Get_bool ("glL_Smoth_flag");
@@ -2968,12 +3236,16 @@ void vPCI_Get_Configuration(void){
 	sdlVoodoo.opengl.bLFBFixFrnt		=  section->Get_bool("LFB_ScreenFixFrnt");	
 	sdlVoodoo.opengl.bLFBFixBack		=  section->Get_bool("LFB_ScreenFixBack");
 	sdlVoodoo.opengl.bLFBDebugLg		=  section->Get_bool("LFB_LogRegisterNr");
-
+	
+	sdlVoodoo.opengl.CoordsY			=  section->Get_float("LFB_SetPixel_Y");
+	sdlVoodoo.opengl.CoordsX			=  section->Get_float("LFB_SetPixel_X");
+	
 	/*///////////////////// Section SDL */	
 	sdlVoodoo.OpenGLDesktopFullScreen 	=  sectsdl->Get_bool  ("VoodooDesktopFullScrn");		
 	sdlVoodoo.windowstaskbaradjust 		=  sectsdl->Get_int   ("WindowsTaskbarAdjust");	
 	sdlVoodoo.dosbox.output  			=  sectsdl->Get_string("output");
-	sdlVoodoo.dosbox.texture 			=  sectsdl->Get_string("texture.renderer");	
+	sdlVoodoo.dosbox.texture 			=  sectsdl->Get_string("texture.renderer");  
+	
 }
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
@@ -3001,29 +3273,9 @@ void vPCI_Set_GL_Attributes(void){
 	SDL_GL_LoadLibrary(NULL); // Default OpenGL is fine.
 	
 	if (sdlVoodoo.opengl.compatibleFlag){
-		//sdlVoodoo.pciFSW = (GLdouble)v->fbi.width;
-		//sdlVoodoo.pciFSH = (GLdouble)v->fbi.height;		
-		//sdlVoodoo.pciW   = (GLdouble)v->fbi.width;
-		//sdlVoodoo.pciH   = (GLdouble)v->fbi.height;			
-		
-		// SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 0);
-		// SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 0);
-		// SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 0);
-		// SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 0);
-		// SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
-		// SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 0);
-		// SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 0);	
-		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK,  SDL_GL_CONTEXT_PROFILE_ES);		
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1); 
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG | SDL_GL_CONTEXT_RESET_ISOLATION_FLAG);
-		// SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-		// SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
-		// SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 0);
-
-    // CONTEXT_PROFILE_CORE
-    // CONTEXT_PROFILE_COMPATIBILITY
-    // CONTEXT_PROFILE_ES
 	
 	} else {
 		int value;
@@ -3033,39 +3285,29 @@ void vPCI_Set_GL_Attributes(void){
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, sdlVoodoo.opengl.gl_Minor_Version);
 		
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_RELEASE_BEHAVIOR, 1);		
-		SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
-		SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
-		SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
-		SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE,      8);		
-		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 32);
-		SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 2);		
-		SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE,       32);
+		SDL_GL_SetAttribute(SDL_GL_RED_SIZE,		  8);
+		SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE,		  8);
+		SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE,		  8);
+		SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE,        8);		
+		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE,		 32);
+		SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE,	  2);		
+		SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE,		 32);
 		SDL_GL_SetAttribute(SDL_GL_ACCUM_RED_SIZE,    8);
-		SDL_GL_SetAttribute(SDL_GL_ACCUM_GREEN_SIZE,    8);
-		SDL_GL_SetAttribute(SDL_GL_ACCUM_BLUE_SIZE,    8);
-		SDL_GL_SetAttribute(SDL_GL_ACCUM_ALPHA_SIZE,    8);
+		SDL_GL_SetAttribute(SDL_GL_ACCUM_GREEN_SIZE,  8);
+		SDL_GL_SetAttribute(SDL_GL_ACCUM_BLUE_SIZE,   8);
+		SDL_GL_SetAttribute(SDL_GL_ACCUM_ALPHA_SIZE,  8);
 				
 		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS,1);
-		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS,0);
-
-		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_RESET_ISOLATION_FLAG);
-		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_ROBUST_ACCESS_FLAG| SDL_GL_CONTEXT_RESET_ISOLATION_FLAG);		
+		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS,0);		
 		SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 1);
 		
 		
 	}
-	#if !SDL_VERSION_ATLEAST(2, 0, 0)	
-		SDL_GL_SetAttribute( SDL_GL_SWAP_CONTROL, 0 );
-	#else
-		SDL_GL_SetSwapInterval( 1 );
-	#endif	
+	SDL_GL_SetSwapInterval( 1 );
 
-	#if defined (WIN32) && SDL_VERSION_ATLEAST(2, 0, 0)		
-		// broken on windows (longstanding SDL bug), may
-		//help other platforms to force hardware acceleration
-		SDL_GL_SetAttribute( SDL_GL_ACCELERATED_VISUAL, 1 );
-	#endif
+	// broken on windows (longstanding SDL bug), may
+	//help other platforms to force hardware acceleration
+	SDL_GL_SetAttribute( SDL_GL_ACCELERATED_VISUAL, 1 );
 }
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
@@ -3093,42 +3335,14 @@ void vPCI_SDL_SetVideoFlags(void) {
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 void vPCI_SDL_SetSDLContext(void){
-	#if SDL_VERSION_ATLEAST(2, 0, 0)	
 		sdlVoodoo.opengl.GLContext = SDL_GL_CreateContext(sdlVoodoo.surface);	
 		// LOG_MSG("VOODOOD: SDL_GL_CreateContext Finished");		
 		SDL_GL_MakeCurrent(sdlVoodoo.surface, sdlVoodoo.opengl.GLContext);		
 		// LOG_MSG("VOODOOD: SDL_GL_MakeCurrent Finished");
 		SDL_PumpEvents();		
 		SDL_GL_SwapWindow(sdlVoodoo.surface);
-		// LOG_MSG("VOODOOD: SDL_GL_SwapWindow Finished");		
-	#endif		
+		// LOG_MSG("VOODOOD: SDL_GL_SwapWindow Finished");
 }
-
-/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-void vOGL_Set_PontSize(void){
-	
-		// GLPointsize Settings, Dont use std::max in the loop, this breaks Perfoamce .. heavy
-		
-		if ( sdlVoodoo.opengl.gl_PointSize_use == true) {
-			
-			int w = 0;
-
-			if (sdlVoodoo.fullscreen){
-				w = sdlVoodoo.pciFSW;					
-			} else {			
-				SDL_GetWindowSize(sdlVoodoo.surface, &w, NULL);				
-			}						
-			
-			if (sdlVoodoo.opengl.gl_PointSize_num == 0) {	
-			
-				sdlVoodoo.opengl.gl_PointSize_num  = std::max(1.0f, (float)(w / ((float)v->fbi.height)));				
-			} 
-
-			glPointSize( (float)sdlVoodoo.opengl.gl_PointSize_num );			
-			
-			LOG(LOG_VOODOO,LOG_WARN)("VOODOO: sdlVoodoo.opengl.gl_PointSize_num %f ",(float)sdlVoodoo.opengl.gl_PointSize_num);
-		}
-};
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 void vOGL_Set_ZoomFactor(GLdouble AspectRatio){
@@ -3166,7 +3380,9 @@ void vOGL_Set_ZoomFactor(GLdouble AspectRatio){
     // return (b == 0) ? a : gcd (b, a%b);
 // }
 
-void vOGL_OGL_AspectRatio(void){
+void vOGL_OGL_AspectRatio(void)
+{
+	
 		
 		int w = 0;
 		int h = 0;
@@ -3174,12 +3390,25 @@ void vOGL_OGL_AspectRatio(void){
 			
 			/*////////////////////////////////////////////////////////////////////////////*/	
 			if (sdlVoodoo.fullscreen){
-				w = sdlVoodoo.pciFSW;	h = sdlVoodoo.pciFSH;					
-			} else {
+				w = sdlVoodoo.pciFSW;	h = sdlVoodoo.pciFSH;
+				
+			}
+			else
+			{
 
-				/* Window Mode */			
-				SDL_GetWindowSize(sdlVoodoo.surface, &sdlVoodoo.pciW, &sdlVoodoo.pciH);
-				w = sdlVoodoo.pciW;	h = sdlVoodoo.pciH;
+				/* Window Mode */
+				if ( sdlVoodoo.opengl.voodoo_aspect == false )
+				{
+					/* No Aspct in Window Mode */
+					SDL_SetWindowSize(sdlVoodoo.surface, sdlVoodoo.pciW, sdlVoodoo.pciH);
+					return;
+
+				}
+				else
+				{
+					SDL_GetWindowSize(sdlVoodoo.surface, &sdlVoodoo.pciW, &sdlVoodoo.pciH);
+					w = sdlVoodoo.pciW;	h = sdlVoodoo.pciH;					
+				}
 			}		
 				
 			GLdouble aSpect = (GLdouble) w / h;	
@@ -3190,168 +3419,54 @@ void vOGL_OGL_AspectRatio(void){
 			/*////////////////////////////////////////////////////////////////////////////*/	
 			
 		if ( (4 * h == 3 * w) || (5 * h == 4 * w)){	
-		  sdlVoodoo.opengl.voodoo_aspect = false;	  
+		 // sdlVoodoo.opengl.voodoo_aspect = false;	  
 		}		
-		
-		if (sdlVoodoo.opengl.voodoo_aspect){		
-			// Check for The Ratio (Real Game Width)
-			if ( aSpect > 1.333333 ) { 			
-				if( w > h ){
+		else
+		{				
+			GLfloat offset_x = -1;
+			GLfloat offset_y = -1;
 
-					aRatio = (float)w / aSpect;
-					aRatio = aRatio - 58;
-					
-					if (w == 1768){
-						aRatio = aRatio -  258;
-					
-					}else if (w == 1920){
-						
-						switch (v->fbi.width)
-						{
-								
-							case 512:
-							{
-							  aRatio = aRatio -  612;
-							}
-							break;	
-							case 640:
-							{
-							  aRatio = aRatio -  598;
-							}
-							break;	
-							case 800:
-							{
-							  aRatio = aRatio -  498; //428
-							}
-							break;													
-							case 856:							
-							case 960:
-							default:
-							{
-								aRatio = aRatio -  408;
-							}							
-						}	
-						
-						
-					
-					}else if (w == 2560){
-						
-						switch (v->fbi.width)
-						{
-													
-							case 800:
-							{
-							  aRatio = aRatio -  888;
-							}
-							break;						
-							case 960:
-								if ( h == 1440 ){
-									aRatio = aRatio -  796;								
-								}
-								else
-								{
-									aRatio = aRatio -  788;
-								}
-							break;								
-							case 640:	
-							case 512:							
-							case 856:								
-							default:
-							{
-								if ( h == 1440 ){
-									aRatio = aRatio -  948;								
-								}
-								else
-								{
-									aRatio = aRatio -  788;
-								}
-							}							
-						}	
-						
+			int p_viewport[4];
+			glGetIntegerv(GL_VIEWPORT, p_viewport); // don't have QT :'(
 
-					}else if (w == 2880){
-						aRatio = aRatio -  888;
-					
-					}else if (w == 3840){
-						
-						switch (v->fbi.width)
-						{
-							case 512:
-							{
-							  aRatio = aRatio - 348*5;
-							}
-							break;
-							
-							case 640:
-							{
-							  aRatio = aRatio - 334*5;
-							}
-							break;	
-							
-							case 856:
-							{
-							  aRatio = aRatio - 378*4;
-							}
-							break;	
-							
-							case 800:
-							{
-							  aRatio = aRatio - 394*4;
-							}
-							break;								
-							case 960:
-							default:
-							{
-								aRatio = aRatio -  358*4;
-							}							
-						}												
-					
-					}else if (w == 7680){
-						
-						switch (v->fbi.width)
-						{
-							case 512:
-							{
-							  aRatio = aRatio - 358*11;
-							}
-							break;
-							
-							case 640:
-							{
-							  aRatio = aRatio - 384*10;
-							}
-							break;	
-							
-							case 856:
-							{
-							  aRatio = aRatio - 388*10;
-							}
-							break;	
-							
-							case 800:
-							case 960:
-							default:
-							{
-								aRatio = aRatio -  368*10;
-							}							
-						}
+			GLfloat gl_width = p_viewport[2];//width(); // GL context size
+			GLfloat gl_height = p_viewport[3];//height();
 
-					}							
-					
-					/* glZoomFaktor_W Check Width vs Virtual Ingame Width */					
-					if( ( aRatio > (float)v->fbi.width) ){
-						aRatio = aRatio / 3;
-						aRatio = aRatio - (float)v->fbi.width;					
-						aRatio = aRatio * ((float)v->fbi.width/(float)v->fbi.width);						
-					}else{									
-						aRatio = aRatio - (float)v->fbi.width;							
-						aRatio = aRatio * 3;							
-						aRatio = aRatio * ((float)v->fbi.width/(float)v->fbi.width);													
-					}
+			aRatio = float(w) / h;
+			float ratioScreen = gl_width / gl_height;
+
+			if(aRatio > ratioScreen)
+			{
+					gl_width = 2;
+						gl_height = 2 * ratioScreen / aRatio;
+			}
+			else
+			{
+					gl_height = 2;
+					gl_width = 2 / ratioScreen * aRatio;
+			}
+			// calculate image size
+
+			offset_x = -1 + (2 - gl_width) * .5f;
+			offset_y = -1 + (2 - gl_height) * .5f;
+			// center on screen
+			
+			
+			if (sdlVoodoo.fullscreen)
+			{
+				/* glZoomFaktor_W Check Width vs Virtual Ingame Width */					
+				if( ( aRatio > (float)v->fbi.width) ){
+					aRatio = aRatio / 3;
+					aRatio = aRatio - (float)v->fbi.width;					
+					aRatio = aRatio * ((float)v->fbi.width/(float)v->fbi.width);						
+				}else{									
+					aRatio = aRatio - (float)v->fbi.width;							
+					//aRatio = aRatio * 3;							
+					aRatio = aRatio * ((float)v->fbi.width/(float)v->fbi.width);													
 				}
 			}
-		}		
-		vOGL_Set_ZoomFactor(aRatio);				
+			vOGL_Set_ZoomFactor(aRatio);			
+		}
 };
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
@@ -3392,21 +3507,21 @@ void vPCI_SDL_Init_OpenGLCX(void){
 		sdlVoodoo.posY = SDL_WINDOWPOS_CENTERED;
 		sdlVoodoo.ScrOpenGL_Flags = sdlVoodoo.sdl_FullS_Flags;
 	} else {
-		sdlVoodoo.posX = SDL_WINDOWPOS_CENTERED;
-		sdlVoodoo.posY = SDL_WINDOWPOS_CENTERED;
+		//sdlVoodoo.posX = SDL_WINDOWPOS_CENTERED;
+		//sdlVoodoo.posY = SDL_WINDOWPOS_CENTERED;
 		sdlVoodoo.ScrOpenGL_Flags = sdlVoodoo.sdl_WindowFlags;		
 	}
 
 	if (!sdlVoodoo.fullscreen) {
 		sdlVoodoo.surface = sdlVoodoo.Dosbox_Surface;	
 					
-		SDL_GetWindowPosition(sdlVoodoo.surface, &sdlVoodoo.posX_Old, &sdlVoodoo.posY_Old);
+		//SDL_GetWindowPosition(sdlVoodoo.surface, &sdlVoodoo.posX_Old, &sdlVoodoo.posY_Old);
 		sdlVoodoo.desktop.Index = nCurrentDisplay;//SDL_GetWindowDisplayIndex(sdlVoodoo.surface);						
 					
 
 		if (sdlVoodoo.desktop.Index == 0){
-			vPCI_SDL_SetWindowMode();
-			SDL_SetWindowPosition(sdlVoodoo.surface,sdlVoodoo.posX, sdlVoodoo.posY);			
+			//vPCI_SDL_SetWindowMode();
+			//SDL_SetWindowPosition(sdlVoodoo.surface,sdlVoodoo.posX, sdlVoodoo.posY);			
 		}
 		//SDL_SetWindowSize(sdlVoodoo.surface,sdlVoodoo.pciW,sdlVoodoo.pciH);
 		
@@ -3672,7 +3787,6 @@ bool voodoo_ogl_init(voodoo_state *v) {
 
 			
 	vOGL_OGL_AspectRatio();
-	vOGL_Set_PontSize();
 		
 	if (!sdlVoodoo.fullscreen){
 	LOG_MSG("VOODOO: Resolution & OpenGL Enabled Features\n"
@@ -3683,11 +3797,10 @@ bool voodoo_ogl_init(voodoo_state *v) {
 			"        Virt.Height     : %d\n"
 			"        Display         : %d\n"
 			"        Rendering       : %s\n"
-			"        OGL Filtering   : %s\n"
-			"        OGL Point Filter: %f\n"		
+			"        OGL Filtering   : %s\n"		
 			"        OGL Zoom Width  : %d\n"
 			"        OGL Zoom Height : %d\n"			
-			"        OGL Enabled     : %s\n",sdlVoodoo.pciW, sdlVoodoo.pciH, v->fbi.width, v->fbi.height ,nCurrentDisplay,sdlVoodoo.dosbox.texture,sdlVoodoo.opengl.sfiltering, (float)sdlVoodoo.opengl.gl_PointSize_num, (int)sdlVoodoo.opengl.glZoomFaktor_W,(int)sdlVoodoo.opengl.glZoomFaktor_H,features.c_str());
+			"        OGL Enabled     : %s\n",sdlVoodoo.pciW, sdlVoodoo.pciH, v->fbi.width, v->fbi.height ,nCurrentDisplay,sdlVoodoo.dosbox.texture,sdlVoodoo.opengl.sfiltering, (int)sdlVoodoo.opengl.glZoomFaktor_W,(int)sdlVoodoo.opengl.glZoomFaktor_H,features.c_str());
 	}else{
 	LOG_MSG("VOODOO: Resolution & OpenGL Enabled Features\n"
 			"        Fullscreen        \n"
@@ -3697,11 +3810,10 @@ bool voodoo_ogl_init(voodoo_state *v) {
 			"        Virt.Height     : %d\n"
 			"        Display         : %d\n"
 			"        Rendering       : %d\n"			
-			"        OGL Filtering   : %s\n"
-			"        OGL Point Filter: %f\n"		
+			"        OGL Filtering   : %s\n"		
 			"        OGL Zoom Width  : %d\n"
 			"        OGL Zoom Height : %d\n"			
-			"        OGL Enabled     : %s\n",sdlVoodoo.pciFSW, sdlVoodoo.pciFSH, v->fbi.width, v->fbi.height ,nCurrentDisplay,sdlVoodoo.dosbox.texture,sdlVoodoo.opengl.sfiltering, (float)sdlVoodoo.opengl.gl_PointSize_num,(int)sdlVoodoo.opengl.glZoomFaktor_W,(int)sdlVoodoo.opengl.glZoomFaktor_H, features.c_str());		
+			"        OGL Enabled     : %s\n",sdlVoodoo.pciFSW, sdlVoodoo.pciFSH, v->fbi.width, v->fbi.height ,nCurrentDisplay,sdlVoodoo.dosbox.texture,sdlVoodoo.opengl.sfiltering, (int)sdlVoodoo.opengl.glZoomFaktor_W,(int)sdlVoodoo.opengl.glZoomFaktor_H, features.c_str());		
 	}
 	
 
@@ -3713,8 +3825,12 @@ bool voodoo_ogl_init(voodoo_state *v) {
 	if (mouselocked){
 	    GFX_CaptureMouse_Mousecap_on();
 	}	   
-			
-
+	
+	#if defined C_HEAVY_DEBUG && LFB_LOGGER >= 1	
+		sdlVoodoo.opengl.CoordsY = control->ReadConfig_Float( "pci", "LFB_SetPixel_Y");		
+		sdlVoodoo.opengl.CoordsX = control->ReadConfig_Float( "pci", "LFB_SetPixel_X");	
+	#endif
+	
 	return true;
 }
 
@@ -3780,7 +3896,7 @@ void voodoo_ogl_leave(bool leavemode) {
 		*/
 		//nCurrentDisplay = SDL_GetWindowDisplayIndex(sdlVoodoo.surface);		
 		
-		SDL_SetWindowPosition(sdlVoodoo.surface,sdlVoodoo.posX_Old, sdlVoodoo.posY_Old);				
+		//SDL_SetWindowPosition(sdlVoodoo.surface,sdlVoodoo.posX_Old, sdlVoodoo.posY_Old);				
 		GFX_RestoreMode();
 		bVoodooOpen = false;
 		LOG_MSG("VOODOO: OpenGL Full Quit and Release");
