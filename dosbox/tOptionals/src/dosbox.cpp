@@ -537,7 +537,7 @@ void DOSBOX_Init(void) {
 	const char *innobas[] 		= {                                           "280", "2a0", "2c0", "2e0", 0 };			/* Innovation 2001 		*/
 
 	/* Mixer Blocksize */		
-	const char *blocksizes[] 	= {"128", "256", "512","1024", "2048", "4096", "8192", "32768","65536", "131072", 0};	/* Mixer Blocksize		*/
+	const char *blocksizes[] 	= {"-1", "0", "512", "1024", "1536","2048", "2560", "3072", "3584", "4096", "4608", "5120", "5632", "6144", "6656", "7168", "7680", "8192", 0};	/* Mixer Blocksize		*/
 	
 	/* IRQ's & DMA's */	
 	const char *irqssb[] 		= { "2", "3", "5", "7", "9", "10", "11", "12", 0 };										/* IRQ Soundblaster 	*/

@@ -1860,6 +1860,7 @@ void voodoo_ogl_texture_clear(UINT32 texbase, int TMU) {
 		} else {
 			t->second.valid_data = false;
 		}
+		glDeleteTextures(1, (GLuint*)&t->second.current_id);   // add this line here!!!	, From Kekko, Great	
 		textures[TMU].erase(t);		
 	}
 	

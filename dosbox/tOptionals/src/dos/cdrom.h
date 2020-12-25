@@ -29,6 +29,7 @@
 #include <vector>
 #include <fstream>
 #include <sstream>
+#include <thread>
 #include "dosbox.h"
 #include "mem.h"
 #include "mixer.h"
@@ -36,6 +37,7 @@
 #include "SDL_thread.h"
 
 #include "../libs/decoders/SDL_sound.h"
+#include "src/libs/libchdr/chd.h"
 
 #define RAW_SECTOR_SIZE		2352
 #define COOKED_SECTOR_SIZE	2048
@@ -137,7 +139,9 @@ private:
 		virtual Bit8u  getChannels() = 0;
 		virtual int getLength() = 0;
 		virtual ~TrackFile() { };
+		virtual void setAudioPosition(Bit32u pos) = 0;
 		const Bit16u   chunkSize = 0;
+		Bit32u audio_pos = UINT32_MAX; // last position when playing audio
 	};
 	
 	class BinaryFile : public TrackFile {
@@ -151,6 +155,7 @@ private:
 		Bit32u getRate() { return 44100; }
 		Bit8u  getChannels() { return 2; }
 		int getLength();
+		void setAudioPosition(Bit32u pos) { audio_pos = pos; }
 	private:
 		BinaryFile();
 		std::ifstream *file;
@@ -168,12 +173,48 @@ private:
 		Bit32u getRate();
 		Bit8u  getChannels();
 		int getLength();
+		void setAudioPosition(Bit32u pos) { (void)pos;/*unused*/ }
 	private:
 		AudioFile();
 		Sound_Sample *sample;
 	};
 
+	class CHDFile : public TrackFile {
+	public:
+		CHDFile(const char* filename, bool &error);
+		~CHDFile();
 
+		CHDFile() = delete;
+		CHDFile(const CHDFile&) = delete;
+		CHDFile& operator= (const CHDFile&) = delete;
+
+		bool            read(Bit8u *buffer, int seek, int count);
+		bool            seek(Bit32u offset);
+		Bit16u        decode(Bit8u *buffer);
+		Bit16u        getEndian();
+		Bit32u        getRate() { return 44100; }
+		Bit8u         getChannels() { return 2; }
+		int             getLength();
+		
+		void setAudioPosition(Bit32u pos) { audio_pos = pos; }
+		
+		chd_file* getChd() { return this->chd; }
+	private:
+		std::ifstream *file;
+		chd_file* chd 				= nullptr;
+		const chd_header* header 	= nullptr; // chd header
+				/*
+					TODO: cache more than one hunk
+					or wait for https://github.com/rtissera/libchdr/issues/36
+				*/
+              Bit8u*     hunk_buffer       = nullptr; // buffer to hold one hunk // size of hunks in CHD up to 1 MiB
+              Bit8u*     hunk_buffer_next  = nullptr; // index + 1 prefetch
+              int          hunk_buffer_index = -1;      // hunk index for buffer
+    public:
+              bool         skip_sync         = false;   // this will fail if a CHD contains 2048 and 2352 sector tracks
+     };
+	
+public:
 	struct Track {
 		int number;
 		int attr;
@@ -185,7 +226,6 @@ private:
 		TrackFile *file;
 	};
 	
-public:
 	CDROM_Interface_Image		(Bit8u subUnit);
 	virtual ~CDROM_Interface_Image	(void);
 	void	InitNewMedia		(void);
@@ -236,10 +276,11 @@ static  struct imagePlayer {
 	
 	void 	ClearTracks();
 	bool	LoadIsoFile(char *filename);
+	
 	bool	CanReadPVD(TrackFile *file, int sectorSize, bool mode2);
 	// cue sheet processing
 	bool	LoadCueSheet(char *cuefile);
-	bool	LoadCHDFile(char *chd_filename);
+	bool  LoadChdFile(char* chdfile);
 	bool	GetRealFileName(std::string& filename, std::string& pathname);
 	bool	GetCueKeyword(std::string &keyword, std::istream &in);
 	bool	GetCueFrame(int &frames, std::istream &in);

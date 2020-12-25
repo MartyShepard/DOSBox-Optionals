@@ -788,10 +788,11 @@ static void SetPriority(PRIORITY_LEVELS level) {
 static void PauseDOSBox(bool pressed) {
 	if (!pressed)
 		return;
+	SDL_Keymod inkeymod = SDL_GetModState();
+		
 	GFX_SetTitle(-1,-1,true);
 	bool paused = true;
-	KEYBOARD_ClrBuffer();
-	SDL_Delay(12);
+	SDL_Delay(500);
 	SDL_Event event;
 	while (SDL_PollEvent(&event)) {
 		// flush event queue.
@@ -812,8 +813,16 @@ static void PauseDOSBox(bool pressed) {
 				break;
 			case SDL_KEYDOWN:   // Must use Pause/Break Key to resume.
 			case SDL_KEYUP:
-			if(event.key.keysym.sym == SDLK_PAUSE) {
-
+			if ( event.key.keysym.sym == SDLK_PAUSE ) {
+				SDL_Keymod outkeymod = SDL_GetModState();
+				if (inkeymod != outkeymod) {
+					KEYBOARD_ClrBuffer();
+					MAPPER_LosingFocus();
+					//Not perfect if the pressed alt key is switched, but then we have to 
+					//insert the keys into the mapper or create/rewrite the event and push it.
+					//Which is tricky due to possible use of scancodes.
+					//keystate&KMOD_NUM)
+				}
 				paused = false;
 				GFX_SetTitle(-1,-1,false);
 				SetPriority(sdl.priority.focus);
@@ -933,7 +942,7 @@ void GFX_UpdateResolution(int w, int h, bool windowed){
 		
 	if (windowed == true){
 				
-		if ( sdl.desktop.window.width != w && sdl.desktop.window.height != h ) 
+		if ( (sdl.desktop.window.width != w) || (sdl.desktop.window.height != h) ) 
 		{		
 	
 			if ( w == 0 && h == 0 )
@@ -954,7 +963,7 @@ void GFX_UpdateResolution(int w, int h, bool windowed){
 		
 	}else{	
 	
-		if ( sdl.desktop.full.width != w && sdl.desktop.full.height != h )
+		if ( (sdl.desktop.full.width) != w || (sdl.desktop.full.height != h) )
 		{		
 			if ( w == 0 && h == 0 )
 			{
@@ -3178,7 +3187,10 @@ void Config_Add_SDL() {
 	Pint->Set_help(    "================================================================================================\n"
 	                   "Window Only: Fine Adjust the height of the centered window. Use this if your Centered Window\n"
 					   "under and behind the Windows Taskbar is.");					   
-					   
+
+	Pbool = sdl_sec->Add_bool("DisableIntroStartup",Property::Changeable::Always,false);
+	Pbool->Set_help(  "================================================================================================\n"
+	                  "This disabled the Intro Startup");					   
 }
 /*--------------------------------------------------------------------------------------------------------------------------*/
 static void show_warning(char const * const message) {

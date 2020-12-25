@@ -30,6 +30,7 @@
 
 
 Bitu call_shellstop;
+bool bDisableIntroStartup = false;
 /* Larger scope so shell_del autoexec can use it to
  * remove things from the environment */
 DOS_Shell * first_shell = 0;
@@ -102,9 +103,10 @@ void AutoexecObject::CreateAutoexec(void) {
 		std::string linecopy = (*it);
 		std::string::size_type offset = 0;
 		//Lets have \r\n as line ends in autoexec.bat.
-		
+								
 		while(offset < linecopy.length())
 		{	
+	
 			std::string::size_type  n = linecopy.find("\n",offset);			
 			if ( n == std::string::npos )
 			{
@@ -133,6 +135,7 @@ void AutoexecObject::CreateAutoexec(void) {
 		}
 		
 		sprintf( (autoexec_data + auto_len),"%s\r\n",linecopy.c_str());
+
 	}
 	
 	if (first_shell)
@@ -344,7 +347,7 @@ void DOS_Shell::Run(void) {
 		char* sep = strpbrk(input_line,"\r\n"); //GTA installer
 		if (sep) *sep = 0;
 		DOS_Shell temp;
-		temp.echo = echo;
+		temp.echo = echo;		
 		temp.ParseLine(input_line);		//for *.exe *.com  |*.bat creates the bf needed by runinternal;
 		temp.RunInternal();				// exits when no bf is found.
 		return;
@@ -352,8 +355,8 @@ void DOS_Shell::Run(void) {
 	/* Start a normal shell and check for a first command init */
 	if (cmd->FindString("/INIT",line,true)) {
 		
-		bool intrused = false;
-
+		bool intrused 			  = false;
+		
 		switch (machine)
 		{
 			
@@ -422,7 +425,10 @@ void DOS_Shell::Run(void) {
 					if ( strcmp (nCurrent_Disney.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_COVX"),nCurrent_Disney.c_str());	
 					if ( strcmp (nCurrent_Ps1SND.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_PS1A"),nCurrent_Ps1SND.c_str());	
 					
-					WriteOut(MSG_Get("SHELL_STARTUP_MODE_BEG"));
+					if ( bDisableIntroStartup == false )
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_BEG"));
+					else
+						WriteOut("\n\n");
 					
 					intrused = true;					
 				}
@@ -450,7 +456,10 @@ void DOS_Shell::Run(void) {
 						if ( strcmp (nCurrent_Disney.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_COVX"),nCurrent_Disney.c_str());	
 						if ( strcmp (nCurrent_Ps1SND.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_PS1A"),nCurrent_Ps1SND.c_str());	
 						
-						WriteOut(MSG_Get("SHELL_STARTUP_MODE_BEG"));
+						if ( bDisableIntroStartup == false )
+							WriteOut(MSG_Get("SHELL_STARTUP_MODE_BEG"));
+						else
+							WriteOut("\n\n");
 						
 						intrused = true;								
 					}
@@ -472,7 +481,8 @@ void DOS_Shell::Run(void) {
 						if ( strcmp (nCurrent_Disney.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_COVX"),nCurrent_Disney.c_str());	
 						if ( strcmp (nCurrent_Ps1SND.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_PS1A"),nCurrent_Ps1SND.c_str());	
 						
-						WriteOut(MSG_Get("SHELL_STARTUP_MODE_BEG"));
+						if ( bDisableIntroStartup == false )
+							WriteOut(MSG_Get("SHELL_STARTUP_MODE_BEG"));
 						
 						intrused = true;								
 					}
@@ -494,7 +504,10 @@ void DOS_Shell::Run(void) {
 						if ( strcmp (nCurrent_Disney.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_COVX"),nCurrent_Disney.c_str());	
 						if ( strcmp (nCurrent_Ps1SND.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_PS1A"),nCurrent_Ps1SND.c_str());	
 						
-						WriteOut(MSG_Get("SHELL_STARTUP_MODE_BEG"));
+						if ( bDisableIntroStartup == false )
+							WriteOut(MSG_Get("SHELL_STARTUP_MODE_BEG"));
+						else
+							WriteOut("\n\n");
 						
 						intrused = true;								
 					}
@@ -516,7 +529,10 @@ void DOS_Shell::Run(void) {
 						if ( strcmp (nCurrent_Disney.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_COVX"),nCurrent_Disney.c_str());	
 						if ( strcmp (nCurrent_Ps1SND.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_PS1A"),nCurrent_Ps1SND.c_str());	
 						
-						WriteOut(MSG_Get("SHELL_STARTUP_MODE_BEG"));
+						if ( bDisableIntroStartup == false )
+							WriteOut(MSG_Get("SHELL_STARTUP_MODE_BEG"));
+						else
+							WriteOut("\n\n");
 						
 						intrused = true;								
 					}
@@ -536,7 +552,10 @@ void DOS_Shell::Run(void) {
 						if ( strcmp (nCurrent_Disney.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_COVX"),nCurrent_Disney.c_str());	
 						if ( strcmp (nCurrent_Ps1SND.c_str(),"") !=0 ) WriteOut(MSG_Get("SHELL_STARTUP_MODE_PS1A"),nCurrent_Ps1SND.c_str());	
 						
-						WriteOut(MSG_Get("SHELL_STARTUP_MODE_BEG"));
+						if ( bDisableIntroStartup == false )
+							WriteOut(MSG_Get("SHELL_STARTUP_MODE_BEG"));
+						else
+							WriteOut("\n\n");
 						
 						intrused = true;								
 					}
@@ -549,7 +568,7 @@ void DOS_Shell::Run(void) {
 		ParseLine(input_line);
 	} else {
 		WriteOut(MSG_Get("SHELL_STARTUP_SUB"),VERSION,DOSBOXREVISION);
-	}
+	}	
 	do {
 		/* Get command once a line */
 		if (bf) {
@@ -594,7 +613,7 @@ public:
 		/* Register a virtual AUOEXEC.BAT file */
 		std::string line;
 		Section_line * section=static_cast<Section_line *>(configuration);
-
+	
 		/* Check -securemode switch to disable mount/imgmount/boot after running autoexec.bat */
 		bool secure = control->opt_securemode;
 
@@ -602,6 +621,7 @@ public:
 		char * extra = const_cast<char*>(section->data.c_str());
 		if (extra && !secure && !control->opt_noautoexec) {
 			/* detect if "echo off" is the first line */
+
 			size_t firstline_length = strcspn(extra,"\r\n");			
 			bool echo_off  = !strncasecmp(extra,"echo off",8);
 			if (echo_off && firstline_length == 8) extra += 8;
@@ -815,7 +835,7 @@ void SHELL_Init() {
 	MSG_Add("SHELL_CMD_GOTO_LABEL_NOT_FOUND","GOTO: Label %s not found.\n");
 	MSG_Add("SHELL_CMD_FILE_NOT_FOUND","File %s not found.\n");
 	MSG_Add("SHELL_CMD_FILE_EXISTS","File %s already exists.\n");
-	MSG_Add("SHELL_CMD_DIR_INTRO"," Directory of %s");
+	MSG_Add("SHELL_CMD_DIR_INTRO"," Directory of %s\n");
 	MSG_Add("SHELL_CMD_DIR_BYTES_USED","%5d File(s) %17s Bytes.\n");
 	MSG_Add("SHELL_CMD_DIR_BYTES_FREE","%5d Dir(s)  %17s Bytes free.\n");
 	MSG_Add("SHELL_EXECUTE_DRIVE_NOT_FOUND","Drive %c does not exist!\nYou must \033[31mmount\033[0m it first. Type \033[1;33mintro\033[0m or \033[1;33mintro mount\033[0m for more information.\n");
@@ -30850,6 +30870,9 @@ void SHELL_Init() {
     0x0D, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 		
 } ;		
 
+	Section_prop *sectsdl = static_cast<Section_prop *>(control->GetSection("sdl"));	
+	bDisableIntroStartup = sectsdl->Get_bool("DisableIntroStartup");
+		
 	Section_prop *section = static_cast<Section_prop *>(control->GetSection("dos"));	
 	bool bDisable_DOS4GW 	  = section->Get_bool("Disable_DOS4GW");
 	bool bDisable_DOS32A 	  = section->Get_bool("Disable_DOS32A");	
@@ -30909,6 +30932,13 @@ void SHELL_Init() {
 	DOS_ForceDuplicateEntry(1,2);				/* STDERR */
 	DOS_OpenFile("CON",OPEN_READWRITE,&dummy);	/* STDAUX */
 	DOS_OpenFile("PRN",OPEN_READWRITE,&dummy);	/* STDPRN */
+
+	/* Create appearance of handle inheritance by first shell */
+	for (Bit16u i=0;i<5;i++) {
+		Bit8u handle=psp.GetFileHandle(i);
+		if (Files[handle]) Files[handle]->AddRef();
+	}
+
 
 	psp.SetParent(psp_seg);
 	/* Set the environment */

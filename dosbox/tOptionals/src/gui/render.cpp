@@ -508,7 +508,7 @@ forcenormal:
  		render.scale.cachePitch = render.src.width * 4;
  		break;		
 	default:
-		E_Exit("RENDER:Wrong source bpp %d", render.src.bpp );
+		E_Exit("RENDER:Wrong source bpp %" sBitfs(d), render.src.bpp );
 	}
 	render.scale.blocks = render.src.width / SCALER_BLOCKSIZE;
 	render.scale.lastBlock = render.src.width % SCALER_BLOCKSIZE;

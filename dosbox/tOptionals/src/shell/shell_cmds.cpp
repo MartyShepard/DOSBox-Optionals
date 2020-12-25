@@ -137,7 +137,11 @@ bool DOS_Shell::CheckConfig(char* cmd_in,char*line) {
 }
 
 void DOS_Shell::DoCommand(char * line) {
+	/* Remove blank Space from Left */
+	ltrim(line); 
+	
 /* First split the line into command and arguments */
+
 	line=trim(line);
 	char cmd_buffer[CMD_MAXLINE];
 	char * cmd_write=cmd_buffer;

@@ -392,7 +392,8 @@ void DrawCursor() {
 
 	// Check video page. Seems to be ignored for text mode. 
 	// hence the text mode handled above this
-	if (real_readb(BIOSMEM_SEG,BIOSMEM_CURRENT_PAGE)!=mouse.page) return;
+	// >>> removed because BIOS page is not actual page in some cases, e.g. QQP games
+//	if (real_readb(BIOSMEM_SEG,BIOSMEM_CURRENT_PAGE)!=mouse.page) return;
 // Check if cursor in update region
 /*	if ((POS_X >= mouse.updateRegion_x[0]) && (POS_X <= mouse.updateRegion_x[1]) &&
 	    (POS_Y >= mouse.updateRegion_y[0]) && (POS_Y <= mouse.updateRegion_y[1])) {
@@ -730,6 +731,15 @@ static void Mouse_Reset(void) {
 	mouse.in_UIR = false;
 }
 
+static void Mouse_Used(void) {
+	static bool autolock_enabled=false;
+	if (!autolock_enabled) {
+		Mouse_AutoLock(true);
+		autolock_enabled=true;
+	}
+}
+
+
 static Bitu INT33_Handler(void) {
 //	LOG(LOG_MOUSE,LOG_NORMAL)("MOUSE: %04X %X %X %d %d",reg_ax,reg_bx,reg_cx,POS_X,POS_Y);
 	switch (reg_ax) {
@@ -741,14 +751,14 @@ static Bitu INT33_Handler(void) {
 			reg_ax=0xffff;
 			reg_bx=MOUSE_BUTTONS;
 			Mouse_Reset();
-			Mouse_AutoLock(true);
+			Mouse_Used();
 		}
 		break;
 	case 0x01:	/* Show Mouse */
 		if(mouse.hidden) mouse.hidden--;
 		mouse.updateRegion_y[1] = -1; //offscreen
-		Mouse_AutoLock(true);
 		DrawCursor();
+		if (!mouse.hidden) Mouse_Used();		
 		break;
 	case 0x02:	/* Hide Mouse */
 		{
@@ -761,6 +771,7 @@ static Bitu INT33_Handler(void) {
 		reg_bx=mouse.buttons;
 		reg_cx=POS_X;
 		reg_dx=POS_Y;
+		Mouse_Used();
 		break;
 	case 0x04:	/* Position Mouse */
 		/* If position isn't different from current position
@@ -784,8 +795,9 @@ static Bitu INT33_Handler(void) {
 			reg_dx=mouse.last_pressed_y[but];
 			reg_bx=mouse.times_pressed[but];
 			mouse.times_pressed[but]=0;
-			break;
 		}
+		Mouse_Used();
+		break;
 	case 0x06:	/* Return Button Release Data */
 		{
 			Bit16u but=reg_bx;
@@ -795,8 +807,9 @@ static Bitu INT33_Handler(void) {
 			reg_dx=mouse.last_released_y[but];
 			reg_bx=mouse.times_released[but];
 			mouse.times_released[but]=0;
-			break;
 		}
+		Mouse_Used();
+		break;
 	case 0x07:	/* Define horizontal cursor range */
 		{	//lemmings set 1-640 and wants that. iron seeds set 0-640 but doesn't like 640
 			//Iron seed works if newvideo mode with mode 13 sets 0-639
@@ -941,12 +954,13 @@ static Bitu INT33_Handler(void) {
 		reg_dx=static_cast<Bit16s>(mouse.mickey_y);
 		mouse.mickey_x=0;
 		mouse.mickey_y=0;
+		Mouse_Used();
 		break;
 	case 0x0c:	/* Define interrupt subroutine parameters */
 		mouse.sub_mask=reg_cx;
 		mouse.sub_seg=SegValue(es);
 		mouse.sub_ofs=reg_dx;
-		Mouse_AutoLock(true); //Some games don't seem to reset the mouse before using
+		if (mouse.sub_mask) Mouse_Used();
 		break;
 	case 0x0f:	/* Define mickey/pixel rate */
 		Mouse_SetMickeyPixelRate(reg_cx,reg_dx);

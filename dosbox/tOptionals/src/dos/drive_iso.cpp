@@ -24,7 +24,7 @@
 #include "dos_system.h"
 #include "support.h"
 #include "drives.h"
-#include "..\hardware\chd\chd.h"
+
 
 #define FLAGS1	((iso) ? de.fileFlags : de.timeZone)
 #define FLAGS2	((iso) ? de->fileFlags : de->timeZone)
@@ -522,28 +522,19 @@ int isoDrive :: readDirEntry(isoDirEntry *de, Bit8u *data) {
 	return de->length;
 }
 
-bool isoDrive :: loadImage(const char* fileName) {  
-	Bit8u pvd[COOKED_SECTOR_SIZE];
+bool isoDrive :: loadImage(const char* fileName) { 
+	
+
+	
+	uint8_t pvd[COOKED_SECTOR_SIZE];
 	dataCD = false;
-	chd_file* m_chd = nullptr;
-	chd_error error = chd_open(fileName, CHD_OPEN_READ, NULL, &m_chd);
-	if (error != CHDERR_NONE) {
-		readSector(pvd, ISO_FIRST_VD);
-	}else {
-	}
+	readSector(pvd, ISO_FIRST_VD);
 	
-	if (pvd[0] == 1 && !strncmp((char*)(&pvd[1]), "CD001", 5) && pvd[6] == 1){
-		iso = true;
-	
-	} else if (pvd[8] == 1 && !strncmp((char*)(&pvd[9]), "CDROM", 5) && pvd[14] == 1){
-		iso = false;
-	
-	} else {
-		return false;
-	}
-	
-	Bit16u offset = iso ? 156 : 180;
-	if (readDirEntry(&this->rootEntry, &pvd[offset])>0) {
+	if (pvd[0] == 1 && !strncmp((char*)(&pvd[1]), "CD001", 5) && pvd[6] == 1) iso = true;
+	else if (pvd[8] == 1 && !strncmp((char*)(&pvd[9]), "CDROM", 5) && pvd[14] == 1) iso = false;
+	else return false;
+	uint16_t offset = iso ? 156 : 180;
+	if (readDirEntry(&this->rootEntry, &pvd[offset]) > 0) {
 		dataCD = true;
 		return true;
 	}

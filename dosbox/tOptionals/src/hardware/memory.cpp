@@ -134,13 +134,13 @@ public:
 		flags=PFLAG_READABLE|PFLAG_HASROM;
 	}
 	void writeb(PhysPt addr,Bitu val){
-		LOG(LOG_CPU,LOG_NORMAL)("Write %x to rom at %x",val,addr);
+		LOG(LOG_CPU,LOG_ERROR)("Write %" sBitfs(x) " to rom at %x",val,addr);
 	}
 	void writew(PhysPt addr,Bitu val){
-		LOG(LOG_CPU,LOG_NORMAL)("Write %x to rom at %x",val,addr);
+		LOG(LOG_CPU,LOG_ERROR)("Write %" sBitfs(x) " to rom at %x",val,addr);
 	}
 	void writed(PhysPt addr,Bitu val){
-		LOG(LOG_CPU,LOG_NORMAL)("Write %x to rom at %x",val,addr);
+		LOG(LOG_CPU,LOG_ERROR)("Write %" sBitfs(x) " to rom at %x",val,addr);
 	}
 };
 
@@ -620,9 +620,12 @@ public:
 		}
 		nCurrent_Memory = section->Get_int("memsize");
 		MemBase = new(std::nothrow) Bit8u[memsize*1024ul*1024ul];
-		if (!MemBase) E_Exit("Can't allocate main memory of %d MB",memsize);
+		
+		if (!MemBase) E_Exit("Fck..Damned!\nCan't allocate main memory of %d MB\n\nPlease try again or Restart your Host System.\nAlternate Solution: Decrease the Memorysize in your Config.",memsize);
+	
 		/* Clear the memory, as new doesn't always give zeroed memory
 		 * (Visual C debug mode). We want zeroed memory though. */
+		 
 		memset((void*)MemBase,0,memsize*1024ul*1024ul);
 		memory.pages = (memsize*1024ul*1024ul)/4096ul;
 		/* Allocate the data for the different page information blocks */

@@ -781,7 +781,8 @@ bool Section_prop::HandleInputline(string const& gegevens){
 	      (val[0] == '\'' && val[length - 1] == '\''))
 	   ) val = val.substr(1,length - 2);
 	/* trim the results incase there were spaces somewhere */
-	trim(name);trim(val);
+	trim(name);
+	trim(val);
 	for(it tel = properties.begin();tel != properties.end();++tel){
 		if (!strcasecmp((*tel)->propname.c_str(),name.c_str())){
 			return (*tel)->SetValue(val);
@@ -903,8 +904,9 @@ bool Config::PrintConfig(char const * const configfilename) const {
 		}
 
 		//fprintf(outfile,"\n");
-		(*tel)->PrintData(outfile);			
-		fprintf(outfile,"\n");		/* Always an empty line between sections */		
+		(*tel)->PrintData(outfile);				
+		fprintf(outfile,"\n");		/* Always an empty line between sections */
+
 	}
 	fclose(outfile);
 	return true;
@@ -1231,7 +1233,9 @@ Section* Config::GetSectionFromProperty(char const * const prop) const {
 	return NULL;
 }
 
+
 bool Config::ParseConfigFile(char const * const configfilename) {
+	bool dontTouchAutoexec = false;
 	//static bool first_configfile = true;
 	ifstream in(configfilename);
 	if (!in) return false;
@@ -1249,43 +1253,98 @@ bool Config::ParseConfigFile(char const * const configfilename) {
 	current_config_dir.erase(pos);
 
 	string gegevens;
+	string gegevens_autoexec;
 	Section* currentsection = NULL;
 	Section* testsec = NULL;
 	while (getline(in,gegevens)) {
 
 		/* strip leading/trailing whitespace */
-		trim(gegevens);
-		if(!gegevens.size()) continue;
-
-		switch(gegevens[0]){
-		case '%':
-		case '\0':
-		case '#':
-		case ' ':
-		case '\n':
-			continue;
-			break;
-		case '[':
+		
+		if ( strcasecmp( gegevens.c_str(),"[autoexec]" ) == 0)
 		{
-			string::size_type loc = gegevens.find(']');
-			if(loc == string::npos) continue;
-			gegevens.erase(loc);
-			testsec = GetSection(gegevens.substr(1));
-			if(testsec != NULL ) currentsection = testsec;
-			testsec = NULL;
+			/*
+				Verändere nicht die Autoexec.bat
+				Lösche nicht blnk space oder return lines
+				Lasse sie so wie sie in der Config steht
+			*/
+			dontTouchAutoexec = true;
 		}
-			break;
-		default:
-			try {
-				if(currentsection) currentsection->HandleInputline(gegevens);
-			} catch(const char* message) {
-				message=0;
-				//EXIT with message
+		
+		if ( dontTouchAutoexec == false)
+		{	
+			trim(gegevens);
+			if(!gegevens.size()) continue;
+			
+			switch(gegevens[0])
+			{
+				case '%':
+				case '\0':					
+				case '#':
+				case ' ':			
+				case '\n':
+					continue;
+					break;
+				case '[':
+				{
+					string::size_type loc = gegevens.find(']');
+					if(loc == string::npos) continue;
+					gegevens.erase(loc);
+					testsec = GetSection(gegevens.substr(1));
+					if(testsec != NULL ) currentsection = testsec;
+					testsec = NULL;
+				}
+					break;
+				default:
+					try {
+						if(currentsection) currentsection->HandleInputline(gegevens);
+					} catch(const char* message) {
+						message=0;
+						//EXIT with message
+					}
+					break;
 			}
-			break;
 		}
+		else
+		{	
+
+			gegevens_autoexec = gegevens;
+			trim(gegevens_autoexec);
+			//if(!gegevens.size()) continue;
+			
+			switch(gegevens_autoexec[0])
+			{				
+				case '%':
+				//case '\0':					
+				case '#':
+				//case ' ':			
+				//case '\n':			
+					continue;
+					break;
+				case '[':
+				{
+					string::size_type loc = gegevens.find(']');
+					if(loc == string::npos) continue;
+					gegevens.erase(loc);
+					testsec = GetSection(gegevens.substr(1));
+					if(testsec != NULL ) currentsection = testsec;
+					testsec = NULL;
+				}
+					break;
+				default:
+					try {
+						if(currentsection) currentsection->HandleInputline(gegevens_autoexec);
+					} catch(const char* message) {
+						message=0;
+						//EXIT with message
+					}
+					break;
+									
+			}				
+		}
+
+
 	}
-	current_config_dir.clear();//So internal changes don't use the path information
+	current_config_dir.clear();//So internal changes don't use the path information	
 	return true;
 }
 
@@ -1308,7 +1367,7 @@ void Config::ParseEnv(char ** envp) {
 		*prop_name++=0;
 		Section* sect = GetSection(sec_name);
 		if(!sect)
-			continue;
+			continue;		
 		sect->HandleInputline(prop_name);
 	}
 }

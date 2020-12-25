@@ -18,7 +18,7 @@
 
 
 /*
-	Remove the sdl code from here and have it handeld in the sdlmain.
+	Remove the sdl code from here and have it handled in the sdlmain.
 	That should call the mixer start from there or something.
 */
 
@@ -106,12 +106,16 @@ MixerChannel * MIXER_AddChannel(MIXER_Handler handler,Bitu freq,const char * nam
 	chan->scale = 1.0;
 	chan->handler=handler;
 	chan->name=name;
-	chan->SetFreq(freq);
 	chan->next=mixer.channels;
 	chan->SetVolume(1,1);
 	chan->enabled=false;
 	chan->interpolate = false;
-	mixer.channels=chan;
+	chan->SetFreq(freq); //Sets interpolate as well.
+	chan->last_samples_were_silence = true;
+	chan->last_samples_were_stereo = false;
+	chan->offset[0] = 0;
+	chan->offset[1] = 0;
+	mixer.channels = chan;
 	return chan;
 }
 
@@ -159,6 +163,19 @@ void MixerChannel::SetScale( float f ) {
 	UpdateVolume();
 }
 
+void MixerChannel::SetScale(float _left, float _right) {
+	// Constrain application-defined volume between 0% and 100%
+	const float min_volume(0.0);
+	const float max_volume(1.0);
+	_left  = clamp(_left,  min_volume, max_volume);
+	_right = clamp(_right, min_volume, max_volume);
+	if (scalex[0] != _left || scalex[1] != _right) {
+		scalex[0] = _left;
+		scalex[1] = _right;
+		UpdateVolume();
+	}
+}
+
 void MixerChannel::Enable(bool _yesno) {
 	if (_yesno==enabled) return;
 	enabled=_yesno;
@@ -175,8 +192,7 @@ void MixerChannel::SetFreq(Bitu freq) {
 
 	if (freq != mixer.freq) {
 		interpolate = true;
-	}
-	else {
+	} else {
 		interpolate = false;
 	}
 }
@@ -192,18 +208,53 @@ void MixerChannel::Mix(Bitu _needed) {
 }
 
 void MixerChannel::AddSilence(void) {
-	if (done<needed) {
-		done=needed;
-		//Make sure the next samples are zero when they get switched to prev
-		nextSample[0] = 0;
-		nextSample[1] = 0;
-		//This should trigger an instant request for new samples
-		freq_counter = FREQ_NEXT;
+	if (done < needed) {
+		if(prevSample[0] == 0 && prevSample[1] == 0) {
+			done = needed;
+			//Make sure the next samples are zero when they get switched to prev
+			nextSample[0] = 0;
+			nextSample[1] = 0;
+			//This should trigger an instant request for new samples
+			freq_counter = FREQ_NEXT;
+		} else {
+			bool stereo = last_samples_were_stereo;
+			//Position where to write the data
+			Bitu mixpos = mixer.pos + done;
+			while (done < needed) {
+				// Maybe depend on sample rate. (the 4)
+				if (prevSample[0] > 4)       nextSample[0] = prevSample[0] - 4;
+				else if (prevSample[0] < -4) nextSample[0] = prevSample[0] + 4;
+				else nextSample[0] = 0;
+				if (prevSample[1] > 4)       nextSample[1] = prevSample[1] - 4;
+				else if (prevSample[1] < -4) nextSample[1] = prevSample[1] + 4;
+				else nextSample[1] = 0;
+
+				mixpos &= MIXER_BUFMASK;
+				Bit32s* write = mixer.work[mixpos];
+
+				write[0] += prevSample[0] * volmul[0];
+				write[1] += (stereo ? prevSample[1] : prevSample[0]) * volmul[1];
+
+				prevSample[0] = nextSample[0];
+				prevSample[1] = nextSample[1];
+				mixpos++;
+				done++;
+				freq_counter = FREQ_NEXT;
+			} 
+		}
 	}
+	last_samples_were_silence = true;
+	offset[0] = offset[1] = 0;
 }
+
+//4 seems to work . Disabled for now
+#define MIXER_UPRAMP_STEPS 0
+#define MIXER_UPRAMP_SAVE 512
 
 template<class Type,bool stereo,bool signeddata,bool nativeorder>
 inline void MixerChannel::AddSamples(Bitu len, const Type* data) {
+	last_samples_were_stereo = stereo;
+
 	//Position where to write the data
 	Bitu mixpos = mixer.pos + done;
 	//Position in the incoming data
@@ -213,8 +264,19 @@ inline void MixerChannel::AddSamples(Bitu len, const Type* data) {
 		//Does new data need to get read?
 		while (freq_counter >= FREQ_NEXT) {
 			//Would this overflow the source data, then it's time to leave
-			if (pos >= len)
+			if (pos >= len) {
+				last_samples_were_silence = false;
+#if MIXER_UPRAMP_STEPS > 0
+				if (offset[0] || offset[1]) {
+					//Should be safe to do, as the value inside offset is 16 bit while offset itself is at least 32 bit
+					offset[0] = (offset[0]*(MIXER_UPRAMP_STEPS-1))/MIXER_UPRAMP_STEPS;
+					offset[1] = (offset[1]*(MIXER_UPRAMP_STEPS-1))/MIXER_UPRAMP_STEPS;
+					if (offset[0] < MIXER_UPRAMP_SAVE && offset[0] > -MIXER_UPRAMP_SAVE) offset[0] = 0;
+					if (offset[1] < MIXER_UPRAMP_SAVE && offset[1] > -MIXER_UPRAMP_SAVE) offset[1] = 0;
+				}
+#endif
 				return;
+			}
 			freq_counter -= FREQ_NEXT;
 			prevSample[0] = nextSample[0];
 			if (stereo) {
@@ -292,6 +354,20 @@ inline void MixerChannel::AddSamples(Bitu len, const Type* data) {
 			}
 			//This sample has been handled now, increase position
 			pos++;
+#if MIXER_UPRAMP_STEPS > 0
+			if (last_samples_were_silence && pos == 1) {
+				offset[0] = nextSample[0] - prevSample[0];
+				if (stereo) offset[1] = nextSample[1] - prevSample[1];
+				//Don't bother with small steps.
+				if (offset[0] < (MIXER_UPRAMP_SAVE*4) && offset[0] > (-MIXER_UPRAMP_SAVE*4)) offset[0] = 0;
+				if (offset[1] < (MIXER_UPRAMP_SAVE*4) && offset[1] > (-MIXER_UPRAMP_SAVE*4)) offset[1] = 0;
+			}
+
+			if (offset[0] || offset[1]) {
+				nextSample[0] = nextSample[0] - (offset[0]*(MIXER_UPRAMP_STEPS*static_cast<Bits>(len)-static_cast<Bits>(pos))) /( MIXER_UPRAMP_STEPS*static_cast<Bits>(len) );
+				nextSample[1] = nextSample[1] - (offset[1]*(MIXER_UPRAMP_STEPS*static_cast<Bits>(len)-static_cast<Bits>(pos))) /( MIXER_UPRAMP_STEPS*static_cast<Bits>(len) );
+			}
+#endif			
 		}
 		//Where to write
 		mixpos &= MIXER_BUFMASK;
@@ -432,12 +508,12 @@ void MixerChannel::AddSamples_s32_nonnative(Bitu len,const Bit32s * data) {
 
 void MixerChannel::FillUp(void) {
 	SDL_LockAudio();
-	if (!enabled || done<mixer.done) {
+	if (done < mixer.done) {
 		SDL_UnlockAudio();
 		return;
 	}
-	float index=PIC_TickIndex();
-	Mix((Bitu)(index*mixer.needed));
+	float index = PIC_TickIndex();
+	Mix((Bitu)(index * mixer.needed));
 	SDL_UnlockAudio();
 }
 
@@ -449,7 +525,7 @@ static inline bool Mixer_irq_important(void) {
 }
 
 static Bit32u calc_tickadd(Bit32u freq) {
-	#if TICK_SHIFT >16
+	#if TICK_SHIFT > 16
 		Bit64u freq64 = static_cast<Bit64u>(freq);
 		freq64 = (freq64<<TICK_SHIFT)/1000;
 		Bit32u r = static_cast<Bit32u>(freq64);
@@ -847,6 +923,7 @@ void MIXER_Init(Section* sec) {
 			if (mixer.min_needed>10000u) {
 				mixer.min_needed=10000u;	
 			}
+			
 			mixer.min_needed=((unsigned int)mixer.min_needed * (unsigned int)mixer.freq)/1000u;
 	
 			mixer.max_needed=mixer.blocksize * 2 + 2 * mixer.min_needed;

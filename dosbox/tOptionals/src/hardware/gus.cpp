@@ -121,7 +121,7 @@ struct GFGus {
 	Bit8u gRegSelectData;		
 	Bit8u gRegSelect;
 	Bit8u gUltraMAXControl;
-	Bit8u DMAControl;
+	//Bit8u DMAControl;
 	Bit8u dmaAddrOffset; 			/* bits 0-3 of the addr */
 	Bit8u TimerControl;
 	Bit8u SampControl;
@@ -139,7 +139,9 @@ struct GFGus {
 	Bit16u gCurChannel;
 	Bit16u gRegData;
 	Bit16u dmaAddr;
-
+    uint16_t DMAControl; /* NTS: bit 8 for DMA TC IRQ status. Only bits [7:0] exist on real hardware.
+                            We're taking the DOSBox SVN approach here (https://sourceforge.net/p/dosbox/code-0/4387/#diff-2) */
+							
 	Bit32u basefreq;
 	Bit32u memsize;
 	Bit32u rate;
@@ -312,13 +314,15 @@ public:
 			/*
 				Samples / original gus frame
 			*/
-			double frameadd	= double(val >> 1)/512.0;
+			
+			double frameadd	= double(WaveFreq >> 1)/512.0;
 			double realadd 	= (frameadd*(double)myGUS.basefreq/(double)GUS_RATE) * (double)(1 << WAVE_FRACT);
 			WaveAdd 		= (Bit32u)realadd;
+			
 		}
 		else
 		{
-			WaveAdd = ((Bit32u)(val >> 1)) << ((Bit32u)(WAVE_FRACT-9));
+			WaveAdd = ((Bit32u)(WaveFreq >> 1)) << ((Bit32u)(WAVE_FRACT-9));
 		}
 	}
 	/* ---------------------------------------------------------------------------------------------------------------------*/
@@ -683,63 +687,48 @@ public:
 				output mapped through ICS mixer including channel remapping
 			*/
             
-			for (i = 0; i < (int)len; i++) {
-                /*
-					Get sample
-				*/
-                if (WaveCtrl & WCTRL_16BIT)
-				{
-                    tmpsamp = GetSample16();
-				}
-                else
-				{
-					
-                    tmpsamp = GetSample8();
-					if ( tmpsamp == len ){
-						break;
-					}
-				}
+			
+			bool is16 = (WaveCtrl & WCTRL_16BIT)!=0;			
+			
+			for (Bitu i = 0; i < (int)len; i++) {
+
+				Bit32s tmpsamp = is16 ? GetSample16():GetSample8();
 				
                 /*
 					Output stereo sample if DAC enable on
 				*/
+				
+
+					
                 if ( (GUS_reset_reg & 0x02/*DAC enable*/) == 0x02 )
 				{
+                
+					Bit32s* const sp = stream  + (i << 1);
+					const Bit32s L 	 = tmpsamp * VolLeft;
+					const Bit32s R 	 = tmpsamp * VolRight;					
 					
-                    Bit32s* const sp = stream  + (i << 1);
-                    const Bit32s L 	 = tmpsamp * VolLeft;
-                    const Bit32s R 	 = tmpsamp * VolRight;
-
 					if ( gus_StereoMix == true )
 					{
 
-				         Bit32s* const sp = stream  + (i << 1);
-						 const Bit32s L 	 = tmpsamp * VolLeft;
-						 const Bit32s R 	 = tmpsamp * VolRight;	
 										
-						 if (Lc & 1) { sp[0] += L;}
-						 else
-						 {
-							sp[1] += R;
-							sp[0] += R;							
-						 }
+						if (Lc & 1)
+						{ 
+							sp[0] += tmpsamp * VolRight;
+							sp[1] += tmpsamp * VolRight;							
+						}
+
 						 
-						 if (Lc & 2){ sp[1] += L; }
-						 else
+						 if (Rc & 2)
 						 {
-							sp[0] += R;
-							sp[1] += R;	
+							 sp[0] += tmpsamp * VolLeft;
+							 sp[1] += tmpsamp * VolLeft; 
 						 }
-						 						 
-						 if (Rc & 1) sp[0] += R;
-						 if (Rc & 2) sp[1] += R;				
+
 					}
 					else
-					{
-						 if (Lc & 1) sp[0] += L;
-						 if (Lc & 2) sp[1] += L;
-						 if (Rc & 1) sp[0] += R;
-						 if (Rc & 2) sp[1] += R;					
+					{											
+						stream[ i << 1] 	 += tmpsamp * VolLeft;
+						stream[(i << 1) + 1] += tmpsamp * VolRight;	
 					}														
                     WaveUpdate();
                     RampUpdate();
@@ -752,18 +741,13 @@ public:
             const unsigned char Lc = read_GF1_mapping_control(0);
             const unsigned char Rc = read_GF1_mapping_control(1);
 			
+			bool is16 = (WaveCtrl & WCTRL_16BIT)!=0;	
+			
             /* normal output */
             for (i = 0; i < (int)len; i++)
 			{
-                /* Get sample */
-                if (WaveCtrl & WCTRL_16BIT)
-				{
-					tmpsamp = GetSample16();
-				}
-                else
-				{
-                    tmpsamp = GetSample8();
-				}
+
+				Bit32s tmpsamp = is16 ? GetSample16():GetSample8();				
 
                 /* Output stereo sample if DAC enable on */
                 if ( (GUS_reset_reg & 0x02/*DAC enable*/) == 0x02 )
@@ -1107,7 +1091,8 @@ static Bit16u ExecuteReadRegister(void)
 				}
 			}		
 			tmpreg  = myGUS.DMAControl & 0xbf;
-			tmpreg |= (myGUS.IRQStatus & 0x80) >> 1;
+			tmpreg |= (myGUS.DMAControl & 0x100) >> 2; /* Bit 6 on read is the DMA terminal count IRQ status */
+			myGUS.DMAControl&=0xff; /* clear TC IRQ status */
 			myGUS.IRQStatus&=0x7f;
 			GUS_CheckIRQ();
 			
@@ -1122,7 +1107,7 @@ static Bit16u ExecuteReadRegister(void)
 		
 		case 0x49:  // Dma sample register
 			tmpreg = myGUS.DMAControl & 0xbf;
-			tmpreg |= (myGUS.IRQStatus & 0x80) >> 1;
+			tmpreg |= (myGUS.DMAControl & 0x100) >> 2; /* Bit 6 on read is the DMA terminal count IRQ status */
 			return (Bit16u)(tmpreg << 8);
 			
 		case 0x4c:  // GUS reset register
@@ -1395,7 +1380,8 @@ static void ExecuteGlobRegister(void) {
 			break;
 			
 		case 0x41:  // Dma control register
-			myGUS.DMAControl = (Bit8u)(myGUS.gRegData>>8);
+			myGUS.DMAControl &= ~0xFFu; // FIXME: Does writing DMA Control clear the DMA TC IRQ?
+			myGUS.DMAControl |= (uint8_t)(myGUS.gRegData>>8);
 			GUS_Update_DMA_Event_transfer();
 			if (myGUS.DMAControl & 1) GUS_StartDMA();
 			else GUS_StopDMA();
@@ -2382,6 +2368,7 @@ void GUS_DMA_Event_Transfer(DmaChannel *chan,Bitu dmawords) {
 		#endif
 
 		/* Raise the TC irq, and stop DMA */
+		myGUS.DMAControl |= 0x100u; /* NTS: DOSBox SVN approach: Use bit 8 for DMA TC IRQ */
 		myGUS.IRQStatus |= 0x80;
 		saved_tcount 	 = true;
 		

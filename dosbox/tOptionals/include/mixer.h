@@ -24,6 +24,9 @@
 #include "dosbox.h"
 #endif
 
+template <class T> T clamp(const T& n, const T& lower, const T& upper) {
+	return std::max<T>(lower, std::min<T>(n, upper));
+}
 
 typedef void (*MIXER_MixHandler)(Bit8u * sampdate,Bit32u len);
 typedef void (*MIXER_Handler)(Bitu len);
@@ -49,6 +52,7 @@ class MixerChannel {
 public:
 	void SetVolume(float _left,float _right);
 	void SetScale( float f );
+	void SetScale(float _left, float _right);
 	void UpdateVolume(void);
 	void SetFreq(Bitu _freq);
 	void Mix(Bitu _needed);
@@ -82,6 +86,7 @@ public:
 	MIXER_Handler handler;
 	float volmain[2];
 	float scale;
+	float scalex[2];
 	Bit32s volmul[2];
 	
 	//This gets added the frequency counter each mixer step
@@ -94,9 +99,14 @@ public:
 	//Previous and next samples
 	Bits prevSample[2];
 	Bits nextSample[2];
+	//Simple way to lower the impact of DC offset. if MIXER_UPRAMP_STEPS is >0.
+	//Still work in progress and thus disabled for now.
+	Bits offset[2];	
 	const char * name;
 	bool interpolate;
 	bool enabled;
+	bool last_samples_were_stereo;
+	bool last_samples_were_silence;	
 	MixerChannel * next;
 };
 
