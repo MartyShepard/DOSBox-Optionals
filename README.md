@@ -36,3 +36,4 @@ Based on the OpenGL3 FORK 4006 from dugan
 * More joysticks with up to 10 buttons (can be used depending on the configuration. DOS / Windows95 / 98 with driver)
 * Due to the last svn version there is now something like "Cloudsaves"
 * Also in the archive. DOSBOx lite and Heavy Debug version
+* Support for Mame CHD's (CDRom Images). Works in DOS & Win9x
