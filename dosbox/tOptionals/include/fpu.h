@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,6 +27,11 @@
 #ifndef DOSBOX_MEM_H
 #include "mem.h"
 #endif
+
+//#if C_MMX
+ #include "mmx.h"
+//#endif
+
 
 void FPU_ESC0_Normal(Bitu rm);
 void FPU_ESC0_EA(Bitu func,PhysPt ea);
@@ -60,11 +65,19 @@ typedef union {
     } l;
 #endif
     Bit64s ll;
+	//#if C_MMX
+		MMX_reg reg_mmx;
+	//#endif
 } FPU_Reg;
 
 typedef struct {
-    Bit32u m1;
-    Bit32u m2;
+	union {
+		struct {
+			Bit32u m1;
+			Bit32u m2;
+		};
+		MMX_reg reg_mmx;
+	};
     Bit16u m3;
 
     Bit16u d1;

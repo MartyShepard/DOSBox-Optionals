@@ -32,6 +32,7 @@
 #include "voodoo.h"
 #include "pci_bus.h"
 #include "voodoo_interface.h"
+#include <timer.h>
 
 std::string nCurrent_Voodoo = "";
 
@@ -145,6 +146,9 @@ public:
 			case 2:
 				Voodoo_Initialize(emulation_type, card_type, max_voodoomem);
 				needs_pci_device = true;
+				#if defined(C_DEBUG)
+					LOG(LOG_FXEMU, LOG_NORMAL)("[%d] Init Emuation Type (%d), Card Type: %d, MaxMem: %s", __LINE__, emulation_type, card_type, max_voodoomem? "true":"false");
+				#endif
 				break;
 			default:
 				break;

@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -31,6 +31,8 @@
 #include "cross.h"
 #include "control.h"
 #include "shell.h"
+#include "hardware.h"
+#include "mapper.h"
 
 Bitu call_program;
 
@@ -229,7 +231,7 @@ bool Program::GetEnvStr(const char * entry,std::string & result) {
 		/* replace the = with \0 to get the length */
 		*equal = 0;
 		if (strlen(env_string) != strlen(entry)) continue;
-		if (strcasecmp(entry,env_string)!=0) continue;
+		if (_stricmp(entry,env_string)!=0) continue;
 		/* restore the = to get the original result */
 		*equal = '=';
 		result = env_string;
@@ -336,7 +338,10 @@ private:
 void CONFIG::Run(void) {
 	static const char* const params[] = {
 		"-r", "-wcp", "-wcd", "-wc", "-writeconf", "-l", "-rmconf",
-		"-h", "-help", "-?", "-axclear", "-axadd", "-axtype", "-get", "-set",
+		"-h", "-help", "-?", "-axclear", "-axadd", "-axtype",
+		"-avistart","-avistop",
+		"-startmapper",
+		"-get", "-set",
 		"-writelang", "-wl", "-securemode", "" };
 	enum prs {
 		P_NOMATCH, P_NOPARAMS, // fixed return values for GetParameterFromList
@@ -345,6 +350,8 @@ void CONFIG::Run(void) {
 		P_LISTCONF,	P_KILLCONF,
 		P_HELP, P_HELP2, P_HELP3,
 		P_AUTOEXEC_CLEAR, P_AUTOEXEC_ADD, P_AUTOEXEC_TYPE,
+		P_REC_AVI_START, P_REC_AVI_STOP,
+		P_START_MAPPER,
 		P_GETPROP, P_SETPROP,
 		P_WRITELANG, P_WRITELANG2,
 		P_SECURE
@@ -352,6 +359,7 @@ void CONFIG::Run(void) {
 	
 	bool first = true;
 	std::vector<std::string> pvars;
+
 	// Loop through the passed parameters
 	while(presult != P_NOPARAMS) {
 		presult = (enum prs)cmd->GetParameterFromList(params, pvars);
@@ -445,7 +453,7 @@ void CONFIG::Run(void) {
 				WriteOut(MSG_Get("PROGRAM_CONFIG_USAGE"));
 				return;
 			case 1: {
-				if (!strcasecmp("sections",pvars[0].c_str())) {
+				if (!_stricmp("sections",pvars[0].c_str())) {
 					// list the sections
 					WriteOut(MSG_Get("PROGRAM_CONFIG_HLP_SECTLIST"));
 					Bitu i = 0;
@@ -517,7 +525,7 @@ void CONFIG::Run(void) {
 				while (true) {
 					Property *p = psec->Get_prop(i++);
 					if (p==NULL) break;
-					if (!strcasecmp(p->propname.c_str(),pvars[1].c_str())) {
+					if (!_stricmp(p->propname.c_str(),pvars[1].c_str())) {
 						// found it; make the list of possible values
 						std::string propvalues;
 						std::vector<Value> pv = p->GetValues();
@@ -584,6 +592,16 @@ void CONFIG::Run(void) {
 			WriteOut("\n%s",sec->data.c_str());
 			break;
 		}
+		case P_REC_AVI_START:
+			CAPTURE_VideoStart();
+			break;
+		case P_REC_AVI_STOP:
+			CAPTURE_VideoStop();
+			break;
+		case P_START_MAPPER:
+			if (securemode_check()) return;
+			MAPPER_Run(false);
+			break;
 		case P_GETPROP: {
 			// "section property"
 			// "property"
@@ -611,21 +629,37 @@ void CONFIG::Run(void) {
 				if (sec) {
 					// list properties in section
 					Bitu i = 0;
+					Bitu x = 0;
+					Bitu l1= 0;
+					Bitu l2= 0;
 					Section_prop* psec = dynamic_cast <Section_prop*>(sec);
 					if (psec==NULL) {
 						// autoexec section
 						Section_line* pline = dynamic_cast <Section_line*>(sec);
 						if (pline==NULL) E_Exit("Section dynamic cast failed.");
-
 						WriteOut("%s",pline->data.c_str());
 						break;
 					}
 					while(true) {
 						// list the properties
+						/* Marty - List Property Sortet Display */
 						Property* p = psec->Get_prop(i++);
 						if (p==NULL) break;
-						WriteOut("%s=%s\n", p->propname.c_str(),
-							p->GetValue().ToString().c_str());
+						if (p->propname.length() > 0) {
+							l1 = p->propname.length();
+							if (l1 > l2) {
+								l2 = l1;
+							}
+						}
+						/* Marty - List Property Sortet Display */
+					}
+					i = 0;
+					while (true) {
+						Property* p = psec->Get_prop(i++);
+						if (p == NULL) break;
+						/* Marty - List Property Sortet Display */
+						WriteOut("\t%-*s = %s\n", l2, p->propname.c_str(), p->GetValue().ToString().c_str());
+						/* Marty - List Property Sortet Display */
 					}
 				} else {
 					// no: maybe it's a property?
@@ -645,7 +679,7 @@ void CONFIG::Run(void) {
 				// section + property
 				Section* sec = control->GetSection(pvars[0].c_str());
 				if (!sec) {
-					WriteOut(MSG_Get("PROGRAM_CONFIG_SECTION_ERROR"));
+					WriteOut(MSG_Get("PROGRAM_CONFIG_SECTION_ERROR"),pvars[0].c_str());
 					return;
 				}
 				std::string val = sec->GetPropValue(pvars[1].c_str());
@@ -851,6 +885,9 @@ void PROGRAMS_Init(Section* /*sec*/) {
 		"-axadd [line] adds a line to the autoexec section.\n"\
 		"-axtype prints the content of the autoexec section.\n"\
 		"-securemode switches to secure mode.\n"\
+		"-avistart starts AVI recording.\n"\
+		"-avistop stops AVI recording.\n"\
+		"-startmapper starts the keymapper.\n"\
 		"-get \"section property\" returns the value of the property.\n"\
 		"-set \"section property=value\" sets the value." );
 	MSG_Add("PROGRAM_CONFIG_HLP_PROPHLP","Purpose of property \"%s\" (contained in section \"%s\"):\n%s\n\nPossible Values: %s\nDefault value: %s\nCurrent value: %s\n");

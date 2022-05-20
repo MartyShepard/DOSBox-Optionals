@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -32,22 +32,37 @@ void Set_Label(char const * const input, char * const output, bool cdrom);
 class DriveManager {
 public:
 	static void AppendDisk(int drive, DOS_Drive* disk);
+	static void ChangeDisk(int drive, DOS_Drive* disk);/* CDROM WECHSEL*/
+	static void InsertDisk(int drive, DOS_Drive* disk, int num);
+	static int  DiskCounts(int drive);
+	static void ClearDisks(int drive);
+	static int  CurrentDisk(int drive);
+	static void LoopDisks(int drive, bool notify, int NewNum);
+	static void ResizeDisk(int drive, DOS_Drive* disk, int num);
 	static void InitializeDrive(int drive);
+	static void NotifyShowLabel(Bit8u Laufwerk, int Pos, int Max);
+	static void NotifyWaitLabel(Bit8u Laufwerk, int Pos, int Max);
+	static void ShowInfos(int drive, const char* Image);
 	static int UnmountDrive(int drive);
+	static std::string GetFilePath(int drive, DOS_Drive* disk, int num);
 //	static void CycleDrive(bool pressed);
 //	static void CycleDisk(bool pressed);
 	static void CycleDisks(int drive, bool notify);
 	static void CycleAllDisks(void);
 	static void CycleAllCDs(void);
+	static void CycleImage(int drive, bool notify, int LastDisk);
 	static void Init(Section* sec);
-	
-private:
-	static struct DriveInfo {
+	static std::vector<std::string*>Get_CDROM_Paths(std::vector<std::string>& Stacks, int drive);
+	static std::vector<std::string*>Get_FLOPPY_Paths(std::vector<std::string>& Stacks, int drive);
+	static struct DriveInfo
+	{
 		std::vector<DOS_Drive*> disks;
 		Bit32u currentDisk;
 	} driveInfos[DOS_DRIVES];
-	
+
 	static int currentDrive;
+private:
+
 };
 
 class localDrive : public DOS_Drive {
@@ -188,6 +203,13 @@ public:
 	bool directoryChange(Bit32u dirClustNumber, direntry *useEntry, Bit32s entNum);
 	imageDisk *loadedDisk;
 	bool created_successfully;
+	struct {
+		uint32_t bytesector;
+		uint32_t cylsector;
+		uint32_t headscyl;
+		uint32_t cylinders;
+		int mounttype;
+	} opts = { 0, 0, 0, 0, -1 };
 private:
 	Bit32u getClusterValue(Bit32u clustNum);
 	void setClusterValue(Bit32u clustNum, Bit32u clustValue);
@@ -351,10 +373,12 @@ public:
 	virtual Bits UnMount(void);
 	bool readSector(Bit8u *buffer, Bit32u sector);
 	virtual char const* GetLabel(void) {return discLabel;};
+	virtual char const* GetFile(void) { return fileName; };
 	virtual void Activate(void);
+	bool loadImage();/*bool loadImage(const char* filename);*/
+	void setFileName(const char* fileName);/*CDROM WECHSEL*/
 private:
 	int  readDirEntry(isoDirEntry *de, Bit8u *data);
-	bool loadImage(const char* filename);
 	bool lookupSingle(isoDirEntry *de, const char *name, Bit32u sectorStart, Bit32u length);
 	bool lookup(isoDirEntry *de, const char *path);
 	int  UpdateMscdex(char driveLetter, const char* physicalPath, Bit8u& subUnit);

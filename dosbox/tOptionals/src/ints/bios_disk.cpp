@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -29,16 +29,17 @@
 
 
 diskGeo DiskGeometryList[] = {
-	{ 160,  8, 1, 40, 0},
-	{ 180,  9, 1, 40, 0},
-	{ 200, 10, 1, 40, 0},
-	{ 320,  8, 2, 40, 1},
-	{ 360,  9, 2, 40, 1},
-	{ 400, 10, 2, 40, 1},
-	{ 720,  9, 2, 80, 3},
-	{1200, 15, 2, 80, 2},
-	{1440, 18, 2, 80, 4},
-	{2880, 36, 2, 80, 6},
+	{ 160,  8, 1, 40, 0},	// SS/DD 5.25"
+	{ 180,  9, 1, 40, 0},	// SS/DD 5.25"
+	{ 200, 10, 1, 40, 0},	// SS/DD 5.25" (booters)
+	{ 320,  8, 2, 40, 1},	// DS/DD 5.25"
+	{ 360,  9, 2, 40, 1},	// DS/DD 5.25"
+	{ 400, 10, 2, 40, 1},	// DS/DD 5.25" (booters)
+	{ 720,  9, 2, 80, 3},	// DS/DD 3.5"
+	{1200, 15, 2, 80, 2},	// DS/HD 5.25"
+	{1440, 18, 2, 80, 4},	// DS/HD 3.5"
+	{1680, 21, 2, 80, 4},	// DS/HD 3.5"  (DMF)
+	{2880, 36, 2, 80, 6},	// DS/ED 3.5"
 	{0, 0, 0, 0, 0}
 };
 
@@ -52,9 +53,10 @@ DOS_DTA *imgDTA;
 bool killRead;
 static bool swapping_requested;
 
-void CMOS_SetRegister(Bitu regNr, Bit8u val); //For setting equipment word
+void BIOS_SetEquipment(Bit16u equipment);
 
 /* 2 floppys and 2 harddrives, max */
+bool imageDiskChange[MAX_DISK_IMAGES] = { false };
 imageDisk 	*imageDiskList[MAX_DISK_IMAGES];
 imageDisk 	*diskSwap[MAX_SWAPPABLE_DISKS];
 Bit32s 		swapPosition;
@@ -94,10 +96,10 @@ void incrementFDD(void) {
 		equipment&=~0x00C0;
 		equipment|=(numofdisks<<6);
 	} else equipment|=1;
-	mem_writew(BIOS_CONFIGURATION,equipment);
-	if (IS_EGAVGA_ARCH) equipment &= ~0x30; //EGA/VGA startup display mode differs in CMOS
-	CMOS_SetRegister(0x14, (Bit8u)(equipment&0xff));
+	BIOS_SetEquipment(equipment);
 }
+
+int swapInDisksSpecificDrive = -1;
 
 void swapInDisks(void) {
 	bool allNull 		= true;
@@ -414,6 +416,12 @@ static Bitu INT13_DiskHandler(void) {
 	Bitu  i,t;
 	last_drive = reg_dl;
 	drivenum = GetDosDriveNumber(reg_dl);
+
+	/*
+	#if defined (C_DEBUG)
+		LOG(LOG_IMAGE, LOG_NORMAL)("[%d] INT13: Get Dos Drive Number: %u [0x%x] Register=0x%x [FILE:%s]", __LINE__, drivenum, drivenum, reg_ah,__FILE__);
+	#endif
+	*/
 	bool any_images = false;
 	for(i = 0;i < MAX_DISK_IMAGES;i++) {
 		if(imageDiskList[i]) any_images=true;
@@ -421,6 +429,14 @@ static Bitu INT13_DiskHandler(void) {
 
 	// unconditionally enable the interrupt flag
 	CALLBACK_SIF(true);
+
+	///* map out functions 0x40-0x48 if not emulating INT 13h extensions */
+	//if (reg_ah >= 0x40 && reg_ah <= 0x48) {
+	//	LOG_MSG("Warning: Guest is attempting to use INT 13h extensions (AH=0x%02X).\n", reg_ah);
+	//	reg_ah = 0xff;
+	//	CALLBACK_SCF(true);
+	//	return CBRET_NONE;
+	//}
 
 	//drivenum = 0;
 	//LOG_MSG("INT13: Function %x called on drive %x (dos drive %d)", reg_ah,  reg_dl, drivenum);
@@ -438,10 +454,7 @@ static Bitu INT13_DiskHandler(void) {
 				if ((machine==MCH_CGA) || (machine==MCH_AMSTRAD) || (machine==MCH_PCJR)) {
 					/* those bioses call floppy drive reset for invalid drive values */
 					if (((imageDiskList[0]) && (imageDiskList[0]->active)) || ((imageDiskList[1]) && (imageDiskList[1]->active))) {
-						if (machine!=MCH_PCJR && reg_dl<0x80) reg_ip++;
-						
-							if (reg_dl >= 0x80) IDE_ResetDiskByBIOS(reg_dl); /* IDE Update */ 
-						
+						if (machine!=MCH_PCJR && reg_dl<0x80) reg_ip++;											
 						last_status = 0x00;
 						CALLBACK_SCF(false);
 					}
@@ -449,6 +462,10 @@ static Bitu INT13_DiskHandler(void) {
 				return CBRET_NONE;
 			}
 			if (machine!=MCH_PCJR && reg_dl<0x80) reg_ip++;
+			if (reg_dl >= 0x80) {
+				IDE_ResetDiskByBIOS(reg_dl); /* IDE Update */
+				LOG(LOG_IMAGE, LOG_NORMAL)("INT 13h: IDE_ResetDiskByBIOS");
+			}
 			last_status = 0x00;
 			CALLBACK_SCF(false);
 		}
@@ -494,6 +511,31 @@ static Bitu INT13_DiskHandler(void) {
 			return CBRET_NONE;
 		}
 
+		/* INT 13h is limited to 512 bytes/sector (as far as I know).
+		 * The sector buffer in this function is limited to 512 bytes/sector,
+		 * so this is also a protection against overruning the stack if you
+		 * mount a PC-98 disk image (1024 bytes/sector) and try to read it with INT 13h. */
+		if (imageDiskList[drivenum]->sector_size > sizeof(sectbuf)) {
+			LOG(LOG_IMAGE, LOG_NORMAL)("INT 13h: Read failed because disk bytes/sector on drive %c is too large", (char)drivenum + 'A');
+
+			imageDiskChange[drivenum] = false;
+
+			reg_ah = 0x80; /* timeout */
+			CALLBACK_SCF(true);
+			return CBRET_NONE;
+		}
+
+		/* If the disk changed, the first INT 13h read will signal an error and set AH = 0x06 to indicate disk change */
+		if (drivenum < 2 && imageDiskChange[drivenum]) {
+			LOG(LOG_IMAGE, LOG_NORMAL)("INT 13h: Failing first read of drive %c to indicate disk change", (char)drivenum + 'A');
+
+			imageDiskChange[drivenum] = false;
+
+			reg_ah = 0x06; /* diskette changed or removed */
+			CALLBACK_SCF(true);
+			return CBRET_NONE;
+		}
+
 		segat = SegValue(es);
 		bufptr = reg_bx;
 		for(i=0;i<reg_al;i++) {
@@ -519,12 +561,25 @@ static Bitu INT13_DiskHandler(void) {
 		break;
 	case 0x3: /* Write sectors */
 		
-		if(driveInactive(drivenum)) {
+		if (driveInactive(drivenum) || !imageDiskList[drivenum]) {
 			reg_ah = 0xff;
 			CALLBACK_SCF(true);
 			return CBRET_NONE;
-        }                     
+		}
 
+		/* INT 13h is limited to 512 bytes/sector (as far as I know).
+		 * The sector buffer in this function is limited to 512 bytes/sector,
+		 * so this is also a protection against overruning the stack if you
+		 * mount a PC-98 disk image (1024 bytes/sector) and try to read it with INT 13h. */
+		if (imageDiskList[drivenum]->sector_size > sizeof(sectbuf)) {
+			LOG(LOG_IMAGE, LOG_NORMAL)("INT 13h: Write failed because disk bytes/sector on drive %c is too large", (char)drivenum + 'A');
+
+			imageDiskChange[drivenum] = false;
+
+			reg_ah = 0x80; /* timeout */
+			CALLBACK_SCF(true);
+			return CBRET_NONE;
+		}
 
 		bufptr = reg_bx;
 		for(i=0;i<reg_al;i++) {
@@ -577,6 +632,8 @@ static Bitu INT13_DiskHandler(void) {
           
 		break;
 	case 0x05: /* Format track */
+		/* ignore it. I just fucking want FORMAT.COM to write the FAT structure for God's sake */
+		LOG_MSG("WARNING: [%d] Format track ignored \n[File: %s]\n",__LINE__,__FILE__);
 		if (driveInactive(drivenum)) {
 			reg_ah = 0xff;
 			CALLBACK_SCF(true);
@@ -584,6 +641,28 @@ static Bitu INT13_DiskHandler(void) {
 		}
 		reg_ah = 0x00;
 		CALLBACK_SCF(false);
+		break;
+	case 0x06: /* Format track set bad sector flags */
+		/* ignore it. I just fucking want FORMAT.COM to write the FAT structure for God's sake */
+		LOG_MSG("WARNING: [%d] Format track set bad sector flags ignored (6)\n[File: %s]\n", __LINE__, __FILE__);
+		if (driveInactive(drivenum)) {
+			reg_ah = 0xff;
+			CALLBACK_SCF(true);
+			return CBRET_NONE;
+		}
+		CALLBACK_SCF(false);
+		reg_ah = 0x00;
+		break;
+	case 0x07: /* Format track set bad sector flags */
+		/* ignore it. I just fucking want FORMAT.COM to write the FAT structure for God's sake */
+		LOG_MSG("WARNING: [%d] Format track set bad sector flags ignored (7)\n[File: %s]\n", __LINE__, __FILE__);
+		if (driveInactive(drivenum)) {
+			reg_ah = 0xff;
+			CALLBACK_SCF(true);
+			return CBRET_NONE;
+		}
+		CALLBACK_SCF(false);
+		reg_ah = 0x00;
 		break;
 	case 0x08: /* Get drive parameters */
 		if(driveInactive(drivenum)) {
@@ -633,7 +712,9 @@ static Bitu INT13_DiskHandler(void) {
 		break;
 	case 0x15: /* Get disk type */		
 			/* Korean Powerdolls uses this to detect harddrives */
-			LOG(LOG_BIOS,LOG_WARN)("INT13: Get disktype used!");
+			#if defined (C_DEBUG)
+				LOG(LOG_BIOS,LOG_WARN)("INT13: Get disktype used!");
+			#endif
 			if (any_images) {
 				if(driveInactive(drivenum)) {
 					last_status = 0x07;
@@ -673,7 +754,39 @@ static Bitu INT13_DiskHandler(void) {
 					CALLBACK_SCF(true);
 				}
 			}
-			break;	
+			break;
+	case 0x16: /* Detect disk change (apparently added to XT BIOSes in 1986 according to RBIL) */
+		/*if (int13_disk_change_detect_enable) {*/
+			LOG(LOG_IMAGE, LOG_WARN)("INT 13: Detect disk change");
+			if (driveInactive(drivenum)) {
+				last_status = 0x80;
+				reg_ah = last_status;
+				CALLBACK_SCF(true);
+			}
+			else if (drivenum < 2) {
+				if (imageDiskChange[drivenum]) {
+					imageDiskChange[drivenum] = false;
+					last_status = 0x06; // change line active
+					reg_ah = last_status;
+					CALLBACK_SCF(true);
+				}
+				else {
+					last_status = 0x00; // no change
+					reg_ah = last_status;
+					CALLBACK_SCF(false);
+				}
+			}
+			else {
+				last_status = 0x06; // not supported (because it's a hard drive)
+				reg_ah = last_status;
+				CALLBACK_SCF(true);
+			}
+		/*}
+		else {
+			reg_ah = 0xff; // not supported
+			CALLBACK_SCF(true);
+		}*/
+		break;
 	case 0x17: /* Set disk type for format */
 		/* Pirates! needs this to load */
 		killRead = true;
@@ -764,6 +877,42 @@ static Bitu INT13_DiskHandler(void) {
 		reg_ah = 0x00;
 		CALLBACK_SCF(false);
 		break;
+	case 0x48: { /* get drive parameters */
+		uint16_t bufsz;
+
+		if (driveInactive(drivenum)) {
+			reg_ah = 0xff;
+			CALLBACK_SCF(true);
+			return CBRET_NONE;
+		}
+
+		segat = SegValue(ds);
+		bufptr = reg_si;
+		bufsz = real_readw(segat, bufptr + 0);
+		if (bufsz < 0x1A) {
+			reg_ah = 0xff;
+			CALLBACK_SCF(true);
+			return CBRET_NONE;
+		}
+		if (bufsz > 0x1E) bufsz = 0x1E;
+		else bufsz = 0x1A;
+
+		imageDiskList[drivenum]->Get_Geometry(&tmpheads, &tmpcyl, &tmpsect, &tmpsize);
+
+		real_writew(segat, bufptr + 0x00, bufsz);
+		real_writew(segat, bufptr + 0x02, 0x0003);  /* C/H/S valid, DMA boundary errors handled */
+		real_writed(segat, bufptr + 0x04, tmpcyl);
+		real_writed(segat, bufptr + 0x08, tmpheads);
+		real_writed(segat, bufptr + 0x0C, tmpsect);
+		real_writed(segat, bufptr + 0x10, tmpcyl * tmpheads * tmpsect);
+		real_writed(segat, bufptr + 0x14, 0);
+		real_writew(segat, bufptr + 0x18, 512);
+		if (bufsz >= 0x1E)
+			real_writed(segat, bufptr + 0x1A, 0xFFFFFFFF); /* no EDD information available */
+
+		reg_ah = 0x00;
+		CALLBACK_SCF(false);
+	} break;
 /* DOSBox-MB IMGMAKE patch. ========================================================================= */			
 	default:
 		LOG(LOG_BIOS,LOG_ERROR)("INT13: Function %x called on drive %x (dos drive %d)", reg_ah,  reg_dl, drivenum);

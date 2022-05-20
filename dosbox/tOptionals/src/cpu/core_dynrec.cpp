@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -91,6 +91,8 @@
 
 // access to a general register
 #define DRCD_REG_VAL(reg) (&cpu_regs.regs[reg].dword)
+// access to the flags register
+#define DRCD_REG_FLAGS(&cpu_regs.flags)
 // access to a segment register
 #define DRCD_SEG_VAL(seg) (&Segs.val[seg])
 // access to the physical value of a segment register/selector
@@ -113,6 +115,8 @@ enum BlockReturn {
 	BR_Iret,
 	BR_CallBack,
 	BR_SMCBlock
+	BR_SMCBlock,
+	BR_Trap
 };
 
 // identificator to signal self-modification of the currently executed block
@@ -124,14 +128,14 @@ static void IllegalOptionDynrec(const char* msg) {
 }
 
 static struct {
-	BlockReturn (*runcode)(Bit8u*);		// points to code that can start a block
+	BlockReturn(*runcode)(const Bit8u*);		// points to code that can start a block
 	Bitu callback;				// the occurred callback
 	Bitu readdata;				// spare space used when reading from memory
 	Bit32u protected_regs[8];	// space to save/restore register values
 } core_dynrec;
 
 
-#include "core_dynrec/cache.h"
+#include "dyn_cache.h"
 
 #define X86			0x01
 #define X86_64		0x02
@@ -294,7 +298,18 @@ run_block:
 			block=LinkBlocks(ret);
 			if (block) goto run_block;
 			break;
-
+		case BR_Trap:
+			// trapflag is set, switch to the trap-aware decoder
+			#if C_DEBUG
+				#if C_HEAVY_DEBUG
+				if (DEBUG_HeavyIsBreakpoint()) {
+				return debugCallback;
+				
+			}
+			#endif
+				#endif
+				cpudecoder = CPU_Core_Dynrec_Trap_Run;
+			return CBRET_NONE;
 		default:
 			E_Exit("Invalid return code %d", ret);
 		}
@@ -312,7 +327,7 @@ Bits CPU_Core_Dynrec_Trap_Run(void) {
 
 	// trap to int1 unless the last instruction deferred this
 	// (allows hardware interrupts to be served without interaction)
-	if (!cpu.trap_skip) CPU_HW_Interrupt(1);
+	if (!cpu.trap_skip) CPU_DebugException(DBINT_STEP, reg_eip);
 
 	CPU_Cycles = oldCycles-1;
 	// continue (either the trapflag was clear anyways, or the int1 cleared it)

@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -255,7 +255,7 @@ static void dh_fpu_esc3(){
 //				LOG(LOG_FPU,LOG_ERROR)("80267 protected mode (un)set. Nothing done");
 				break;
 			default:
-				E_Exit("ESC 3:ILLEGAL OPCODE group %" sBitfs(d) " subfunction %" sBitfs(d),group,sub);
+				E_Exit("ESC 3:ILLEGAL OPCODE group %" sBitfs(d) " subfunction %\n\n[Source=%s] [Line=%d]" sBitfs(d),group,sub, __FILE__, __LINE__);
 			}
 			break;
 		default:

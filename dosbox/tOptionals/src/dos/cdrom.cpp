@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -21,14 +21,22 @@
 // SDL CDROM 
 // ******************************************************
 
+#if defined(_MSC_VER)
+#include <SDL2\include\SDL_version.h>
+#else
 #include "SDL_version.h"
+#endif
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
 #include "dosbox.h"
-#include "SDL.h"
+#if defined(_MSC_VER)
+#include <SDL2\include\SDL.h>
+#else
+#include <SDL.h>
+#endif
 #include "support.h"
 #include "cdrom.h"
 

@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -19,8 +19,9 @@
 class PCI_VGADevice:public PCI_Device {
 private:
 	static const Bit16u vendor=0x5333;		// S3
+/*	static const Bit16u device=8904;   */	// Trio3D
 	static const Bit16u device=0x8811;		// trio64
-//	static const Bit16u device=0x8810;		// trio32
+/*	static const Bit16u device=0x8810; */	// trio32
 public:
 	PCI_VGADevice():PCI_Device(vendor,device) {
 	}
@@ -231,9 +232,9 @@ public:
 		// memBaseAddr: size is 16MB
 		Bit32u address_space=(((Bit32u)VOODOO_INITIAL_LFB)&0xfffffff0) | 0x08;	// memory space, within first 4GB, prefetchable
 		registers[0x10] = (Bit8u)(address_space&0xff);		// base addres 0
-		registers[0x11] = (Bit8u)((address_space>>8)&0xff);
-		registers[0x12] = (Bit8u)((address_space>>16)&0xff);
-		registers[0x13] = (Bit8u)((address_space>>24)&0xff);
+		registers[0x11] = (Bit8u)((address_space>>8)&0xfff);
+		registers[0x12] = (Bit8u)((address_space>>16)&0xffff);
+		registers[0x13] = (Bit8u)((address_space>>24)&0xfffff);
 
 		if (DeviceID() >= 2) {
 			registers[0x40] = 0x00;

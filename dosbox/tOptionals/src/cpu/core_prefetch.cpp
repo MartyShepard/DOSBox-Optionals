@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -274,12 +274,13 @@ restart_opcode:
 		#include "core_normal/prefix_none.h"
 		#include "core_normal/prefix_0f.h"
 		#include "core_normal/prefix_66.h"
-		#include "core_normal/prefix_66_0f.h"							
+		#include "core_normal/prefix_66_0f.h"
+		/*
 		if ( CPU_Support_MMX == true )
 		{
 			#include "core_normal/prefix_0f_mmx.h"
 		}
-		
+		*/
 		default:
 		illegal_opcode:
 #if defined(C_DEBUG)	
@@ -324,7 +325,7 @@ Bits CPU_Core_Prefetch_Trap_Run(void) {
 	cpu.trap_skip = false;
 
 	Bits ret=CPU_Core_Prefetch_Run();
-	if (!cpu.trap_skip) CPU_HW_Interrupt(1);
+	if (!cpu.trap_skip) CPU_DebugException(DBINT_STEP, reg_eip);
 	CPU_Cycles = oldCycles-1;
 	cpudecoder = &CPU_Core_Prefetch_Run;
 

@@ -1,5 +1,11 @@
+#if defined(_MSC_VER)
+#include <SDL2\include\SDL_thread.h>
+#include <SDL2\include\SDL_endian.h>
+#else
 #include <SDL_thread.h>
 #include <SDL_endian.h>
+#endif
+
 #include "control.h"
 
 #ifndef DOSBOX_MIDI_H

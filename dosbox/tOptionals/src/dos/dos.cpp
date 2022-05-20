@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -35,6 +35,9 @@ DOS_InfoBlock dos_infoblock;
 
 #define DOS_COPYBUFSIZE 0x10000
 Bit8u dos_copybuf[DOS_COPYBUFSIZE];
+
+static Bitu DOS_25Handler_Actual(bool fat32);
+static Bitu DOS_26Handler_Actual(bool fat32);
 
 void DOS_SetError(Bit16u code) {
 	dos.errorcode=code;
@@ -105,6 +108,7 @@ static inline void modify_cycles(Bits /* value */) {
 #ifndef DOSBOX_CPU_H
 #include "cpu.h"
 #endif
+#include "drives.h"
 
 static inline void overhead() {
 	reg_ip += 2;
@@ -1148,6 +1152,92 @@ static Bitu DOS_21Handler(void) {
 			CALLBACK_SCF(true);
 		}
 		break;
+		/*								*/
+	case 0x73:
+		if (dos.version.major < 7)
+		{
+			LOG_MSG("DOS: Major Version: %d [LINE %d]", dos.version.major,__LINE__);
+			/* MS-DOS 7+ only for AX=73xxh */
+			CALLBACK_SCF(true);
+			reg_ax = 0x7300;
+		}
+		else if (reg_al == 0 && reg_cl < 2)
+		{
+			LOG_MSG("DOS: Major Version: %d [LINE %d]", dos.version.major, __LINE__);
+			/* Drive locking and flushing */
+			reg_al = reg_cl;
+			reg_ah = 0;
+			CALLBACK_SCF(false);
+
+		}
+		else if (reg_al == 2)
+		{
+			LOG_MSG("DOS: Major Version: %d [LINE %d]", dos.version.major, __LINE__);
+			/* Get extended DPB */
+			uint32_t ptr = SegPhys(es) + reg_di;
+			uint8_t  drive;
+
+			/* AX=7302h
+			 * DL=drive
+			 * ES:DI=buffer to return data into
+			 * CX=length of buffer (Windows 9x uses 0x3F)
+			 * SI=???
+			 */
+			if (reg_dl != 0)		
+			{
+				/* 1=A: 2=B: ... */
+				drive = reg_dl - 1;
+			}
+			else
+			{
+				/* 0=default */
+				drive = DOS_GetDefaultDrive();
+			}
+			if (drive < DOS_DRIVES && Drives[drive] && !Drives[drive]->isRemovable() && reg_cx >= 0x3F)
+			{
+			}
+			reg_ax = 0x18;//FIXME
+			CALLBACK_SCF(true);
+
+		}
+		else if (reg_al == 3)
+		{
+			LOG_MSG("DOS: Major Version: %d [LINE %d]", dos.version.major, __LINE__);
+			/* Get extended free disk space */
+			MEM_StrCopy(SegPhys(ds) + reg_dx, name1, reg_cx);
+			if (name1[1] == ':' &&
+				name1[2] == '\\')
+			{
+				reg_dl = name1[0] - 'A' + 1;
+			}
+			else
+			{
+				reg_ax = 0xffff;
+				CALLBACK_SCF(true);
+				break;
+			}
+		}
+		else if (reg_al == 5 && reg_cx == 0xFFFF && (dos.version.major > 7 || dos.version.minor >= 10))
+		{
+			LOG_MSG("DOS: Major Version: %d [LINE %d]", dos.version.major, __LINE__);
+			/* MS-DOS 7.1+ (Windows 95 OSR2+) FAT32 extended disk read/write */
+			reg_al = reg_dl - 1; /* INT 25h AL 0=A: 1=B:   This interface DL 1=A: 2=B: */
+			if (reg_si & 1)
+				DOS_26Handler_Actual(true/*fat32*/); /* writing */
+			else
+				DOS_25Handler_Actual(true/*fat32*/); /* reading */
+
+			/* CF needs to be returned on stack or else it's lost */
+			CALLBACK_SCF(!!(reg_flags & FLAG_CF));
+		}
+		else
+		{
+			LOG_MSG("DOS:Unhandled call % 02X al = % 02X(MS - DOS 7.x function", reg_ah, reg_al);
+			LOG(LOG_DOSMISC, LOG_ERROR)("DOS:Unhandled call %02X al=%02X (MS-DOS 7.x function)", reg_ah, reg_al);
+			CALLBACK_SCF(true);
+			reg_ax = 0xffff;//FIXME
+		}
+		break;
 
 	case 0x71:					/* Unknown probably 4dos detection */
 		reg_ax=0x7100;
@@ -1187,12 +1277,109 @@ static Bitu DOS_27Handler(void) {
 	return CBRET_NONE;
 }
 
-static Bitu DOS_25Handler(void) {
+static Bitu DOS_25Handler_Actual(bool fat32) {
 	if (reg_al >= DOS_DRIVES || !Drives[reg_al] || Drives[reg_al]->isRemovable()) {
 		reg_ax = 0x8002;
 		SETFLAGBIT(CF,true);
 	} else {
-		if (reg_cx == 1 && reg_dx == 0) {
+		DOS_Drive* drv = Drives[reg_al];
+		/* assume drv != NULL */
+		uint32_t sector_size = drv->GetSectorSize();
+		uint32_t sector_count = drv->GetSectorCount();
+		PhysPt ptr = PhysMake(SegValue(ds), reg_bx);
+		uint32_t req_count = reg_cx;
+		uint32_t sector_num = reg_dx;
+
+		/* For < 32MB drives.
+		 *  AL = drive
+		 *  CX = sector count (not 0xFFFF)
+		 *  DX = sector number
+		 *  DS:BX = pointer to disk transfer area
+		 *
+		 * For >= 32MB drives.
+		 *
+		 *  AL = drive
+		 *  CX = 0xFFFF
+		 *  DS:BX = disk read packet
+		 *
+		 *  Disk read packet:
+		 *    +0 DWORD = sector number
+		 *    +4 WORD = sector count
+		 *    +6 DWORD = disk tranfer area
+		 */
+		if (sector_count != 0 && sector_size != 0) {
+			unsigned char tmp[2048];
+			const char* method;
+
+			if (sector_size > sizeof(tmp)) {
+				reg_ax = 0x8002;
+				SETFLAGBIT(CF, true);
+				return CBRET_NONE;
+			}
+
+			if (sector_count > 0xFFFF && req_count != 0xFFFF) {
+				reg_ax = 0x0207; // must use CX=0xFFFF API for > 64KB segment partitions
+				SETFLAGBIT(CF, true);
+				return CBRET_NONE;
+			}
+
+			if (fat32) {
+				sector_num = mem_readd(ptr + 0);
+				req_count = mem_readw(ptr + 4);
+				uint32_t p = mem_readd(ptr + 6);
+				ptr = PhysMake(p >> 16u, p & 0xFFFFu);
+				method = "Win95/FAT32";
+			}
+			else if (req_count == 0xFFFF) {
+				sector_num = mem_readd(ptr + 0);
+				req_count = mem_readw(ptr + 4);
+				uint32_t p = mem_readd(ptr + 6);
+				ptr = PhysMake(p >> 16u, p & 0xFFFFu);
+				method = ">=32MB";
+			}
+			else {
+				method = "<32MB";
+			}
+
+			if (fat32) {
+				LOG(LOG_DOSMISC, LOG_WARN)("INT 21h AX=7305h READ: sector=%lu count=%lu ptr=%lx method='%s'",
+					(unsigned long)sector_num,
+					(unsigned long)req_count,
+					(unsigned long)ptr,
+					method);
+			}
+			else {
+				LOG(LOG_DOSMISC, LOG_WARN)("INT 25h READ: sector=%lu count=%lu ptr=%lx method='%s'",
+					(unsigned long)sector_num,
+					(unsigned long)req_count,
+					(unsigned long)ptr,
+					method);
+			}
+
+			SETFLAGBIT(CF, false);
+			reg_ax = 0;
+
+			while (req_count > 0) {
+				uint8_t res = drv->Read_AbsoluteSector_INT25(sector_num, tmp);
+				if (res != 0) {
+					reg_ax = 0x8002;
+					SETFLAGBIT(CF, true);
+					break;
+				}
+
+				for (unsigned int i = 0; i < (unsigned int)sector_size; i++)
+					mem_writeb(ptr + i, tmp[i]);
+
+				req_count--;
+				sector_num++;
+				ptr += sector_size;
+			}
+
+			return CBRET_NONE;
+		}
+
+		/* MicroProse installer hack, inherited from DOSBox SVN, as a fallback if INT 25h emulation is not available for the drive. */
+		if (reg_cx == 1 && reg_dx == 0 && reg_al >= 2) {
 			if (reg_al >= 2) {
 				PhysPt ptr = PhysMake(SegValue(ds),reg_bx);
 				// write some BPB data into buffer for MicroProse installers
@@ -1206,18 +1393,122 @@ static Bitu DOS_25Handler(void) {
 	}
     return CBRET_NONE;
 }
-static Bitu DOS_26Handler(void) {
-	LOG(LOG_DOSMISC,LOG_NORMAL)("int 26 called: hope for the best!");
-	if (reg_al >= DOS_DRIVES || !Drives[reg_al] || Drives[reg_al]->isRemovable()) {	
-		reg_ax = 0x8002;
-		SETFLAGBIT(CF,true);
-	} else {
-		SETFLAGBIT(CF,false);
-		reg_ax = 0;
-	}
-    return CBRET_NONE;
+
+static Bitu DOS_25Handler(void) {
+	return DOS_25Handler_Actual(false);
 }
 
+static Bitu DOS_26Handler_Actual(bool fat32) {
+	if (reg_al >= DOS_DRIVES || !Drives[reg_al] || Drives[reg_al]->isRemovable()) {
+		reg_ax = 0x8002;
+		SETFLAGBIT(CF, true);
+	}
+	else {
+		DOS_Drive* drv = Drives[reg_al];
+		/* assume drv != NULL */
+		uint32_t sector_size = drv->GetSectorSize();
+		uint32_t sector_count = drv->GetSectorCount();
+		PhysPt ptr = PhysMake(SegValue(ds), reg_bx);
+		uint32_t req_count = reg_cx;
+		uint32_t sector_num = reg_dx;
+
+		/* For < 32MB drives.
+		 *  AL = drive
+		 *  CX = sector count (not 0xFFFF)
+		 *  DX = sector number
+		 *  DS:BX = pointer to disk transfer area
+		 *
+		 * For >= 32MB drives.
+		 *
+		 *  AL = drive
+		 *  CX = 0xFFFF
+		 *  DS:BX = disk read packet
+		 *
+		 *  Disk read packet:
+		 *    +0 DWORD = sector number
+		 *    +4 WORD = sector count
+		 *    +6 DWORD = disk tranfer area
+		 */
+		if (sector_count != 0 && sector_size != 0) {
+			unsigned char tmp[2048];
+			const char* method;
+
+			if (sector_size > sizeof(tmp)) {
+				reg_ax = 0x8002;
+				SETFLAGBIT(CF, true);
+				return CBRET_NONE;
+			}
+
+			if (sector_count > 0xFFFF && req_count != 0xFFFF) {
+				reg_ax = 0x0207; // must use CX=0xFFFF API for > 64KB segment partitions
+				SETFLAGBIT(CF, true);
+				return CBRET_NONE;
+			}
+
+			if (fat32) {
+				sector_num = mem_readd(ptr + 0);
+				req_count = mem_readw(ptr + 4);
+				uint32_t p = mem_readd(ptr + 6);
+				ptr = PhysMake(p >> 16u, p & 0xFFFFu);
+				method = "Win95/FAT32";
+			}
+			else if (req_count == 0xFFFF) {
+				sector_num = mem_readd(ptr + 0);
+				req_count = mem_readw(ptr + 4);
+				uint32_t p = mem_readd(ptr + 6);
+				ptr = PhysMake(p >> 16u, p & 0xFFFFu);
+				method = ">=32MB";
+			}
+			else {
+				method = "<32MB";
+			}
+
+			if (fat32) {
+				LOG(LOG_DOSMISC, LOG_WARN)("INT 21h AX=7305h WRITE: sector=%lu count=%lu ptr=%lx method='%s'",
+					(unsigned long)sector_num,
+					(unsigned long)req_count,
+					(unsigned long)ptr,
+					method);
+			}
+			else {
+				LOG(LOG_DOSMISC, LOG_WARN)("INT 26h WRITE: sector=%lu count=%lu ptr=%lx method='%s'",
+					(unsigned long)sector_num,
+					(unsigned long)req_count,
+					(unsigned long)ptr,
+					method);
+			}
+
+			SETFLAGBIT(CF, false);
+			reg_ax = 0;
+
+			while (req_count > 0) {
+				for (unsigned int i = 0; i < (unsigned int)sector_size; i++)
+					tmp[i] = mem_readb(ptr + i);
+
+				uint8_t res = drv->Write_AbsoluteSector_INT25(sector_num, tmp);
+				if (res != 0) {
+					reg_ax = 0x8002;
+					SETFLAGBIT(CF, true);
+					break;
+				}
+
+				req_count--;
+				sector_num++;
+				ptr += sector_size;
+			}
+
+			return CBRET_NONE;
+		}
+
+		reg_ax = 0x8002;
+		SETFLAGBIT(CF, true);
+	}
+	return CBRET_NONE;
+}
+
+static Bitu DOS_26Handler(void) {
+	return DOS_26Handler_Actual(false);
+}
 
 class DOS:public Module_base{
 private:
@@ -1260,7 +1551,12 @@ public:
 		Section_prop * section=static_cast<Section_prop *>(configuration);
 		DOS_FILES = section->Get_int("files");
 		/******************************************** #278 "FILES= adjustable by Kippesoep" patch*/
-		
+		dos.version.major=section->Get_int("major");
+		dos.version.minor=section->Get_int("minor");
+
+		if (dos.version.major == 0)
+			dos.version.major = 5;
+
 		DOS_SetupFiles();								/* Setup system File tables */
 		DOS_SetupDevices();							/* Setup dos devices */
 		DOS_SetupTables();
@@ -1270,8 +1566,8 @@ public:
 		DOS_SDA(DOS_SDA_SEG,DOS_SDA_OFS).SetDrive(25); /* Else the next call gives a warning. */
 		DOS_SetDefaultDrive(25);
 	
-		dos.version.major=5;
-		dos.version.minor=0;
+		/*dos.version.major=5;*/
+		/*dos.version.minor=0;*/
 		dos.direct_output=false;
 		dos.internal_output=false;
 	}

@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -36,16 +36,16 @@ void VGA_UnmapMMIO(void);
 void vga_write_p3d5(Bitu port,Bitu val,Bitu iolen);
 Bitu DEBUG_EnableDebugger(void);
 
-void vga_write_p3d4(Bitu port,Bitu val,Bitu iolen) {
-	crtc(index)=val;
+void vga_write_p3d4(Bitu /*port*/, Bitu val, Bitu /*iolen*/) {
+	crtc(index) = val;
 }
 
-Bitu vga_read_p3d4(Bitu port,Bitu iolen) {
+Bitu vga_read_p3d4(Bitu /*port*/, Bitu /*iolen*/) {
 	return crtc(index);
 }
 
-void vga_write_p3d5(Bitu port,Bitu val,Bitu iolen) {
-//	if (crtc(index)>0x18) LOG_MSG("VGA CRCT write %X to reg %X",val,crtc(index));
+void vga_write_p3d5(Bitu /*port*/, Bitu val, Bitu iolen) {
+	//	if (crtc(index) > 0x18) LOG_MSG("VGA CRCT write %" sBitfs(X) " to reg %X",val,crtc(index));
 	switch(crtc(index)) {
 	case 0x00:	/* Horizontal Total Register */
 		if (crtc(read_only)) break;
@@ -96,7 +96,7 @@ void vga_write_p3d5(Bitu port,Bitu val,Bitu iolen) {
 	case 0x06: /* Vertical Total Register */
 		if (crtc(read_only)) break;
 		if (val != crtc(vertical_total)) {
-			crtc(vertical_total)=val;	
+			crtc(vertical_total) = val;
 			VGA_StartResize();
 		}
 		/*	0-7	Lower 8 bits of the Vertical Total. Bit 8 is found in 3d4h index 7
@@ -370,7 +370,7 @@ void vga_write_p3d5(Bitu port,Bitu val,Bitu iolen) {
 	}
 }
 
-Bitu vga_read_p3d5(Bitu port,Bitu iolen) {
+Bitu vga_read_p3d5(Bitu /*port*/, Bitu iolen) {
 //	LOG_MSG("VGA CRCT read from reg %X",crtc(index));
 	switch(crtc(index)) {
 	case 0x00:	/* Horizontal Total Register */
@@ -386,7 +386,7 @@ Bitu vga_read_p3d5(Bitu port,Bitu iolen) {
 	case 0x05:	/* End Horizontal Retrace Register */
 		return crtc(end_horizontal_retrace);
 	case 0x06: /* Vertical Total Register */
-		return crtc(vertical_total);	
+		return crtc(vertical_total);
 	case 0x07:	/* Overflow Register */
 		return crtc(overflow);
 	case 0x08:	/* Preset Row Scan Register */

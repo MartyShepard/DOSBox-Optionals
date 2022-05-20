@@ -50,7 +50,7 @@
 #define PACKAGE_NAME "libogg"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "libogg 1.3.4"
+#define PACKAGE_STRING "libogg 1.3.5"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "libogg"
@@ -59,7 +59,7 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "1.3.4"
+#define PACKAGE_VERSION "1.3.5"
 
 /* The size of `int', as computed by sizeof. */
 #define SIZEOF_INT 4
@@ -101,7 +101,7 @@
 #define STDC_HEADERS 1
 
 /* Version number of package */
-#define VERSION "1.3.4"
+#define VERSION "1.3.5"
 
 /* Define to empty if `const' does not conform to ANSI C. */
 /* #undef const */

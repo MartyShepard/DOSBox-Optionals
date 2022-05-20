@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -137,6 +137,7 @@ struct JoyStick {
 JoystickType joytype;
 HostControlType HostCtrlType;
 static JoyStick stick[3];
+static bool JoystickInvertY[4];
 
 static Bitu last_write = 0;
 static bool write_active = false;
@@ -145,6 +146,11 @@ bool button_wrapping_enabled = true;
 
 extern bool autofire; //sdl_mapper.cpp
 extern int  nJoyButtons;
+
+/*
+* Joystick Invert Patch
+*/
+
 
 static Bitu read_p201(Bitu port,Bitu iolen) {
 	/* Reset Joystick to 0 after TIMEOUT ms */
@@ -181,8 +187,8 @@ static Bitu read_p201(Bitu port,Bitu iolen) {
 		if (stick[0].button[1]) ret&=~32;
 	}
 	if (stick[1].enabled) {
-		if (stick[1].xcount) stick[1].xcount--; else ret&=~4;
-		if (stick[1].ycount) stick[1].ycount--; else ret&=~8;
+		if (stick[1].xcount) stick[1].xcount--; else ret&=~4;		
+		if (stick[1].ycount) stick[1].ycount--; else ret&=~8;		
 		if (stick[1].button[0]) ret&=~64;
 		if (stick[1].button[1]) ret&=~128;
 	}
@@ -191,7 +197,7 @@ static Bitu read_p201(Bitu port,Bitu iolen) {
 	if ( (stick[2].enabled) && (joytype == JOY_CHVP) )
 	{
 		if (stick[2].xcount) stick[2].xcount--; else ret&=~4;
-		if (stick[2].ycount) stick[2].ycount--; else ret&=~8;
+		if (stick[2].ycount) stick[2].ycount--; else ret&=~8;	
 		if (stick[2].button[0]) ret&=~64;
 		if (stick[2].button[1]) ret&=~128;
 	}							
@@ -241,19 +247,43 @@ static void write_p201(Bitu port,Bitu val,Bitu iolen) {
 	last_write = PIC_Ticks;
 	if (stick[0].enabled) {
 		stick[0].transform_input();
-		stick[0].xcount=(Bitu)((stick[0].xfinal*RANGE)+RANGE);
-		stick[0].ycount=(Bitu)((stick[0].yfinal*RANGE)+RANGE);
+		if (JoystickInvertY[0])
+		{
+			stick[0].ycount = (Bitu)(((-stick[0].yfinal) * RANGE) + RANGE);
+		}
+		else
+		{
+			stick[0].ycount = (Bitu)((stick[0].yfinal * RANGE) + RANGE);
+		}
+		stick[0].xcount=(Bitu)((stick[0].xfinal*RANGE)+RANGE);	
+		
 	}
 	if (stick[1].enabled) {
-		stick[1].xcount=(Bitu)(((swap34? stick[1].ypos : stick[1].xpos)*RANGE)+RANGE);
-		stick[1].ycount=(Bitu)(((swap34? stick[1].xpos : stick[1].ypos)*RANGE)+RANGE);
+		stick[1].xcount = (Bitu)(((swap34 ? stick[1].ypos : stick[1].xpos) * RANGE) + RANGE);
+		if (JoystickInvertY[1])
+		{
+			stick[1].ycount = (Bitu)(((swap34 ? stick[1].xpos : -stick[1].ypos) * RANGE) + RANGE);
+		}
+		else
+		{
+			stick[1].ycount = (Bitu)(((swap34 ? stick[1].xpos : stick[1].ypos) * RANGE) + RANGE);
+		}
+		
 	}
 	
 	/* Joystick Support for Saitek Flight Systems with more Axes and Buttons */	
 	if ( ( stick[2].enabled ) && (joytype == JOY_CHVP) )
 	{
 		stick[2].xcount=(Bitu)(((swap34? stick[2].ypos : stick[2].xpos)*RANGE)+RANGE);
-		stick[2].ycount=(Bitu)(((swap34? stick[2].xpos : stick[2].ypos)*RANGE)+RANGE);
+		if (JoystickInvertY[2])
+		{
+			stick[2].ycount = (Bitu)(((swap34 ? stick[2].xpos : -stick[2].ypos) * RANGE) + RANGE);
+		}
+		else
+		{
+			stick[2].ycount = (Bitu)(((swap34 ? stick[2].xpos : stick[2].ypos) * RANGE) + RANGE);
+		}
+
 	}																		 
 
 }
@@ -264,16 +294,36 @@ static void write_p201_timed(Bitu port,Bitu val,Bitu iolen) {
 	double currentTick = PIC_FullIndex();
 	if (stick[0].enabled) {
 		stick[0].transform_input();
-		stick[0].xtick = currentTick + 1000.0*( JOY_S_CONSTANT + S_PER_OHM *
-		                 (double)(((stick[0].xfinal+1.0)* OHMS)) );
-		stick[0].ytick = currentTick + 1000.0*( JOY_S_CONSTANT + S_PER_OHM *
-		                 (double)(((stick[0].yfinal+1.0)* OHMS)) );
+		if (JoystickInvertY[0])
+		{
+			stick[0].ytick = currentTick + 1000.0 * (JOY_S_CONSTANT + S_PER_OHM *
+				(double)(((-stick[0].yfinal + 1.0) * OHMS)));
+		}
+		else
+		{
+			stick[0].ytick = currentTick + 1000.0 * (JOY_S_CONSTANT + S_PER_OHM *
+				(double)(((stick[0].yfinal + 1.0) * OHMS)));
+		}
+
+		stick[0].xtick = currentTick + 1000.0 * (JOY_S_CONSTANT + S_PER_OHM *
+			(double)(((stick[0].xfinal + 1.0) * OHMS)));
+
+
 	}
 	if (stick[1].enabled) {
-		stick[1].xtick = currentTick + 1000.0*( JOY_S_CONSTANT + S_PER_OHM *
-		                 (double)((swap34? stick[1].ypos : stick[1].xpos)+1.0) * OHMS);
-		stick[1].ytick = currentTick + 1000.0*( JOY_S_CONSTANT + S_PER_OHM *
-		                 (double)((swap34? stick[1].xpos : stick[1].ypos)+1.0) * OHMS);
+		if (JoystickInvertY[1])
+		{
+			stick[1].ytick = currentTick + 1000.0 * (JOY_S_CONSTANT + S_PER_OHM *
+				(double)((swap34 ? stick[1].xpos : stick[1].ypos) + 1.0) * OHMS);
+		}
+		else
+		{
+			stick[1].ytick = currentTick + 1000.0 * (JOY_S_CONSTANT + S_PER_OHM *
+				(double)((swap34 ? stick[1].xpos : -stick[1].ypos) + 1.0) * OHMS);
+		}
+		stick[1].xtick = currentTick + 1000.0 * (JOY_S_CONSTANT + S_PER_OHM *
+			(double)((swap34 ? stick[1].ypos : stick[1].xpos) + 1.0) * OHMS);
+
 	}
 	/* Joystick Support for Saitek Flight Systems with more Axes and Buttons
 	   Swap Axis Support. By Axis 3/4 (Axis 4(Y) is Throttle, Axis 3(x) is Left and Right Strafe) 
@@ -282,10 +332,20 @@ static void write_p201_timed(Bitu port,Bitu val,Bitu iolen) {
 	if ( ( stick[2].enabled ) && (joytype == JOY_CHVP) )
 	{
 		stick[2].transform_input();
-		stick[2].xtick = currentTick + 1000.0*( JOY_S_CONSTANT + S_PER_OHM *
-		                 (double)((swap34? stick[2].ypos : stick[1].xpos)+1.0) * OHMS);
-		stick[2].ytick = currentTick + 1000.0*( JOY_S_CONSTANT + S_PER_OHM *
-		                 (double)((swap34? stick[2].ypos : stick[1].xpos)+1.0) * OHMS);
+		if (JoystickInvertY[2])
+		{
+			stick[2].ytick = currentTick + 1000.0 * (JOY_S_CONSTANT + S_PER_OHM *
+				(double)((swap34 ? -stick[2].ypos : stick[1].xpos) + 1.0) * OHMS);
+		}
+		else
+		{
+			stick[2].ytick = currentTick + 1000.0 * (JOY_S_CONSTANT + S_PER_OHM *
+				(double)((swap34 ? stick[2].ypos : stick[1].xpos) + 1.0) * OHMS);
+		}
+		stick[2].xtick = currentTick + 1000.0 * (JOY_S_CONSTANT + S_PER_OHM *
+			(double)((swap34 ? stick[2].ypos : stick[1].xpos) + 1.0) * OHMS);
+
+
 	}
 }
 
@@ -345,35 +405,37 @@ public:
 	JOYSTICK(Section* configuration):Module_base(configuration){
 		Section_prop * section = static_cast<Section_prop *>(configuration);
 		const char * type = section->Get_string("joysticktype");
-		if (!strcasecmp(type,"none"))         joytype = JOY_NONE;
-		else if (!strcasecmp(type,"false"))   joytype = JOY_NONE;
-		else if (!strcasecmp(type,"auto"))    joytype = JOY_AUTO;
-		else if (!strcasecmp(type,"2axis"))   joytype = JOY_2AXIS;
-		else if (!strcasecmp(type,"4axis"))   joytype = JOY_4AXIS;
-		else if (!strcasecmp(type,"4axis_2")) joytype = JOY_4AXIS_2;
-		else if (!strcasecmp(type,"fcs"))     joytype = JOY_FCS;
-		else if (!strcasecmp(type,"fcslw"))   joytype = JOY_FCSLW;
-		else if (!strcasecmp(type,"ch"))      joytype = JOY_CH;
-		else if (!strcasecmp(type,"chvp"))    joytype = JOY_CHVP;
-		else if (!strcasecmp(type,"chgs"))    joytype = JOY_CHGS;
-		else if (!strcasecmp(type,"qshot6"))  joytype = JOY_SHOT6;	
-		else if (!strcasecmp(type,"capcom"))  joytype = JOY_CAPCOM;	
-		else if (!strcasecmp(type,"inter6"))  joytype = JOY_INTER6;	
-		else if (!strcasecmp(type,"fcs2"))    joytype = JOY_FCSII;
-		else if (!strcasecmp(type,"wheel"))    joytype = JOY_WHEEL;	
+		if (!_stricmp(type,"none"))         joytype = JOY_NONE;
+		else if (!_stricmp(type,"false"))   joytype = JOY_NONE;
+		else if (!_stricmp(type,"auto"))    joytype = JOY_AUTO;
+		else if (!_stricmp(type,"2axis"))   joytype = JOY_2AXIS;
+		else if (!_stricmp(type,"4axis"))   joytype = JOY_4AXIS;
+		else if (!_stricmp(type,"4axis_2")) joytype = JOY_4AXIS_2;
+		else if (!_stricmp(type,"fcs"))     joytype = JOY_FCS;
+		else if (!_stricmp(type,"fcslw"))   joytype = JOY_FCSLW;
+		else if (!_stricmp(type,"ch"))      joytype = JOY_CH;
+		else if (!_stricmp(type,"chvp"))    joytype = JOY_CHVP;
+		else if (!_stricmp(type,"chgs"))    joytype = JOY_CHGS;
+		else if (!_stricmp(type,"qshot6"))  joytype = JOY_SHOT6;
+		else if (!_stricmp(type,"capcom"))  joytype = JOY_CAPCOM;
+		else if (!_stricmp(type,"inter6"))  joytype = JOY_INTER6;
+		else if (!_stricmp(type,"fcs2"))    joytype = JOY_FCSII;
+		else if (!_stricmp(type,"wheel"))    joytype = JOY_WHEEL;
 		
 		else joytype = JOY_AUTO;
 
 		
 		const char * host = section->Get_string("joystickhost");
-		if (!strcasecmp(host,"default"))      HostCtrlType = HOSTJOY_DEFAULT;		
-		else if (!strcasecmp(host,"saitekx45"))   HostCtrlType = HOSTJOY_SAITEKX45;
-		else if (!strcasecmp(host,"lgex3dpro"))   HostCtrlType = HOSTJOY_LEXT3DPRO;
-		else if (!strcasecmp(host,"tfhotasone"))   HostCtrlType = HOSTJOY_TFLIGHTHO;
-		else if (!strcasecmp(host,"ldriveforcepro"))   HostCtrlType = HOSTJOY_LDRIVINGF;		
+		if (!_stricmp(host,"default"))      HostCtrlType = HOSTJOY_DEFAULT;
+		else if (!_stricmp(host,"saitekx45"))   HostCtrlType = HOSTJOY_SAITEKX45;
+		else if (!_stricmp(host,"lgex3dpro"))   HostCtrlType = HOSTJOY_LEXT3DPRO;
+		else if (!_stricmp(host,"tfhotasone"))   HostCtrlType = HOSTJOY_TFLIGHTHO;
+		else if (!_stricmp(host,"ldriveforcepro"))   HostCtrlType = HOSTJOY_LDRIVINGF;
 		else HostCtrlType = HOSTJOY_DEFAULT;
 		
-		
+		JoystickInvertY[0] = section->Get_bool("invertyaxis1");
+		JoystickInvertY[1] = section->Get_bool("invertyaxis2");
+		JoystickInvertY[3] = section->Get_bool("invertyaxia3");
 		bool timed = section->Get_bool("timed");
 		if (timed) {
 			ReadHandler.Install(0x201,read_p201_timed,IO_MB);
@@ -382,6 +444,7 @@ public:
 			ReadHandler.Install(0x201,read_p201,IO_MB);
 			WriteHandler.Install(0x201,write_p201,IO_MB);
 		}
+
 		autofire = section->Get_bool("autofire");
 		swap34 = section->Get_bool("swap34");
 		button_wrapping_enabled = section->Get_bool("buttonwrap");
@@ -397,7 +460,7 @@ public:
 		stick[0].deadzone = section->Get_int("deadzone");
 		
 		nJoyButtons =  section->Get_int("buttons");
-	
+
 		/* Force Buttons Config for Special Types */
 		switch(joytype){
 			case JOY_WHEEL:

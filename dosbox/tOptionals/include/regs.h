@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -61,6 +61,8 @@ enum SegNames { es=0,cs,ss,ds,fs,gs};
 struct Segments {
 	Bit16u val[8];
 	PhysPt phys[8];
+	PhysPt limit[8];
+	bool expanddown[8];
 };
 
 union GenReg32 {

@@ -60,12 +60,11 @@ PFNGLGETATTRIBLOCATIONARBPROC glGetAttribLocationARB = NULL;
 PFNGLVERTEXATTRIB1FARBPROC glVertexAttrib1fARB = NULL;
 PFNGLPOINTPARAMETERFVPROC glPointParameterfv = NULL;
 
-
 static Bit32s opengl_version = -1;
 
 static bool has_shaders = false;
 static bool has_stencil = false;
-static bool has_alpha = false;
+static bool has_alpha = true;
 
 
 static INT32 current_begin_mode = -1;
@@ -88,11 +87,12 @@ static bool draw_to_front_buffer = false;
 static bool read_from_front_buffer = false;
 
 
+
 void VOGL_Reset(void) {
 	opengl_version = -1;
 	has_shaders = false;
 	has_stencil = false;
-	has_alpha = false;
+	has_alpha = true;
 
 	current_depth_mode=-1;
 	current_depth_func=-1;
@@ -230,7 +230,7 @@ bool VOGL_Initialize(void) {
 	Section_prop *sectsdl = static_cast<Section_prop *>(control->GetSection("sdl"));	
 	const char *output  = sectsdl->Get_string("output");	
 	const char *texture = sectsdl->Get_string("texture.renderer");	
-	if (compatibleFlag || (strcasecmp(output,"surface") == 0) || (strcasecmp(texture,"direct3d") == 0) || (strcasecmp(texture,"software") == 0)|| (strcasecmp(texture,"auto") == 0)) {
+	if (compatibleFlag || (_stricmp(output,"surface") == 0) || (_stricmp(texture,"direct3d") == 0) || (_stricmp(texture,"software") == 0)|| (_stricmp(texture,"auto") == 0)) {
 		VOGL_InitVersion_Fake();
 	}else{
 		VOGL_InitVersion();
@@ -371,6 +371,9 @@ bool VOGL_CheckFeature(Bit32u feat) {
 		case VOGL_ATLEAST_V30:
 			if (opengl_version >= 300) return true;
 			break;
+		case VOGL_ATLEAST_V40:
+			if (opengl_version >= 400) return true;
+			break;
 		case VOGL_HAS_SHADERS:
 			if (has_shaders) return true;
 			break;
@@ -405,6 +408,29 @@ void VOGL_FlagFeature(Bit32u feat) {
 	}
 }
 
+
+void VOGL_BeginState(INT32 new_mode) {
+	if (current_begin_mode > -1) {
+		if (new_mode != current_begin_mode) {
+			glDisableClientState(current_begin_mode);
+			if (new_mode > -1) glEnableClientState(new_mode);
+			current_begin_mode = new_mode;
+		}
+	}
+	else {
+		if (new_mode > -1) {
+			glEnableClientState(new_mode);
+			current_begin_mode = new_mode;
+		}
+	}
+}
+
+void VOGL_ClearBeginState(void) {
+	if (current_begin_mode > -1) {
+		glEnd();
+		current_begin_mode = -1;
+	}
+}
 
 void VOGL_BeginMode(INT32 new_mode) {
 	if (current_begin_mode > -1) {
@@ -517,8 +543,12 @@ void VOGL_SetColorMaskMode(bool cmasked, bool amasked) {
 void VOGL_SetDrawMode(bool front_draw) {
 	if (draw_to_front_buffer!=front_draw) {
 		VOGL_ClearBeginMode();
-		if (front_draw) glDrawBuffer(GL_FRONT);
-		else glDrawBuffer(GL_BACK);
+		if (front_draw) {
+			glDrawBuffer(GL_FRONT);
+		}
+		else {
+			glDrawBuffer(GL_BACK);
+		}
 		draw_to_front_buffer=front_draw;
 	}
 }

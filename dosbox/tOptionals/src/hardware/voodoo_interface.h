@@ -39,7 +39,7 @@ typedef struct vdraw {
 class Voodoo_PageHandler : public PageHandler {
 public:
 	Voodoo_PageHandler(HostPt /*addr*/){
-		flags=PFLAG_NOCODE;
+		flags= /*PFLAG_NOCODE*/PFLAG_HASCODE32;
 	}
 
 	~Voodoo_PageHandler() {

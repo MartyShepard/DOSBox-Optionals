@@ -3,7 +3,7 @@
 
 
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -40,7 +40,7 @@
 #define C_DDRAW 1
 
 /* Define to 1 to enable internal debugger, requires libcurses */
-#define C_DEBUG 1
+/* #undef C_DEBUG */
 
 /* Define to 1 if you want serial passthrough support (Win32, Posix and OS/2).
    */
@@ -73,7 +73,7 @@
 /* #undef C_HAVE_MPROTECT */
 
 /* Define to 1 to enable heavy debugging, also have to enable C_DEBUG */
-#define C_HEAVY_DEBUG 1
+/* #undef C_HEAVY_DEBUG */
 
 /* Define to 1 to enable IPX over Internet networking, requires SDL_net */
 #define C_IPX 1

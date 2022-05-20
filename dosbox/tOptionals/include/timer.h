@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,7 +20,11 @@
 #define DOSBOX_TIMER_H
 
 /* underlying clock rate in HZ */
-#include <SDL.h>
+#if defined(_MSC_VER)
+	#include <SDL2\include\SDL.h>
+#else
+	#include <SDL.h>
+#endif
 
 #define PIT_TICK_RATE 1193182
 

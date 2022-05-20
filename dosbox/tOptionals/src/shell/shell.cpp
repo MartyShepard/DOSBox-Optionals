@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,17 +20,22 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#include <sstream>
 #include "dosbox.h"
 #include "regs.h"
 #include "control.h"
 #include "shell.h"
 #include "callback.h"
 #include "support.h"
-#include "..\gui\version.h"
+#include "setup.h"
+#include "..\gui\version_optionals.h"
+#include "../dos/drives.h"
 
 
 Bitu call_shellstop;
+
 bool bDisableIntroStartup = false;
+
 /* Larger scope so shell_del autoexec can use it to
  * remove things from the environment */
 DOS_Shell * first_shell = 0;
@@ -610,12 +615,15 @@ private:
 	AutoexecObject autoexec_echo;
 public:
 	AUTOEXEC(Section* configuration):Module_base(configuration) {
-		/* Register a virtual AUOEXEC.BAT file */
+
+ 		/* Register a virtual AUOEXEC.BAT file */
 		std::string line;
+		std::size_t found;
 		Section_line * section=static_cast<Section_line *>(configuration);
 	
 		/* Check -securemode switch to disable mount/imgmount/boot after running autoexec.bat */
 		bool secure = control->opt_securemode;
+        bool addexit = control->opt_exit;
 
 		/* add stuff from the configfile unless -noautexec or -securemode is specified. */
 		char * extra = const_cast<char*>(section->data.c_str());
@@ -639,18 +647,61 @@ public:
 			}
 
 			/* Install the stuff from the configfile if anything left after moving echo off */
-
-			if (*extra) autoexec[0].Install(std::string(extra));
+            if (*extra) autoexec[0].Install(std::string(extra));
 		}
 
-		/* Check to see for extra command line options to be added (before the command specified on commandline) */
-		/* Maximum of extra commands: 10 */
-		Bitu i = 1;
-		for (auto it=control->opt_c.begin();i <= 11 && it!=control->opt_c.end();it++) /* -c switches */
+        /* Check to see for extra command line options to be added (before the command specified on commandline) */
+        /* Maximum of extra commands: 10 */
+        Bitu i = 1;		
+        /*Test*/
+        //std::string InstallCD = "IMGMOUNT E \".\\[CD - ROM]\\CDROM_BLANK_IMAGE1.ISO\" -t cdrom -ide 2m\n";
+
+
+		while (control->cmdline->FindString("-c",line,true) && (i <= 256))
+		{
+			
+			//replace single with double quotes so that mount commands can contain spaces
+			
+			/*
+				Edited -c Command if Mount Command is
+				"MOUNT C '../../Storage FTP/Maps - Single/0-9' -t overlay"
+				to
+				MOUNT C "..\..\Storage FTP\Maps - Single\0-9" -t overlay"
+				As Example: This Point to go up 2 directory entry which contains Spaces.				
+			*/
+				
+			bool sMount = false;
+			     sMount = !strncasecmp(line.c_str(),"mount",5);				
+			
+			for(Bitu temp = 0;temp < line.size();++temp){
+								
+				/* Marty -- Convert "'"  to Quotes */
+				if(line[temp] == '\'' && sMount)
+				{
+					line[temp]='\"';
+				}
+				/* Marty -- Convert "/"  to Backslashes */
+				else if(line[temp] == '/' && sMount)
+				{
+					line[temp]='\\';
+				}
+				else if (line[temp] == '\"')
+				{
+					line[temp]='\\';
+				}		
+			}
+			autoexec[i++].Install(line);
+		}
+		
+		for (auto it=control->opt_c.begin();i <= 256 && it!=control->opt_c.end();it++) /* -c switches */
 			autoexec[i++].Install(*it);
+	
 
 		/* Check for the -exit switch which causes dosbox to when the command on the commandline has finished */
-		bool addexit = control->opt_exit;
+        
+        if (control->cmdline->FindExist("-exit")) {
+            addexit = true;
+        }
 
 #if 0/*FIXME: This is ugly. I don't care to follow through on this nonsense for now. When needed, port to new command line switching. */
 		/* Check for first command being a directory or file */
@@ -30870,50 +30921,53 @@ void SHELL_Init() {
     0x0D, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 		
 } ;		
 
-	Section_prop *sectsdl = static_cast<Section_prop *>(control->GetSection("sdl"));	
+ 	Section_prop *sectsdl = static_cast<Section_prop *>(control->GetSection("sdl"));	
 	bDisableIntroStartup = sectsdl->Get_bool("DisableIntroStartup");
-		
+
 	Section_prop *section = static_cast<Section_prop *>(control->GetSection("dos"));	
 	bool bDisable_DOS4GW 	  = section->Get_bool("Disable_DOS4GW");
 	bool bDisable_DOS32A 	  = section->Get_bool("Disable_DOS32A");	
 	bool bDisable_CWSDPMI	  = section->Get_bool("Disable_CWSDPMI");		
 	bool bExchangeDOS4GW 	  = section->Get_bool("DOS4GW_As_DOS32");	
-	
-		VFILE_Register("NOVERT.COM",	Shell_Command_NOVERT,576);	
-		VFILE_Register("NOLFB.COM",		Shell_Command_NOLF,130);		
-		VFILE_Register("LASTDRIV.COM",	some_data_lastdriv,2383);
-		VFILE_Register("GETDIG.COM",	Shell_Command_GETDIG,9514);
-		VFILE_Register("FILES.COM",		some_data_files,2808);	
-		VFILE_Register("FCBS.COM",		some_data_fcbs,2402);	
-		VFILE_Register("EDIT.EXE",		Shell_Command_FDEDIT,67530);
 
-	if (!bDisable_DOS4GW) {	
-	
-		if (!bExchangeDOS4GW){
-			VFILE_Register("DOS4GW.EXE",	Shell_Command_DOS4GW,271476);			
-		} else {
-			VFILE_Register("DOS4GW.EXE",	Shell_Command_FDDOS32A,27504);			
-		}
-	}
-	
-		VFILE_Register("DOS4GU.EXE",	Shell_Command_DOS4GU,46909);	
+        VFILE_Register("SLP.COM", Shell_Command_DELAYX, 8816);
+        VFILE_Register("NOVERT.COM", Shell_Command_NOVERT, 576);
+        VFILE_Register("NOLFB.COM", Shell_Command_NOLF, 130);
+        VFILE_Register("LASTDRIV.COM", some_data_lastdriv, 2383);
+        VFILE_Register("GETDIG.COM", Shell_Command_GETDIG, 9514);
+        VFILE_Register("FILES.COM", some_data_files, 2808);
+        VFILE_Register("FCBS.COM", some_data_fcbs, 2402);
+        VFILE_Register("EDIT.EXE", Shell_Command_FDEDIT, 67530);
 
-	if (!bDisable_DOS32A) {	
-		VFILE_Register("DOS32A.EXE",	Shell_Command_FDDOS32A,27504);	
-	}
-		VFILE_Register("DEVLOAD.COM",	Shell_Command_DEVLOAD,3224);	
-		VFILE_Register("DEVICE.COM",	some_data_device,1608);	
-		VFILE_Register("SLP.COM",		Shell_Command_DELAYX,8816);			
-		VFILE_Register("BUFFERS.COM",	some_data_buffers,2607);		
-		VFILE_Register("BOX.COM",		Shell_Command_BOX,576);
-	
-	if (!bDisable_CWSDPMI) {		
-		VFILE_Register("CWSDPMI.EXE",	Shell_Command_CWSDPMI,21325);		
-	}
-		VFILE_Register("CHKVESA.COM",	Shell_Command_CHKVESA,1813);	
-		VFILE_Register("28.COM",		some_data_28,8);
-		VFILE_Register("50.COM",		some_data_50,8);
-	
+    /*-------------------------------------------------------------------*/
+    if (!bDisable_DOS32A)
+        VFILE_Register("DOS32A.EXE", Shell_Command_FDDOS32A, 27504);
+    /*-------------------------------------------------------------------*/
+
+        VFILE_Register("DOS4GU.EXE", Shell_Command_DOS4GU, 46909);
+
+    /*-------------------------------------------------------------------*/
+    if (!bDisable_DOS4GW)
+        if (!bExchangeDOS4GW)
+            VFILE_Register("DOS4GW.EXE", Shell_Command_DOS4GW, 271476);
+        else
+            VFILE_Register("DOS4GW.EXE", Shell_Command_FDDOS32A, 27504);
+    /*-------------------------------------------------------------------*/
+
+        VFILE_Register("DEVLOAD.COM", Shell_Command_DEVLOAD, 3224);
+        VFILE_Register("DEVICE.COM", some_data_device, 1608);
+    
+    /*-------------------------------------------------------------------*/
+    if (!bDisable_CWSDPMI)
+        VFILE_Register("CWSDPMI.EXE", Shell_Command_CWSDPMI, 21325);
+    /*-------------------------------------------------------------------*/
+
+        VFILE_Register("CHKVESA.COM", Shell_Command_CHKVESA, 1813);
+        VFILE_Register("BUFFERS.COM", some_data_buffers, 2607);
+        VFILE_Register("BOX.COM", Shell_Command_BOX, 576);
+        VFILE_Register("50.COM", some_data_50, 8);
+        VFILE_Register("28.COM", some_data_28, 8);
+        	
 	// ==============================================================================================
 	
 	DOS_PSP psp(psp_seg);

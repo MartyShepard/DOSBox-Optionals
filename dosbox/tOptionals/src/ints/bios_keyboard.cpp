@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,11 @@
 #include "regs.h"
 #include "inout.h"
 #include "dos_inc.h"
-#include "SDL.h"
+#if defined(_MSC_VER)
+#include "SDL2/include/SDL.h"
+#else
+#include "SDL2/SDL.h"
+#endif
 
 /* SDL by default treats numlock and scrolllock different from all other keys.
  * In recent versions this can disabled by a environment variable which we set in sdlmain.cpp
@@ -253,7 +257,8 @@ static Bitu IRQ1_Handler(void) {
 	//LOG_MSG("key input %d %d %d %d",scancode,flags1,flags2,flags3);
 	switch (scancode) {
 	/* First the hard ones  */
-	case 0xfa:	/* ack. Do nothing for now */
+	case 0xfa:	/* Acknowledge *//*Indicate in BIOS memory when keyboard ACK received. Fixes Soko-ban Revenge.*/
+		leds |= 0x10;
 		break;
 	case 0xe1:	/* Extended key special. Only pause uses this */
 		flags3 |=0x01;

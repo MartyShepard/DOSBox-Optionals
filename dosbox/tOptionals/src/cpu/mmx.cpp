@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2013  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -24,86 +24,96 @@
 #include "cpu.h"
 #include "fpu.h"
 
-MMX_reg reg_mmx[8];
-
-
-MMX_reg * lookupRMregMM[256]={
-	&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],
-	&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],
-	&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],
-	&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],
-	&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],
-	&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],
-	&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],
-	&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],
-
-	&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],
-	&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],
-	&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],
-	&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],
-	&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],
-	&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],
-	&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],
-	&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],
-
-	&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],
-	&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],
-	&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],
-	&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],
-	&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],
-	&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],
-	&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],
-	&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],
-
-	&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],&reg_mmx[0],
-	&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],&reg_mmx[1],
-	&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],&reg_mmx[2],
-	&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],&reg_mmx[3],
-	&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],&reg_mmx[4],
-	&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],&reg_mmx[5],
-	&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],&reg_mmx[6],
-	&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],&reg_mmx[7],
+MMX_reg* reg_mmx[8] = {
+	&fpu.p_regs[0].reg_mmx,
+	&fpu.p_regs[1].reg_mmx,
+	&fpu.p_regs[2].reg_mmx,
+	&fpu.p_regs[3].reg_mmx,
+	&fpu.p_regs[4].reg_mmx,
+	&fpu.p_regs[5].reg_mmx,
+	&fpu.p_regs[6].reg_mmx,
+	&fpu.p_regs[7].reg_mmx,
 };
 
 
-  
-#define SaturateWordSToByteS(val) (((val) < -128) ? -128 : (((val) > 127) ? 127 : (val)))
-#define SaturateDwordSToWordS(val) (((val) < -32768) ? -32768 : (((val) > 32767) ? 32767 : (val)))
-#define SaturateWordSToByteU(val) (((val) < 0) ? 0 : (((val) > 255) ? 255 : (val)))
-#define SaturateDwordSToWordU(val) (((val) < 0) ? 0 : (((val) > 65535) ? 65535 : (val)))
+MMX_reg* lookupRMregMM[256] = {
+	reg_mmx[0],reg_mmx[0],reg_mmx[0],reg_mmx[0],reg_mmx[0],reg_mmx[0],reg_mmx[0],reg_mmx[0],
+	reg_mmx[1],reg_mmx[1],reg_mmx[1],reg_mmx[1],reg_mmx[1],reg_mmx[1],reg_mmx[1],reg_mmx[1],
+	reg_mmx[2],reg_mmx[2],reg_mmx[2],reg_mmx[2],reg_mmx[2],reg_mmx[2],reg_mmx[2],reg_mmx[2],
+	reg_mmx[3],reg_mmx[3],reg_mmx[3],reg_mmx[3],reg_mmx[3],reg_mmx[3],reg_mmx[3],reg_mmx[3],
+	reg_mmx[4],reg_mmx[4],reg_mmx[4],reg_mmx[4],reg_mmx[4],reg_mmx[4],reg_mmx[4],reg_mmx[4],
+	reg_mmx[5],reg_mmx[5],reg_mmx[5],reg_mmx[5],reg_mmx[5],reg_mmx[5],reg_mmx[5],reg_mmx[5],
+	reg_mmx[6],reg_mmx[6],reg_mmx[6],reg_mmx[6],reg_mmx[6],reg_mmx[6],reg_mmx[6],reg_mmx[6],
+	reg_mmx[7],reg_mmx[7],reg_mmx[7],reg_mmx[7],reg_mmx[7],reg_mmx[7],reg_mmx[7],reg_mmx[7],
+
+	reg_mmx[0],reg_mmx[0],reg_mmx[0],reg_mmx[0],reg_mmx[0],reg_mmx[0],reg_mmx[0],reg_mmx[0],
+	reg_mmx[1],reg_mmx[1],reg_mmx[1],reg_mmx[1],reg_mmx[1],reg_mmx[1],reg_mmx[1],reg_mmx[1],
+	reg_mmx[2],reg_mmx[2],reg_mmx[2],reg_mmx[2],reg_mmx[2],reg_mmx[2],reg_mmx[2],reg_mmx[2],
+	reg_mmx[3],reg_mmx[3],reg_mmx[3],reg_mmx[3],reg_mmx[3],reg_mmx[3],reg_mmx[3],reg_mmx[3],
+	reg_mmx[4],reg_mmx[4],reg_mmx[4],reg_mmx[4],reg_mmx[4],reg_mmx[4],reg_mmx[4],reg_mmx[4],
+	reg_mmx[5],reg_mmx[5],reg_mmx[5],reg_mmx[5],reg_mmx[5],reg_mmx[5],reg_mmx[5],reg_mmx[5],
+	reg_mmx[6],reg_mmx[6],reg_mmx[6],reg_mmx[6],reg_mmx[6],reg_mmx[6],reg_mmx[6],reg_mmx[6],
+	reg_mmx[7],reg_mmx[7],reg_mmx[7],reg_mmx[7],reg_mmx[7],reg_mmx[7],reg_mmx[7],reg_mmx[7],
+
+	reg_mmx[0],reg_mmx[0],reg_mmx[0],reg_mmx[0],reg_mmx[0],reg_mmx[0],reg_mmx[0],reg_mmx[0],
+	reg_mmx[1],reg_mmx[1],reg_mmx[1],reg_mmx[1],reg_mmx[1],reg_mmx[1],reg_mmx[1],reg_mmx[1],
+	reg_mmx[2],reg_mmx[2],reg_mmx[2],reg_mmx[2],reg_mmx[2],reg_mmx[2],reg_mmx[2],reg_mmx[2],
+	reg_mmx[3],reg_mmx[3],reg_mmx[3],reg_mmx[3],reg_mmx[3],reg_mmx[3],reg_mmx[3],reg_mmx[3],
+	reg_mmx[4],reg_mmx[4],reg_mmx[4],reg_mmx[4],reg_mmx[4],reg_mmx[4],reg_mmx[4],reg_mmx[4],
+	reg_mmx[5],reg_mmx[5],reg_mmx[5],reg_mmx[5],reg_mmx[5],reg_mmx[5],reg_mmx[5],reg_mmx[5],
+	reg_mmx[6],reg_mmx[6],reg_mmx[6],reg_mmx[6],reg_mmx[6],reg_mmx[6],reg_mmx[6],reg_mmx[6],
+	reg_mmx[7],reg_mmx[7],reg_mmx[7],reg_mmx[7],reg_mmx[7],reg_mmx[7],reg_mmx[7],reg_mmx[7],
+
+	reg_mmx[0],reg_mmx[0],reg_mmx[0],reg_mmx[0],reg_mmx[0],reg_mmx[0],reg_mmx[0],reg_mmx[0],
+	reg_mmx[1],reg_mmx[1],reg_mmx[1],reg_mmx[1],reg_mmx[1],reg_mmx[1],reg_mmx[1],reg_mmx[1],
+	reg_mmx[2],reg_mmx[2],reg_mmx[2],reg_mmx[2],reg_mmx[2],reg_mmx[2],reg_mmx[2],reg_mmx[2],
+	reg_mmx[3],reg_mmx[3],reg_mmx[3],reg_mmx[3],reg_mmx[3],reg_mmx[3],reg_mmx[3],reg_mmx[3],
+	reg_mmx[4],reg_mmx[4],reg_mmx[4],reg_mmx[4],reg_mmx[4],reg_mmx[4],reg_mmx[4],reg_mmx[4],
+	reg_mmx[5],reg_mmx[5],reg_mmx[5],reg_mmx[5],reg_mmx[5],reg_mmx[5],reg_mmx[5],reg_mmx[5],
+	reg_mmx[6],reg_mmx[6],reg_mmx[6],reg_mmx[6],reg_mmx[6],reg_mmx[6],reg_mmx[6],reg_mmx[6],
+	reg_mmx[7],reg_mmx[7],reg_mmx[7],reg_mmx[7],reg_mmx[7],reg_mmx[7],reg_mmx[7],reg_mmx[7],
+};
 
 
-/* Bit8s SaturateWordSToByteS(Bit16s value)
+Bit8s SaturateWordSToByteS(Bit16s value)
 {
-  if(value < -128) return -128;
-  if(value >  127) return  127;
-  return (Bit8s) value;
+	if (value < -128) return -128;
+	if (value > 127) return  127;
+	return (Bit8s)value;
 }
 
 Bit16s SaturateDwordSToWordS(Bit32s value)
 {
-  if(value < -32768) return -32768;
-  if(value >  32767) return  32767;
-  return (Bit16s) value;
+	if (value < -32768) return -32768;
+	if (value > 32767) return  32767;
+	return (Bit16s)value;
 }
 
 Bit8u SaturateWordSToByteU(Bit16s value)
 {
-  if(value < 0) return 0;
-  if(value > 255) return 255;
-  return (Bit8u) value;
+	if (value < 0) return 0;
+	if (value > 255) return 255;
+	return (Bit8u)value;
 }
 
 Bit16u SaturateDwordSToWordU(Bit32s value)
 {
-  if(value < 0) return 0;
-  if(value > 65535) return 65535;
-  return (Bit16u) value;
-} */
-
-void setFPU(Bit16u tag) {
-	FPU_SET_TOP(0);
-	TOP=FPU_GET_TOP();
-	FPU_SetTag(tag);
+	if (value < 0) return 0;
+	if (value > 65535) return 65535;
+	return (Bit16u)value;
 }
 
+void setFPUTagEmpty() {
+	FPU_SetCW(0x37F);
+	fpu.sw = 0;
+	TOP = FPU_GET_TOP();
+	fpu.tags[0] = TAG_Empty;
+	fpu.tags[1] = TAG_Empty;
+	fpu.tags[2] = TAG_Empty;
+	fpu.tags[3] = TAG_Empty;
+	fpu.tags[4] = TAG_Empty;
+	fpu.tags[5] = TAG_Empty;
+	fpu.tags[6] = TAG_Empty;
+	fpu.tags[7] = TAG_Empty;
+	fpu.tags[8] = TAG_Valid; // is only used by us
+}

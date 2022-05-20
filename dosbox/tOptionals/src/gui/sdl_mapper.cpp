@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,9 +26,15 @@
 #include <assert.h>
 
 
-#include "SDL.h"
+#if defined(_MSC_VER)
+#include "SDL2/include/SDL.h"
+#include "SDL2/include/SDL_thread.h"
+#include "SDL2/include/SDL_endian.h"
+#else
+#include "SDL2/SDL.h"
 #include "SDL_thread.h"
 #include <SDL_endian.h>
+#endif
 
 #include "dosbox.h"
 #include "video.h"
@@ -215,10 +221,10 @@ public:
 	void SetFlags(char * buf) {
 		char * word;
 		while (*(word=StripWord(buf))) {
-			if (!strcasecmp(word,"mod1")) mods|=BMOD_Mod1;
-			if (!strcasecmp(word,"mod2")) mods|=BMOD_Mod2;
-			if (!strcasecmp(word,"mod3")) mods|=BMOD_Mod3;
-			if (!strcasecmp(word,"hold")) flags|=BFLG_Hold;
+			if (!_stricmp(word,"mod1")) mods|=BMOD_Mod1;
+			if (!_stricmp(word,"mod2")) mods|=BMOD_Mod2;
+			if (!_stricmp(word,"mod3")) mods|=BMOD_Mod3;
+			if (!_stricmp(word,"hold")) flags|=BFLG_Hold;
 		}
 	}
 	void ActivateBind(Bits _value,bool ev_trigger,bool skip_action=false) {
@@ -534,14 +540,14 @@ public:
 		if (strncasecmp(configname,buf,strlen(configname))) return 0;
 		StripWord(buf);char * type=StripWord(buf);
 		CBind * bind=0;
-		if (!strcasecmp(type,"axis")) {
+		if (!_stricmp(type,"axis")) {
 			Bitu ax=ConvDecWord(StripWord(buf));
 			bool pos=ConvDecWord(StripWord(buf)) > 0;
 			bind=CreateAxisBind(ax,pos);
-		} else if (!strcasecmp(type,"button")) {
+		} else if (!_stricmp(type,"button")) {
 			Bitu but=ConvDecWord(StripWord(buf));			
 			bind=CreateButtonBind(but);
-		} else if (!strcasecmp(type,"hat")) {
+		} else if (!_stricmp(type,"hat")) {
 			Bitu hat=ConvDecWord(StripWord(buf));			
 			Bit8u dir=(Bit8u)ConvDecWord(StripWord(buf));			
 			bind=CreateHatBind(hat,dir);
@@ -883,8 +889,8 @@ public:
 			nJoyButtons = emulated_buttons;
 		}
 		
-		old_hat_position=0;
-		emulated_hats=1;
+		old_hat_position = 0;
+		//emulated_hats=1;
 		if (button_wrapping_enabled) button_wrap=emulated_buttons;
 
 		axes_cap=emulated_axes;
@@ -1021,12 +1027,13 @@ public:
 		
 		emulated_axes=6;
 		emulated_buttons=4;		
-		emulated_hats=1;
+		//emulated_hats=1;
 		
 		if (button_wrapping_enabled) button_wrap=emulated_buttons;
 
 		axes_cap=emulated_axes;
 		if (axes_cap>axes) axes_cap=axes;
+
 		hats_cap=emulated_hats;
 		if (hats_cap>hats) hats_cap=hats;
 				
@@ -1219,7 +1226,7 @@ public:
 	CCHBindGroup(Bitu _stick,Bitu _emustick) : CStickBindGroup (_stick,_emustick){
 		emulated_axes=4;
 		emulated_buttons=6;
-		emulated_hats=1;
+		//emulated_hats=1;
 		if (button_wrapping_enabled) button_wrap=emulated_buttons;
 
 		axes_cap=emulated_axes;
@@ -1350,7 +1357,7 @@ public:
 	CCHVPBindGroup(Bitu _stick,Bitu _emustick) : CStickBindGroup (_stick,_emustick){
 		emulated_axes=6;
 		emulated_buttons=10;
-		emulated_hats=1;
+		//emulated_hats=1;
 		if (button_wrapping_enabled) button_wrap=emulated_buttons;
 
 		axes_cap=emulated_axes;
@@ -1548,7 +1555,7 @@ public:
 	CCHGSBindGroup(Bitu _stick,Bitu _emustick) : CStickBindGroup (_stick,_emustick){
 		emulated_axes=6;
 		emulated_buttons=10;
-		emulated_hats=1;
+		//emulated_hats=1;
 		if (button_wrapping_enabled) button_wrap=emulated_buttons;
 
 		axes_cap=emulated_axes;
@@ -1557,6 +1564,7 @@ public:
 		if (hats_cap>hats) hats_cap=hats;
 				
 		JOYSTICK_Enable(1,true);			
+		
 		button_state=0;
 	}
 
@@ -1634,10 +1642,26 @@ public:
         Bitu i;
         for (i=0; i<(hats<2?hats:2); i++) {
             Uint8 hat_pos=0;
-            if (virtual_joysticks[0].hat_pressed[(i<<2)+0]) hat_pos|=SDL_HAT_UP;
-            else if (virtual_joysticks[0].hat_pressed[(i<<2)+2]) hat_pos|=SDL_HAT_DOWN;
-            if (virtual_joysticks[0].hat_pressed[(i<<2)+3]) hat_pos|=SDL_HAT_LEFT;
-            else if (virtual_joysticks[0].hat_pressed[(i<<2)+1]) hat_pos|=SDL_HAT_RIGHT;
+            if (virtual_joysticks[0].hat_pressed[(i<<2)+0])
+			{
+				hat_pos |= SDL_HAT_UP;
+				LOG_MSG("hat_pos |= SDL_HAT_UP;: %d", hat_pos);
+			}
+			else if (virtual_joysticks[0].hat_pressed[(i << 2) + 2])
+			{
+				hat_pos |= SDL_HAT_DOWN;
+				LOG_MSG("hat_pos |= SDL_HAT_DOWN;: %d", hat_pos);
+			}
+			if (virtual_joysticks[0].hat_pressed[(i << 2) + 3])
+			{
+				hat_pos |= SDL_HAT_LEFT;
+				LOG_MSG("hat_pos |= SDL_HAT_LEFT;: %d", hat_pos);
+			}
+			else if (virtual_joysticks[0].hat_pressed[(i << 2) + 1])
+			{
+				hat_pos |= SDL_HAT_RIGHT;
+				LOG_MSG("hat_pos |= SDL_HAT_RIGHT;: %d", hat_pos);
+			}
 
             if (hat_pos & SDL_HAT_UP)
                 if (bt_state>hat_priority[i][0]) bt_state=hat_priority[i][0];
@@ -3192,10 +3216,10 @@ static void CreateLayout(void) {
 	         AddJAxisButton (PX(XO+15)-12,PY(YO+1)+20,BW,BH+10,"+X+",1,0,true,cjaxis);	
 
 	/* Hat directions up, left, down, right  or D-Pad*/
-			AddJHatButton (PX(XO+19)+12   ,PY(YO)  +5,BW,BH+8," \x18",1,0,0); // UP
-			AddJHatButton (PX(XO+19)+12  ,PY(YO+3)+15,BW,BH+8," \x19",1,0,2); // DOWN			
-			AddJHatButton (PX(XO+18)+7   ,PY(YO+1)+20,BW,BH+8,"\x1B",1,0,3);  // LEFT
-			AddJHatButton (PX(XO+21)-11   ,PY(YO+1)+20,BW,BH+8,"  \x1A",1,0,1);// RIGHT	
+			AddJHatButton (PX(XO+19)+12   ,PY(YO)  +5,BW,BH+8," \x18",0,0,0); // UP
+			AddJHatButton (PX(XO+19)+12  ,PY(YO+3)+15,BW,BH+8," \x19",0,0,2); // DOWN			
+			AddJHatButton (PX(XO+18)+7   ,PY(YO+1)+20,BW,BH+8,"\x1B",0,0,3);  // LEFT
+			AddJHatButton (PX(XO+21)-11   ,PY(YO+1)+20,BW,BH+8,"  \x1A",0,0,1);// RIGHT	
 	/* Info Config */ 
 	new CTextButton(PX(XO+1) ,PY(YO+7)+2,21*BW,18,sJLabel5);				
 	}
@@ -3662,7 +3686,7 @@ static void CreateStringBind(char * line) {
 	char * eventname=StripWord(line);
 	CEvent * event;
 	for (CEventVector_it ev_it=events.begin();ev_it!=events.end();ev_it++) {
-		if (!strcasecmp((*ev_it)->GetName(),eventname)) {
+		if (!_stricmp((*ev_it)->GetName(),eventname)) {
 			event=*ev_it;
 			goto foundevent;
 		}
@@ -3745,87 +3769,88 @@ static struct {
 
 static void CreateDefaultBinds(void) {
 	char buffer[512];
-	Bitu i=0;
+	Bitu i = 0;
 	while (DefaultKeys[i].eventend) {
-		sprintf(buffer,"key_%s \"key %" sBitfs(d) "\"",DefaultKeys[i].eventend,DefaultKeys[i].key);
+		sprintf(buffer, "key_%s \"key %" sBitfs(d) "\"", DefaultKeys[i].eventend, DefaultKeys[i].key);
 		CreateStringBind(buffer);
 		i++;
 	}
-	sprintf(buffer,"mod_1 \"key %d\"",SDL_SCANCODE_RCTRL);CreateStringBind(buffer);
-	sprintf(buffer,"mod_1 \"key %d\"",SDL_SCANCODE_LCTRL);CreateStringBind(buffer);
-	sprintf(buffer,"mod_2 \"key %d\"",SDL_SCANCODE_RALT);CreateStringBind(buffer);
-	sprintf(buffer,"mod_2 \"key %d\"",SDL_SCANCODE_LALT);CreateStringBind(buffer);
-	for (CHandlerEventVector_it hit=handlergroup.begin();hit!=handlergroup.end();hit++) {
+	sprintf(buffer, "mod_1 \"key %d\"", SDL_SCANCODE_RCTRL); CreateStringBind(buffer);
+	sprintf(buffer, "mod_1 \"key %d\"", SDL_SCANCODE_LCTRL); CreateStringBind(buffer);
+	sprintf(buffer, "mod_2 \"key %d\"", SDL_SCANCODE_RALT); CreateStringBind(buffer);
+	sprintf(buffer, "mod_2 \"key %d\"", SDL_SCANCODE_LALT); CreateStringBind(buffer);
+	for (CHandlerEventVector_it hit = handlergroup.begin(); hit != handlergroup.end(); hit++) {
 		(*hit)->MakeDefaultBind(buffer);
 		CreateStringBind(buffer);
 	}
 
 	/* joystick1, buttons 1-6 */
-	sprintf(buffer,"jbutton_0_0 \"stick_0 button 0\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jbutton_0_1 \"stick_0 button 1\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jbutton_0_2 \"stick_0 button 2\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jbutton_0_3 \"stick_0 button 3\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jbutton_0_4 \"stick_0 button 4\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jbutton_0_5 \"stick_0 button 5\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jbutton_0_6 \"stick_0 button 6\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jbutton_0_7 \"stick_0 button 7\" ");CreateStringBind(buffer);	
-	sprintf(buffer,"jbutton_0_8 \"stick_0 button 8\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jbutton_0_9 \"stick_0 button 9\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jbutton_0_10 \"stick_0 button 10\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jbutton_0_11 \"stick_0 button 11\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jbutton_0_12 \"stick_0 button 12\" ");CreateStringBind(buffer);		
+	sprintf(buffer, "jbutton_0_0 \"stick_0 button 0\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_0_1 \"stick_0 button 1\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_0_2 \"stick_0 button 2\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_0_3 \"stick_0 button 3\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_0_4 \"stick_0 button 4\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_0_5 \"stick_0 button 5\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_0_6 \"stick_0 button 6\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_0_7 \"stick_0 button 7\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_0_8 \"stick_0 button 8\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_0_9 \"stick_0 button 9\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_0_10 \"stick_0 button 10\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_0_11 \"stick_0 button 11\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_0_12 \"stick_0 button 12\" "); CreateStringBind(buffer);
 	/* joystick2, buttons 1-2 */
-	sprintf(buffer,"jbutton_1_0 \"stick_1 button 0\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jbutton_1_1 \"stick_1 button 1\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jbutton_1_2 \"stick_1 button 2\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jbutton_1_3 \"stick_1 button 3\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jbutton_1_4 \"stick_1 button 4\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jbutton_1_5 \"stick_1 button 5\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jbutton_1_6 \"stick_1 button 6\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jbutton_1_7 \"stick_1 button 7\" ");CreateStringBind(buffer);	
-	sprintf(buffer,"jbutton_1_8 \"stick_1 button 8\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jbutton_1_9 \"stick_1 button 9\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jbutton_1_10 \"stick_1 button 10\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jbutton_1_11 \"stick_1 button 11\" ");CreateStringBind(buffer);	
-	sprintf(buffer,"jbutton_1_12 \"stick_1 button 12\" ");CreateStringBind(buffer);		
+	sprintf(buffer, "jbutton_1_0 \"stick_1 button 0\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_1_1 \"stick_1 button 1\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_1_2 \"stick_1 button 2\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_1_3 \"stick_1 button 3\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_1_4 \"stick_1 button 4\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_1_5 \"stick_1 button 5\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_1_6 \"stick_1 button 6\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_1_7 \"stick_1 button 7\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_1_8 \"stick_1 button 8\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_1_9 \"stick_1 button 9\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_1_10 \"stick_1 button 10\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_1_11 \"stick_1 button 11\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jbutton_1_12 \"stick_1 button 12\" "); CreateStringBind(buffer);
 
 	/* joystick1, axes 1-4 */
-	sprintf(buffer,"jaxis_0_0- \"stick_0 axis 0 0\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jaxis_0_0+ \"stick_0 axis 0 1\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jaxis_0_1- \"stick_0 axis 1 0\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jaxis_0_1+ \"stick_0 axis 1 1\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jaxis_0_2- \"stick_0 axis 2 0\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jaxis_0_2+ \"stick_0 axis 2 1\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jaxis_0_3- \"stick_0 axis 3 0\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jaxis_0_3+ \"stick_0 axis 3 1\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jaxis_0_4- \"stick_0 axis 4 0\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jaxis_0_4+ \"stick_0 axis 4 1\" ");CreateStringBind(buffer);	
-	sprintf(buffer,"jaxis_0_5- \"stick_0 axis 5 0\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jaxis_0_5+ \"stick_0 axis 5 1\" ");CreateStringBind(buffer);	
+	sprintf(buffer, "jaxis_0_0- \"stick_0 axis 0 0\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jaxis_0_0+ \"stick_0 axis 0 1\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jaxis_0_1- \"stick_0 axis 1 0\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jaxis_0_1+ \"stick_0 axis 1 1\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jaxis_0_2- \"stick_0 axis 2 0\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jaxis_0_2+ \"stick_0 axis 2 1\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jaxis_0_3- \"stick_0 axis 3 0\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jaxis_0_3+ \"stick_0 axis 3 1\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jaxis_0_4- \"stick_0 axis 4 0\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jaxis_0_4+ \"stick_0 axis 4 1\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jaxis_0_5- \"stick_0 axis 5 0\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jaxis_0_5+ \"stick_0 axis 5 1\" "); CreateStringBind(buffer);
 	/* joystick2, axes 1-2 */
-	sprintf(buffer,"jaxis_1_0- \"stick_1 axis 0 0\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jaxis_1_0+ \"stick_1 axis 0 1\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jaxis_1_1- \"stick_1 axis 1 0\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jaxis_1_1+ \"stick_1 axis 1 1\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jaxis_1_2- \"stick_1 axis 2 0\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jaxis_1_2+ \"stick_1 axis 2 1\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jaxis_1_3- \"stick_1 axis 3 0\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jaxis_1_3+ \"stick_1 axis 3 1\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jaxis_1_4- \"stick_1 axis 4 0\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jaxis_1_4+ \"stick_1 axis 4 1\" ");CreateStringBind(buffer);	
-	sprintf(buffer,"jaxis_1_5- \"stick_1 axis 5 0\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jaxis_1_5+ \"stick_1 axis 5 1\" ");CreateStringBind(buffer);	
+	sprintf(buffer, "jaxis_1_0- \"stick_1 axis 0 0\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jaxis_1_0+ \"stick_1 axis 0 1\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jaxis_1_1- \"stick_1 axis 1 0\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jaxis_1_1+ \"stick_1 axis 1 1\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jaxis_1_2- \"stick_1 axis 2 0\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jaxis_1_2+ \"stick_1 axis 2 1\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jaxis_1_3- \"stick_1 axis 3 0\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jaxis_1_3+ \"stick_1 axis 3 1\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jaxis_1_4- \"stick_1 axis 4 0\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jaxis_1_4+ \"stick_1 axis 4 1\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jaxis_1_5- \"stick_1 axis 5 0\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jaxis_1_5+ \"stick_1 axis 5 1\" "); CreateStringBind(buffer);
 
 	/* joystick1, hat */
-	sprintf(buffer,"jhat_0_0_0 \"stick_0 hat 0 1\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jhat_0_0_1 \"stick_0 hat 0 2\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jhat_0_0_2 \"stick_0 hat 0 4\" ");CreateStringBind(buffer);
-	sprintf(buffer,"jhat_0_0_3 \"stick_0 hat 0 8\" ");CreateStringBind(buffer);
-	
-	// sprintf(buffer,"jhat_1_0_0 \"stick_1 hat 0 1\" ");CreateStringBind(buffer);
-	// sprintf(buffer,"jhat_1_0_1 \"stick_1 hat 0 2\" ");CreateStringBind(buffer);
-	// sprintf(buffer,"jhat_1_0_2 \"stick_1 hat 0 4\" ");CreateStringBind(buffer);
-	// sprintf(buffer,"jhat_1_0_3 \"stick_1 hat 0 8\" ");CreateStringBind(buffer);	
+	sprintf(buffer, "jhat_0_0_0 \"stick_0 hat 0 1\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jhat_0_0_1 \"stick_0 hat 0 2\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jhat_0_0_2 \"stick_0 hat 0 4\" "); CreateStringBind(buffer);
+	sprintf(buffer, "jhat_0_0_3 \"stick_0 hat 0 8\" "); CreateStringBind(buffer);
+	/*
+	sprintf(buffer,"jhat_1_0_0 \"stick_1 hat 1 1\" ");CreateStringBind(buffer);
+	sprintf(buffer,"jhat_1_0_1 \"stick_1 hat 1 2\" ");CreateStringBind(buffer);
+	sprintf(buffer,"jhat_1_0_2 \"stick_1 hat 1 4\" ");CreateStringBind(buffer);
+	sprintf(buffer,"jhat_1_0_3 \"stick_1 hat 1 8\" ");CreateStringBind(buffer);
+	*/
 }
 
 void MAPPER_AddHandler(MAPPER_Handler * handler,MapKeys key,Bitu mods,char const * const eventname,char const * const buttonname) {
@@ -4198,12 +4223,16 @@ void MAPPER_RunInternal() {
 	}
 
 	/* Be sure that there is no update in progress */
-	GFX_EndUpdate( 0 );
+		GFX_EndUpdate( 0 );
+
 	mapper.window=GFX_SetSDLSurfaceWindow(800,600);
 	SDL_ShowWindow( mapper.window );
-	if (mapper.window == NULL) E_Exit("Could not initialize video mode for mapper: %s",SDL_GetError());
+	if (mapper.window == NULL)
+		E_Exit("Could not initialize video mode for mapper: %s [Line %d]",SDL_GetError(),__LINE__);
+
 	mapper.surface=SDL_GetWindowSurface(mapper.window);
-	if (mapper.surface == NULL) E_Exit("Could not initialize video mode for mapper: %s",SDL_GetError());
+	if (mapper.surface == NULL)
+		E_Exit("Could not initialize video mode for mapper: %s [Line %d]",SDL_GetError(), __LINE__);
 
 	/* Set some palette entries */
 	mapper.draw_surface=SDL_CreateRGBSurface(0,800,600,8,0,0,0,0);

@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -218,7 +218,7 @@ again:
 			nospace++;
 
 		*nospace = 0;
-		if (strcasecmp(beginlabel,where)==0) {
+		if (_stricmp(beginlabel,where)==0) {
 		//Found it! Store location and continue
 			this->location = 0;
 			DOS_SeekFile(file_handle,&(this->location),DOS_SEEK_CUR);

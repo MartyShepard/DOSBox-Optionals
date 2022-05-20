@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -17,11 +17,13 @@
  */
 
 #ifndef DOSBOX_DOSBOX_H
-#ifdef _MSC_VER
-#define INLINE __forceinline
-#else
-#define INLINE inline
-#endif
+# ifndef INLINE
+#  ifdef _MSC_VER
+#   define INLINE __forceinline
+#  else
+#   define INLINE inline
+#  endif
+# endif
 #endif
 
 #define CODEC_4CC "ZMBV"
@@ -105,7 +107,6 @@ private:
 		INLINE void CopyBlock(int vx, int vy,FrameBlock * block);
 public:
 	VideoCodec();
-	~VideoCodec();	
 	bool SetupCompress( int _width, int _height);
 	bool SetupDecompress( int _width, int _height);
 	zmbv_format_t BPPFormat( int bpp );

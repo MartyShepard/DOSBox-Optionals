@@ -1592,7 +1592,7 @@ public:
 		
 		char * pch;
 					
-		if (!strcasecmp(realnicstring,"list"))
+		if (!_stricmp(realnicstring,"list"))
 		{
 			// print list and quit
 			Bitu i = 0;

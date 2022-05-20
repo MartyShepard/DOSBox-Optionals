@@ -135,16 +135,16 @@
 #define ftriangleCMD	(0x100/4)	/*  W PF */
 #define fbzColorPath	(0x104/4)	/* RW PF */
 #define fogMode			(0x108/4)	/* RW PF */
-#define alphaMode		(0x10c/4)	/* RW PF */
-#define fbzMode			(0x110/4)	/* RW  F */
-#define lfbMode			(0x114/4)	/* RW  F */
+constexpr auto alphaMode = (0x10c/4)	/* RW PF */;
+constexpr auto fbzMode = (0x110/4)	/* RW  F */;
+constexpr auto lfbMode = (0x114/4)	/* RW  F */;
 #define clipLeftRight	(0x118/4)	/* RW  F */
 #define clipLowYHighY	(0x11c/4)	/* RW  F */
 #define nopCMD			(0x120/4)	/*  W  F */
 #define fastfillCMD		(0x124/4)	/*  W  F */
 #define swapbufferCMD	(0x128/4)	/*  W  F */
 #define fogColor		(0x12c/4)	/*  W  F */
-#define zaColor			(0x130/4)	/*  W  F */
+constexpr auto zaColor = (0x130/4)	/*  W  F */;
 #define chromaKey		(0x134/4)	/*  W  F */
 #define chromaRange		(0x138/4)	/*  W  F  -- Voodoo2/Banshee only */
 #define userIntrCMD		(0x13c/4)	/*  W  F  -- Voodoo2/Banshee only */

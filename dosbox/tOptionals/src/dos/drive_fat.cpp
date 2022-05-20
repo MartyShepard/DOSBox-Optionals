@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -735,7 +735,7 @@ fatDrive::fatDrive(const char *sysFilename, Bit32u bytesector, Bit32u cylsector,
 			if(mbrData.pentry[m].partSize != 0x00) {
 				mbrData.pentry[m].absSectStart = var_read(&mbrData.pentry[m].absSectStart);
 				mbrData.pentry[m].partSize = var_read(&mbrData.pentry[m].partSize);				
-				LOG_MSG("HDD: Using Partition %d On Drive. Skip %d Sectors", m, mbrData.pentry[m].absSectStart);
+				LOG_MSG("\tHarddrive using Partition %d On Drive. Skip %d Sectors", m, mbrData.pentry[m].absSectStart);
 				startSector = mbrData.pentry[m].absSectStart;
 				break;
 			}
@@ -841,7 +841,7 @@ fatDrive::fatDrive(const char *sysFilename, Bit32u bytesector, Bit32u cylsector,
 /* DOSBox-MB IMGMAKE patch. ========================================================================= */		
 		/* FAT32 not implemented yet */
 		//created_successfully = false;
-		LOG_MSG("HD: FAT32 not Really Supported, Mount Image Only\n");
+		LOG_MSG("\tHarddrive is FAT32 and not Really Supported. Mount Image Only\n");
 		fattype = FAT32;	// Avoid parsing dir entries, see fatDrive::FindFirst()...should work for unformatted images as well
 /* DOSBox-MB IMGMAKE patch. ========================================================================= */		
 		return;
@@ -980,8 +980,10 @@ bool fatDrive::FileCreate(DOS_File **file, char *name, Bit16u attributes) {
 bool fatDrive::FileExists(const char *name) {
 	direntry fileEntry;
 	Bit32u dummy1, dummy2;
-	if(!getFileDirEntry(name, &fileEntry, &dummy1, &dummy2)) return false;
-	return true;
+	Bit16u save_errorcode = dos.errorcode;
+	bool found = getFileDirEntry(name, &fileEntry, &dummy1, &dummy2);
+	dos.errorcode = save_errorcode;
+	return found;
 }
 
 bool fatDrive::FileOpen(DOS_File **file, char *name, Bit32u flags) {

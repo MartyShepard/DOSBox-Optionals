@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -367,7 +367,7 @@ bool DOS_Drive_Cache::GetShortName(const char* fullname, char* shortname) {
 	// The orgname part of the list is not sorted (shortname is)! So we can only walk through it.
 	for(Bitu i = 0; i < filelist_size; i++) {
 #if defined (WIN32) || defined (OS2)                        /* Win 32 & OS/2*/
-		if (strcasecmp(pos,curDir->longNameList[i]->orgname) == 0) {
+		if (_stricmp(pos,curDir->longNameList[i]->orgname) == 0) {
 #else
 		if (strcmp(pos,curDir->longNameList[i]->orgname) == 0) {
 #endif

@@ -28,7 +28,12 @@
 
 #include "voodoo_emu.h"
 #include "voodoo_opengl.h"
+#if defined(_MSC_VER)
+#include <SDl2/include/sdl_timer.h>
+#else
 #include "sdl_timer.h"
+#endif
+
 
 #if C_OPENGL
 
@@ -47,31 +52,13 @@ INT32 cached_line_back_length=-1;
 INT32 cached_line_back_pixels=-1;
 UINT32* cached_line_back_data=NULL;
 
-struct READ_BUFFER_BLOCK{
-	struct {
-		struct {
-			INT32   Y; 		// cached_line_front_y
-			INT32   W; 		// cached_line_front_width
-			INT32   L; 		// cached_line_front_length
-			INT32   P; 		// cached_line_front_pixels
-			UINT32* Buffer; // cached_line_front_data
-		}Frnt;
-		struct {
-			INT32   Y; 		// cached_line_back_y
-			INT32   W; 		// cached_line_back_width
-			INT32   L; 		// cached_line_back_length
-			INT32   P; 		// cached_line_back_pixels
-			UINT32* Buffer; // cached_line_back_data
-		}Back;			
-	}Line;
-};
-static READ_BUFFER_BLOCK Cache;
+
 
 GLfloat anisotropy;
 GLint minFilter;
 
-static INT32 adjust_x=0;
-static INT32 adjust_y=0;						
+static GLint adjust_x=0;
+static GLint adjust_y=0;
 
 static UINT32 last_clear_color=0;
 
@@ -88,6 +75,7 @@ bool has_alpha = false; bool has_stencil = false; bool full_sdl_restart = false;
 // Debug Info
 bool bUseShColPathInfo = false;
 bool bUseTexCombineInfo= false;
+bool bUseTexDrawInfo = true;
 
 bool nScreenSetup = false;
 extern void GFX_CaptureMouse(void);
@@ -97,11 +85,10 @@ extern int nCurrentDisplay;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
-	
 /* texture cache buffer */
 UINT32 texrgb[256*256];
 
+GLhandleARB m_hProgramObject = (GLhandleARB)NULL;
 
 /* texture address map */
 std::map <const UINT32, ogl_texmap> textures[2];
@@ -222,9 +209,90 @@ void _check_gl_error(const char *file, int line) {
                 
         }
 }
+
+INLINE int Select_FBZ_Buffer(void)
+{
+	return FBZMODE_DRAW_BUFFER(v->reg[fbzMode].u);
+}
+INLINE int Select_FBZ_Write(void)
+{		   
+	return LFBMODE_WRITE_BUFFER_SELECT(v->reg[lfbMode].u);
+}
+/*
+* 1 = FBZMODE_DRAW_BUFFER
+* 2 = LFBMODE_WRITE_BUFFER_SELECT
+*/
+INLINE void Select_FBZ_DrawMode(bool ClearBufferLine, int Mode)
+{
+	int BufferSide = -1;
+	if (Mode == 1)
+		BufferSide = Select_FBZ_Buffer();	/*FBZMODE_DRAW_BUFFER*/
+
+	if (Mode == 2)
+		BufferSide = Select_FBZ_Write();	/*LFBMODE_WRITE_BUFFER_SELECT*/
+
+
+	switch (BufferSide)
+	{
+		case 0:/* Front Buffer */
+		{
+			VOGL_SetDrawMode(true);
+			v->fbi.vblank_flush_pending = true;
+			if (ClearBufferLine)
+			{				
+				cached_line_front_y = -1;
+				Cache.Line.Frnt.Y = -1;
+			}
+		}
+		break;
+		case 1:/* Back Buffer */
+		{
+			VOGL_SetDrawMode(false);
+			if (ClearBufferLine)
+			{
+				cached_line_back_y = -1;
+				Cache.Line.Back.Y = -1;
+			}
+		}
+		break;
+		default:
+			LOG(LOG_FXOGL, LOG_NORMAL)("Select FBZ Draw Mode: Unknown %d", BufferSide);
+	}
+}
+
 /* ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-
-
+/*
+ * Up/Down ScaleFactor to Calculate the 3DFX Screen against the actual Window/Fullscren Dosbox Screen Dimension
+ */
+static INLINE float ScaleFastFillY(GLsizei h, GLint y) {
+	for (float cy = ((y - 1) * ((float)h / (float)v->fbi.height) + (h / v->fbi.height)); cy <= (y * ((float)h / (float)v->fbi.height)); cy++)
+	{
+		return cy;
+	}
+	return 0;
+}
+static INLINE float ScaleFastFillX(GLsizei w, GLint x) {
+	for (float cx = ((x - 1) * ((float)w / (float)v->fbi.width) + (x / v->fbi.width)); cx <= (x * ((float)w / (float)v->fbi.width)); cx++)
+	{
+		return cx;
+	}
+	return 0;
+}
+static INLINE float ScaleFactorY(GLsizei h, GLint y) {
+	for (float cy = ((y - 1) * ((float)h / (float)v->fbi.height)); cy <= (y * ((float)h / (float)v->fbi.height)) - ((float)h / (float)v->fbi.height); cy++)
+	{
+		return cy;
+	}
+	return 0;
+}
+static INLINE float ScaleFactorX(GLsizei w, GLint x) {
+	for (float cx = ((x - 1) * ((float)w / (float)v->fbi.width) + ((float)w / (float)v->fbi.width)); cx <= (x * ((float)w / (float)v->fbi.width)); cx++)
+	{
+		return cx;
+		break;
+	}
+	return 0;
+}
 
 static void ogl_get_depth(voodoo_state* VV, INT32 ITERZ, INT64 ITERW, INT32 *depthval, INT32 *out_wfloat)
 {
@@ -282,7 +350,6 @@ static void ogl_get_depth(voodoo_state* VV, INT32 ITERZ, INT64 ITERW, INT32 *dep
 
 	*out_wfloat = wfloat;
 }
-
 void ogl_get_fog_blend(voodoo_state* v, INT32 wfloat, INT32 ITERZ, INT64 ITERW, INT32 *fogblend)
 {
 	UINT32 FOGMODE = v->reg[fogMode].u;
@@ -505,13 +572,15 @@ static UINT32 crc_32_tab[] = { /* CRC polynomial 0xedb88320 */
 
 UINT32 calculate_palsum(UINT32 tmunum) {
 	UINT32 csum = 0;
-	for (Bitu pct=0; pct<256; pct++) {
+	for (Bitu pct=0; pct<256; pct++)
+	{
 		UINT32 pval = v->tmu[tmunum].palette[pct];
 		csum = crc_32_tab[(csum ^ pval) & 0xff] ^ (csum>>8);
 		csum = crc_32_tab[(csum ^ (pval>>8)) & 0xff] ^ (csum>>8);
 		csum = crc_32_tab[(csum ^ (pval>>16)) & 0xff] ^ (csum>>8);
 		csum = crc_32_tab[(csum ^ (pval>>24)) & 0xff] ^ (csum>>8);
 	}
+	//LOG(LOG_FXOGL, LOG_NORMAL)("Calculate Palette Summary %d", csum);
 	return csum;
 }
 
@@ -522,7 +591,7 @@ static int int_log2 (int val) {
     return log;
 }
 
-void ogl_cache_texture(const poly_extra_data *extra, ogl_texture_data *td) {
+INLINE void Cache_Texture(const poly_extra_data *extra, ogl_texture_data *td) {
 	voodoo_state *v=(voodoo_state*)extra->state;
 	UINT32 texbase;
 
@@ -566,15 +635,21 @@ void ogl_cache_texture(const poly_extra_data *extra, ogl_texture_data *td) {
 						texID = u->second;
 					} else {
 						valid_texid = false;
-						//LOG_MSG("texture removed... size %d",t->second.ids->size());
-						if (t->second.ids->size() > 8) {
-							std::map<const UINT32, GLuint>::iterator u;
-							for (u=t->second.ids->begin(); u!=t->second.ids->end(); u++) {
-								glDeleteTextures(1,&u->second);
+
+						if (sdlVoodoo.opengl.ChacheDelete == true)
+						{
+							//LOG_MSG("texture removed... size %d",t->second.ids->size());
+							if (t->second.ids->size() > 8)
+							{
+								std::map<const UINT32, GLuint>::iterator u;
+								for (u=t->second.ids->begin(); u!=t->second.ids->end(); u++)
+								{
+									glDeleteTextures(1,&u->second);
+								}
+								t->second.ids->clear();
 							}
-							t->second.ids->clear();
+							t->second.valid_pal = true;
 						}
-						t->second.valid_pal = true;
 					}
 				}
 			} else {
@@ -594,6 +669,9 @@ void ogl_cache_texture(const poly_extra_data *extra, ogl_texture_data *td) {
 				}
 
 				int format = TEXMODE_FORMAT(v->tmu[j].reg[textureMode].u);
+				#if defined (C_DEBUG)
+					LOG(LOG_FXTEXFORMAT, LOG_NORMAL)("[%d] Texmode Format: %d ID=%d [smax:%d] [tmax:%d]", __LINE__, TEXMODE, td[j].texID, smax,tmax);
+				#endif
 				switch (format)			
 				{			
 					case 1:
@@ -623,8 +701,7 @@ void ogl_cache_texture(const poly_extra_data *extra, ogl_texture_data *td) {
 							*texrgbp = data;
 							texboffset++;
 							texrgbp++;
-						}
-						
+						}						
 					}
 					break;
 					case 10:
@@ -679,7 +756,7 @@ void ogl_cache_texture(const poly_extra_data *extra, ogl_texture_data *td) {
 				
 				texrgbp = (UINT32 *)&texrgb[0];
 				glBindTexture(GL_TEXTURE_2D, texID);
-				glPixelStorei(GL_UNPACK_ALIGNMENT, 1);				
+				glPixelStorei(GL_UNPACK_ALIGNMENT, /*1*/4);				
 				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_PRIORITY, 0.0);
 				
 				
@@ -756,28 +833,27 @@ void ogl_cache_texture(const poly_extra_data *extra, ogl_texture_data *td) {
 				//glCheck( glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, smax, tmax, 0, GL_BGRA_EXT, GL_UNSIGNED_INT_8_8_8_8_REV, texrgbp));
 				glGenTextures(1, &texID);
 				glBindTexture(GL_TEXTURE_2D, texID);	
-				glPixelStorei(GL_UNPACK_ALIGNMENT, 1);					
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, smax, tmax, 0, GL_BGRA_EXT, GL_UNSIGNED_INT_8_8_8_8_REV , texrgbp);
-							
+				glPixelStorei(GL_UNPACK_ALIGNMENT, /*1*/4);					
+				glTexImage2D(GL_TEXTURE_2D, 0,  /*GLenum(sdlVoodoo.opengl.RGB_Format)*/GL_RGBA8, smax, tmax, 0, GL_BGRA_EXT, /*GLenum(sdlVoodoo.opengl.RGB_Type)*/GL_UNSIGNED_INT_8_8_8_8_REV , texrgbp);
 								
 				glGenerateMipmapEXT(GL_TEXTURE_2D);	
 				glPixelStorei(GL_UNPACK_ALIGNMENT, 4);				
 				UINT32 palsum=0;
 				if ((TEXMODE_FORMAT(v->tmu[j].reg[textureMode].u)==0x05) || (TEXMODE_FORMAT(v->tmu[j].reg[textureMode].u)==0x0e)) {
+				//if ((TEXMODE_FORMAT(v->tmu[j].reg[textureMode].u) == 0xff) || (TEXMODE_FORMAT(v->tmu[j].reg[textureMode].u) == 0xff)) {
+
 					palsum = calculate_palsum(j);
 					if (t == textures[j].end()) {
 						std::map<const UINT32, GLuint>* ids = new std::map<const UINT32, GLuint>();
 						(*ids)[palsum] = texID;
-						ogl_texmap tex = { true, true, TEXMODE_FORMAT(v->tmu[j].reg[textureMode].u),
-											texID, ids };
+						ogl_texmap tex = { true, true, TEXMODE_FORMAT(v->tmu[j].reg[textureMode].u),texID, ids };
 						textures[j][texbase] = tex;
 					} else {
 						(*textures[j][texbase].ids)[palsum] = texID;
 						textures[j][texbase].current_id = texID;
 					}
 				} else {
-					ogl_texmap tex = { true, true, TEXMODE_FORMAT(v->tmu[j].reg[textureMode].u),
-										texID, NULL };
+					ogl_texmap tex = { true, true, TEXMODE_FORMAT(v->tmu[j].reg[textureMode].u),texID, NULL };
 					textures[j][texbase] = tex;
 				}
 				glBindTexture(GL_TEXTURE_2D, 0); // Unbind the texture to avoid accidental editing of texture elsewhere
@@ -791,21 +867,18 @@ void ogl_cache_texture(const poly_extra_data *extra, ogl_texture_data *td) {
 		
 	}
 }
+void ogl_cache_texture(const poly_extra_data* extra, ogl_texture_data* td)
+{
+	Cache_Texture(extra, td);
+}
 
 void voodoo_ogl_invalidate_paltex(void) {
 	std::map<const UINT32, ogl_texmap>::iterator t;
-	for (int j=0; j<2; j++) {
-		for (t=textures[j].begin(); t!=textures[j].end(); t++) {
-			if ((t->second.format == 0x05) || (t->second.format == 0x0e)) {
+	for (int j=0; j<2; j++)
+		for (t=textures[j].begin(); t!=textures[j].end(); t++)
+			if ((t->second.format == 0x05) || (t->second.format == 0x0e))
 				t->second.valid_pal = false;
-			}
-		}
-	}
 }
-
-
-GLhandleARB m_hProgramObject   = (GLhandleARB)NULL;
-
 
 void ogl_printInfoLog(GLhandleARB obj)
 {
@@ -981,14 +1054,13 @@ void ogl_sh_tex_combine(std::string *strFShader, const int TMU, const poly_extra
 		if (bUseTexCombineInfo){LOG_MSG("OGL Shader Texture Combine Line in Use (" __FILE__ ") :%d", __LINE__);}	
 	}
 }
-
 void ogl_sh_color_path(std::string *strFShader, const poly_extra_data *extra) {
 	voodoo_state *v=(voodoo_state*)extra->state;
 
-	
 	UINT32 FBZCOLORPATH = v->reg[fbzColorPath].u;
 	UINT32 FBZMODE = v->reg[fbzMode].u;
 	UINT32 ALPHAMODE = v->reg[alphaMode].u;
+	
 
 	switch (FBZCP_CC_RGBSELECT(FBZCOLORPATH))
 	{
@@ -1269,7 +1341,6 @@ void ogl_sh_color_path(std::string *strFShader, const poly_extra_data *extra) {
 		if (bUseShColPathInfo){LOG_MSG("OGL Shader Color Path Line in Use (" __FILE__ ") :%d", __LINE__);}	
 	}
 }
-
 void ogl_sh_fog(std::string *strFShader, const poly_extra_data *extra) {
 	voodoo_state *v=(voodoo_state*)extra->state;
 
@@ -1324,9 +1395,8 @@ void ogl_sh_fog(std::string *strFShader, const poly_extra_data *extra) {
 
 	}
 }
-
-
 void ogl_shaders(const poly_extra_data *extra) {
+	
 	
 	voodoo_state *v=(voodoo_state*)extra->state;
 
@@ -1525,21 +1595,123 @@ void ogl_shaders(const poly_extra_data *extra) {
 
 }
 
+INLINE void DrawTriangle_StencilCheck()
+{
 
-void voodoo_ogl_draw_triangle(poly_extra_data *extra) {
+	if (FBZMODE_DEPTH_SOURCE_COMPARE(sdlVoodoo.extra.r_fbzMode) && VOGL_CheckFeature(VOGL_HAS_STENCIL_BUFFER))
+	{
+		glStencilFunc(GL_EQUAL, 1, 1);
+		glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
+
+		if (FBZMODE_ENABLE_DEPTHBUF(sdlVoodoo.extra.r_fbzMode))
+		{
+			VOGL_SetDepthMode(1, GL_ALWAYS - GL_NEVER);
+		}
+		else
+		{
+			VOGL_SetDepthMode(0, 0);
+		}
+	}
+	else {
+		if (FBZMODE_ENABLE_ALPHA_PLANES(sdlVoodoo.extra.r_fbzMode) == 0)
+		{
+			if (FBZMODE_ENABLE_DEPTHBUF(sdlVoodoo.extra.r_fbzMode))
+			{
+				VOGL_SetDepthMode(1, FBZMODE_DEPTH_FUNCTION(sdlVoodoo.extra.r_fbzMode));
+			}
+			else
+			{
+				if (FBZMODE_AUX_BUFFER_MASK(sdlVoodoo.extra.r_fbzMode) > 0)
+				{
+					VOGL_SetDepthMode(1, GL_ALWAYS - GL_NEVER);
+				}
+				else
+				{
+					VOGL_SetDepthMode(0, 0);
+				}
+			}
+		}
+		else
+		{
+			VOGL_SetDepthMode(1, GL_ALWAYS - GL_NEVER);
+		}
+	}
+}
+INLINE void DrawTriangle_Color_Masked()
+{
+	bool color_mask = (FBZMODE_RGB_BUFFER_MASK(sdlVoodoo.extra.r_fbzMode) > 0);
+
+	if (FBZMODE_AUX_BUFFER_MASK(sdlVoodoo.extra.r_fbzMode) > 0)
+	{
+		VOGL_SetDepthMaskMode(FBZMODE_ENABLE_ALPHA_PLANES(sdlVoodoo.extra.r_fbzMode) == 0);
+		VOGL_SetColorMaskMode(color_mask, false);
+	}
+	else
+	{
+		VOGL_SetDepthMaskMode(false);
+		VOGL_SetColorMaskMode(color_mask, false);
+	}
+
+	if (ALPHAMODE_ALPHABLEND(sdlVoodoo.extra.AlphaMode))
+	{
+#if defined(C_DEBUG)
+		//	LOG(LOG_FXOGL, LOG_NORMAL)("[%d] DrawTriangle Color Mask: Using AlphaMode %d", __LINE__, AlphaMode);
+#endif		
+		VOGL_SetAlphaMode(1, ogl_sfactor[ALPHAMODE_SRCRGBBLEND(sdlVoodoo.extra.AlphaMode)], ogl_dfactor[ALPHAMODE_DSTRGBBLEND(sdlVoodoo.extra.AlphaMode)],
+			(ALPHAMODE_SRCALPHABLEND(sdlVoodoo.extra.AlphaMode) == 4) ? GL_ONE : GL_ZERO,
+			(ALPHAMODE_DSTALPHABLEND(sdlVoodoo.extra.AlphaMode) == 4) ? GL_ONE : GL_ZERO);
+	}
+	else
+	{
+		VOGL_SetAlphaMode(0, 0, 0, 0, 0);
+	}
+}
+INLINE void DrawTriangle_VertexLoop(ogl_texture_data td[2], ogl_vertex_data vd[3], poly_extra_data* extra)
+{
+	//glBegin(GL_TRIANGLES);
+	VOGL_BeginMode(GL_TRIANGLES);
+
+	for (unsigned int i = 0; i < 3; i++) {
+		glColor4fv(&vd[i].r);
+
+		for (unsigned int t = 0; t < 2; t++)
+			if (td[t].enable)
+			{
+				/* AVP HUD TexID Radar Signal Error
+				#if defined (C_DEBUG)
+				if (td[t].texID == 66)
+					LOG(LOG_FXTEXFORMAT, LOG_NORMAL)("[%d] Texmode [%d] ID: %d VdID=%d", __LINE__, t, td[t].texID, i);
+				#endif
+				*/
+
+				vglMultiTexCoord4fvARB(GL_TEXTURE0_ARB + t, &vd[i].m[t].sw);
+				if (extra->info->shader_ulocations[10u + t] >= 0)
+					glVertexAttrib1fARB(extra->info->shader_ulocations[10 + t], vd[i].m[t].lodblend);
+			}
+
+		if (extra->info->shader_ulocations[9] >= 0)
+			glVertexAttrib1fARB(extra->info->shader_ulocations[9], vd[i].fogblend);
+
+
+		glVertex3fv(&vd[i].x);
+	}
+	//glEnd();
+	VOGL_ClearBeginMode(); VOGL_ClearBeginState();
+}
+INLINE void DrawTriangle_Voodoo_Draw(poly_extra_data *extra) {
+
 
 	voodoo_state *v=extra->state;
 	ogl_texture_data td[2];
 	ogl_vertex_data vd[3];
 
-	VOGL_ClearBeginMode();
+	VOGL_ClearBeginMode(); VOGL_ClearBeginState();
 
 	td[0].enable = false;
 	td[1].enable = false;
 
-	UINT32 ALPHAMODE = extra->r_alphaMode;
-	UINT32 FBZMODE   = extra->r_fbzMode;
-	
+	UINT32 ALPHAMODE = sdlVoodoo.extra.AlphaMode = extra->r_alphaMode;
+	UINT32 FBZMODE = sdlVoodoo.extra.r_fbzMode = extra->r_fbzMode;
 
 	ogl_get_vertex_data(v->fbi.ax, v->fbi.ay, (void*)extra, &vd[0]);
 	ogl_get_vertex_data(v->fbi.bx, v->fbi.by, (void*)extra, &vd[1]);
@@ -1565,11 +1737,7 @@ void voodoo_ogl_draw_triangle(poly_extra_data *extra) {
 
 		VOGL_SetAlphaMode(0, 0,0,0,0);
 
-		if (FBZMODE_DRAW_BUFFER(v->reg[fbzMode].u)==0) {
-			VOGL_SetDrawMode(true);
-		} else {
-			VOGL_SetDrawMode(false);
-		}
+		Select_FBZ_DrawMode(false, 1);
 
 		glEnable(GL_STENCIL_TEST);
 		glClear(GL_STENCIL_BUFFER_BIT);
@@ -1586,67 +1754,50 @@ void voodoo_ogl_draw_triangle(poly_extra_data *extra) {
 			glVertex3f(vd[i].x, vd[i].y, depth);
 
 		//glEnd();
-		VOGL_ClearBeginMode();
+		VOGL_ClearBeginMode(); VOGL_ClearBeginState();
 	}
 
-	
-	
 	ogl_cache_texture(extra,td);
 	ogl_shaders(extra);
-
-	
 	
 	if (extra->texcount > 0) {
-		for (unsigned int t=0; t<2; t++)
-		if ( td[t].enable ) {
-			UINT32 TEXMODE = v->tmu[t].reg[textureMode].u;
-			glActiveTexture(GL_TEXTURE0_ARB+t);
-			glBindTexture (GL_TEXTURE_2D, td[t].texID);
-			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_PRIORITY, 0.0);
+		for (unsigned int t = 0; t < 2; t++)
+		{
+			if (td[t].enable) {
+				UINT32 TEXMODE = v->tmu[t].reg[textureMode].u;
 
-			
-			if (!extra->info->shader_ready) {
-				glEnable (GL_TEXTURE_2D);
-				// TODO proper fixed-pipeline combiners
-				glTexEnvi (GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-			} else {
-				if (extra->info->shader_ulocations[6+t] >= 0){
-					glUniform1iARB(extra->info->shader_ulocations[6+t],(GLint)t);
+				#if defined (C_DEBUG)
+				/* AVP Hud Radar Signal MisMatch TEXMODE == 136582406 ID 66 */
+					LOG(LOG_FXTEXFORMAT, LOG_NORMAL)("[%d] Texmode Format: %d ID=%d", __LINE__, TEXMODE, td[t].texID);				
+				#endif
+
+				glActiveTexture(GL_TEXTURE0_ARB + t);
+				glBindTexture(GL_TEXTURE_2D, td[t].texID);
+				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_PRIORITY, 0.0);
+
+
+				if (!extra->info->shader_ready) {
+					glEnable(GL_TEXTURE_2D);
+					// TODO proper fixed-pipeline combiners
+					glTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 				}
-			}			
+				else {
+					if (extra->info->shader_ulocations[6 + t] >= 0) {
+						glUniform1iARB(extra->info->shader_ulocations[6 + t], (GLint)t);
+					}
+				}
 
-			/* Setting the Right Wrappping Texture Coord. *//////////////////////////////////////////////////////////////////////////////////////
-			switch(TEXMODE_CLAMP_S(TEXMODE))
-				{						
-					case 0:
-					{
-						// 1943659767 = Fix for F1'97, Need GL_CLAMP_TO_EDGE
-						if (TEXMODE==-1943659767){
-							sdlVoodoo.opengl.gl_wrap_s = GL_CLAMP_TO_EDGE;
-						} else {
-						    sdlVoodoo.opengl.gl_wrap_s = GL_REPEAT;	
-						}
-					}
-					break;
-					case 1:
-					{
-						sdlVoodoo.opengl.gl_wrap_t = GL_REPEAT;
-					}
-					break;
-					default:
-						sdlVoodoo.opengl.gl_wrap_s = GL_REPEAT;	
-						//LOG_MSG("TEXMODE_CLAMP_S(TEXMODE) %d - , Using: %d, TEXMODE=%d",TEXMODE_CLAMP_S(TEXMODE),sdlVoodoo.opengl.gl_wrap_s,TEXMODE);		
-				}					
-					
-			/* Setting the Right Wrappping Texture Coord. *//////////////////////////////////////////////////////////////////////////////////////					
-			switch(TEXMODE_CLAMP_T(TEXMODE))
-			{						
+				/* Setting the Right Wrappping Texture Coord. *//////////////////////////////////////////////////////////////////////////////////////
+				switch (TEXMODE_CLAMP_S(TEXMODE))
+				{
 				case 0:
 				{
-					if (TEXMODE==-1943659767){
-						sdlVoodoo.opengl.gl_wrap_t = GL_CLAMP_TO_EDGE;
-					} else {
-					    sdlVoodoo.opengl.gl_wrap_t = GL_REPEAT;	
+					// 1943659767 = Fix for F1'97, Need GL_CLAMP_TO_EDGE
+					if (TEXMODE == -1943659767) {
+						sdlVoodoo.opengl.gl_wrap_s = GL_CLAMP_TO_EDGE;
+					}
+					else {
+						sdlVoodoo.opengl.gl_wrap_s = GL_REPEAT;
 					}
 				}
 				break;
@@ -1656,93 +1807,117 @@ void voodoo_ogl_draw_triangle(poly_extra_data *extra) {
 				}
 				break;
 				default:
-					sdlVoodoo.opengl.gl_wrap_s = GL_REPEAT;	
-				//LOG_MSG("TEXMODE_CLAMP_S(TEXMODE) %d - , Using: %d, TEXMODE=%d",TEXMODE_CLAMP_S(TEXMODE),sdlVoodoo.opengl.gl_wrap_s,TEXMODE);		
+					sdlVoodoo.opengl.gl_wrap_s = GL_REPEAT;
+					//LOG_MSG("TEXMODE_CLAMP_S(TEXMODE) %d - , Using: %d, TEXMODE=%d",TEXMODE_CLAMP_S(TEXMODE),sdlVoodoo.opengl.gl_wrap_s,TEXMODE);		
 				}
-					
-			switch(sdlVoodoo.opengl.GL_filtering){
-				
+
+				/* Setting the Right Wrappping Texture Coord. *//////////////////////////////////////////////////////////////////////////////////////					
+				switch (TEXMODE_CLAMP_T(TEXMODE))
+				{
+				case 0:
+				{
+					if (TEXMODE == -1943659767) {
+						sdlVoodoo.opengl.gl_wrap_t = GL_CLAMP_TO_EDGE;
+					}
+					else {
+						sdlVoodoo.opengl.gl_wrap_t = GL_REPEAT;
+					}
+				}
+				break;
+				case 1:
+				{
+					sdlVoodoo.opengl.gl_wrap_t = GL_REPEAT;
+				}
+				break;
+				default:
+					sdlVoodoo.opengl.gl_wrap_s = GL_REPEAT;
+					//LOG_MSG("TEXMODE_CLAMP_S(TEXMODE) %d - , Using: %d, TEXMODE=%d",TEXMODE_CLAMP_S(TEXMODE),sdlVoodoo.opengl.gl_wrap_s,TEXMODE);		
+				}
+
+				switch (sdlVoodoo.opengl.GL_filtering) {
+
 				case 1:
 					/* Point     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-					glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_ANISOTROPY_EXT,1);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 1);
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);						
-					glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,sdlVoodoo.opengl.gl_wrap_s);
-					glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,sdlVoodoo.opengl.gl_wrap_t);		
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, sdlVoodoo.opengl.gl_wrap_s);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, sdlVoodoo.opengl.gl_wrap_t);
 					break;
-					
+
 				case 2:
 					// /* bilinear  /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-					glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_ANISOTROPY_EXT,1);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 1);
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-					glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,sdlVoodoo.opengl.gl_wrap_s);
-					glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,sdlVoodoo.opengl.gl_wrap_t);					
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, sdlVoodoo.opengl.gl_wrap_s);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, sdlVoodoo.opengl.gl_wrap_t);
 					// glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,TEXMODE_CLAMP_S(TEXMODE)?GL_CLAMP_TO_EDGE:sdlVoodoo.opengl.gl_wrap_s);
 					// glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,TEXMODE_CLAMP_T(TEXMODE)?GL_CLAMP_TO_EDGE:sdlVoodoo.opengl.gl_wrap_t);					
 					break;
-					
+
 				case 3:
-						// /* Original Settings *
-						// /* Trilinear /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/					
-						glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_ANISOTROPY_EXT,1);
-						minFilter = (int)GL_NEAREST + (int)TEXMODE_MINIFICATION_FILTER(TEXMODE);
-						if (v->tmu[t].lodmin != v->tmu[t].lodmax)
-							minFilter += 0x0100 + (int)TEXMODE_TRILINEAR(TEXMODE) * 2;
-						glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,minFilter);
-						glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,(int)GL_NEAREST+(int)TEXMODE_MAGNIFICATION_FILTER(TEXMODE));
-						glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,sdlVoodoo.opengl.gl_wrap_s);
-						glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,sdlVoodoo.opengl.gl_wrap_t);						
-						// glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,TEXMODE_CLAMP_S(TEXMODE)?GL_CLAMP_TO_EDGE:sdlVoodoo.opengl.gl_wrap_s);
-						// glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,TEXMODE_CLAMP_T(TEXMODE)?GL_CLAMP_TO_EDGE:sdlVoodoo.opengl.gl_wrap_t);					
-						break;	
-					
-				case 4:					
-					// /*  Anisotropic //////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-						minFilter = (int)GL_NEAREST + (int)TEXMODE_MINIFICATION_FILTER(TEXMODE);
-						if (v->tmu[t].lodmin != v->tmu[t].lodmax){					
-							minFilter += 0x0100 + (int)TEXMODE_TRILINEAR(TEXMODE) * 2;
-						}					
-						glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,minFilter);
-						glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,(int)GL_NEAREST+(int)TEXMODE_MAGNIFICATION_FILTER(TEXMODE));
-							
-						// glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,TEXMODE_CLAMP_S(TEXMODE)?GL_CLAMP_TO_EDGE:sdlVoodoo.opengl.gl_wrap_s);
-						// glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,TEXMODE_CLAMP_T(TEXMODE)?GL_CLAMP_TO_EDGE:sdlVoodoo.opengl.gl_wrap_t);					
-						glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,sdlVoodoo.opengl.gl_wrap_s);
-						glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,sdlVoodoo.opengl.gl_wrap_t);						
-						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
-						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_ALWAYS);																												
+					// /* Original Settings *
+					// /* Trilinear /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/					
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 1);
+					minFilter = (int)GL_NEAREST + (int)TEXMODE_MINIFICATION_FILTER(TEXMODE);
+					if (v->tmu[t].lodmin != v->tmu[t].lodmax)
+						minFilter += 0x0100 + (int)TEXMODE_TRILINEAR(TEXMODE) * 2;
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (int)GL_NEAREST + (int)TEXMODE_MAGNIFICATION_FILTER(TEXMODE));
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, sdlVoodoo.opengl.gl_wrap_s);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, sdlVoodoo.opengl.gl_wrap_t);
+					// glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,TEXMODE_CLAMP_S(TEXMODE)?GL_CLAMP_TO_EDGE:sdlVoodoo.opengl.gl_wrap_s);
+					// glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,TEXMODE_CLAMP_T(TEXMODE)?GL_CLAMP_TO_EDGE:sdlVoodoo.opengl.gl_wrap_t);					
 					break;
-					
-				case 5:					
+
+				case 4:
+					// /*  Anisotropic //////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+					minFilter = (int)GL_NEAREST + (int)TEXMODE_MINIFICATION_FILTER(TEXMODE);
+					if (v->tmu[t].lodmin != v->tmu[t].lodmax) {
+						minFilter += 0x0100 + (int)TEXMODE_TRILINEAR(TEXMODE) * 2;
+					}
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (int)GL_NEAREST + (int)TEXMODE_MAGNIFICATION_FILTER(TEXMODE));
+
+					// glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,TEXMODE_CLAMP_S(TEXMODE)?GL_CLAMP_TO_EDGE:sdlVoodoo.opengl.gl_wrap_s);
+					// glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,TEXMODE_CLAMP_T(TEXMODE)?GL_CLAMP_TO_EDGE:sdlVoodoo.opengl.gl_wrap_t);					
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, sdlVoodoo.opengl.gl_wrap_s);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, sdlVoodoo.opengl.gl_wrap_t);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_ALWAYS);
+					break;
+
+				case 5:
 					// /*  TestMode //////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-						glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAX_ANISOTROPY_EXT,1);
-						
-						minFilter = (int)GL_NEAREST + (int)TEXMODE_MINIFICATION_FILTER(TEXMODE);
-						if (v->tmu[t].lodmin != v->tmu[t].lodmax){					
-							minFilter += 0x0100 + (int)TEXMODE_TRILINEAR(TEXMODE) * 2;
-						}	
-						/*
-						if (v->tmu[t].lodmin != v->tmu[t].lodmax){
-							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, v->tmu[t].lodmin);
-							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, v->tmu[t].lodmax);						
-						}
-						*/
-							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR+(int)TEXMODE_MAGNIFICATION_FILTER(TEXMODE));
-							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
-							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-							
-						// glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,TEXMODE_CLAMP_S(TEXMODE)?GL_CLAMP_TO_EDGE:sdlVoodoo.opengl.gl_wrap_s);
-						// glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,TEXMODE_CLAMP_T(TEXMODE)?GL_CLAMP_TO_EDGE:sdlVoodoo.opengl.gl_wrap_t);
-						//glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,sdlVoodoo.opengl.gl_wrap_s);
-						//glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,sdlVoodoo.opengl.gl_wrap_t);
-							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
-							glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_ALWAYS);				
-					break;					
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 1);
+
+					minFilter = (int)GL_NEAREST + (int)TEXMODE_MINIFICATION_FILTER(TEXMODE);
+					if (v->tmu[t].lodmin != v->tmu[t].lodmax) {
+						minFilter += 0x0100 + (int)TEXMODE_TRILINEAR(TEXMODE) * 2;
+					}
+					/*
+					if (v->tmu[t].lodmin != v->tmu[t].lodmax){
+						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, v->tmu[t].lodmin);
+						glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, v->tmu[t].lodmax);
+					}
+					*/
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR + (int)TEXMODE_MAGNIFICATION_FILTER(TEXMODE));
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+					// glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,TEXMODE_CLAMP_S(TEXMODE)?GL_CLAMP_TO_EDGE:sdlVoodoo.opengl.gl_wrap_s);
+					// glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,TEXMODE_CLAMP_T(TEXMODE)?GL_CLAMP_TO_EDGE:sdlVoodoo.opengl.gl_wrap_t);
+					//glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,sdlVoodoo.opengl.gl_wrap_s);
+					//glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,sdlVoodoo.opengl.gl_wrap_t);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_ALWAYS);
+					break;
 				case 0:
-				default:			
-					break;												
+				default:
+					break;
+				}
 			}
 		}
 	}
@@ -1771,54 +1946,12 @@ void voodoo_ogl_draw_triangle(poly_extra_data *extra) {
 		}
 	}
 
-	bool color_mask = (FBZMODE_RGB_BUFFER_MASK(FBZMODE) > 0);
+	DrawTriangle_StencilCheck();
+	DrawTriangle_Color_Masked();
 
-	if (FBZMODE_AUX_BUFFER_MASK(FBZMODE) > 0) {
-		VOGL_SetDepthMaskMode(FBZMODE_ENABLE_ALPHA_PLANES(FBZMODE) == 0);
-		VOGL_SetColorMaskMode(color_mask, true);
-	} else {
-		VOGL_SetDepthMaskMode(false);
-		VOGL_SetColorMaskMode(color_mask, false);
-	}
+	Select_FBZ_DrawMode(true, 1);
 
-	if (ALPHAMODE_ALPHABLEND(ALPHAMODE)) {
-		VOGL_SetAlphaMode(1, ogl_sfactor[ALPHAMODE_SRCRGBBLEND(ALPHAMODE)], ogl_dfactor[ALPHAMODE_DSTRGBBLEND(ALPHAMODE)],
-			(ALPHAMODE_SRCALPHABLEND(ALPHAMODE)==4)?GL_ONE:GL_ZERO,
-			(ALPHAMODE_DSTALPHABLEND(ALPHAMODE)==4)?GL_ONE:GL_ZERO);
-	} else {
-		VOGL_SetAlphaMode(0, 0,0,0,0);
-	}
-
-	if (FBZMODE_DRAW_BUFFER(v->reg[fbzMode].u)==0) {
-		VOGL_SetDrawMode(true);
-		v->fbi.vblank_flush_pending=true;
-		cached_line_front_y=-1;
-	} else {
-		VOGL_SetDrawMode(false);
-		cached_line_back_y=-1;
-		
-	}
-	//glBegin(GL_TRIANGLES);
-	VOGL_BeginMode(GL_TRIANGLES);
-
-	for (unsigned int i=0;i<3;i++) {
-		glColor4fv(&vd[i].r);
-
-		for (unsigned int t=0;t<2;t++)
-			if (td[t].enable) {
-				vglMultiTexCoord4fvARB(GL_TEXTURE0_ARB+t,&vd[i].m[t].sw);
-				if (extra->info->shader_ulocations[10u+t] >= 0)
-					glVertexAttrib1fARB(extra->info->shader_ulocations[10+t],vd[i].m[t].lodblend);
-			}
-
-		if (extra->info->shader_ulocations[9] >= 0)
-			glVertexAttrib1fARB(extra->info->shader_ulocations[9],vd[i].fogblend);
-
-		glVertex3fv(&vd[i].x);
-	}
-
-	//glEnd();
-	VOGL_ClearBeginMode();
+	DrawTriangle_VertexLoop(td, vd, extra);
 
 	if (FBZMODE_DEPTH_SOURCE_COMPARE(FBZMODE) && VOGL_CheckFeature(VOGL_HAS_STENCIL_BUFFER)) {
 		glDisable(GL_STENCIL_TEST);
@@ -1828,28 +1961,35 @@ void voodoo_ogl_draw_triangle(poly_extra_data *extra) {
 		glDisable (GL_TEXTURE_2D);
 	}
 	glBindTexture(GL_TEXTURE_2D, 0); // Unbind the texture to avoid accidental editing of texture elsewhere
+
 }
-
-
+void voodoo_ogl_draw_triangle(poly_extra_data* extra)
+{
+	DrawTriangle_Voodoo_Draw(extra);
+}
+/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 void voodoo_ogl_swap_buffer() {
 	//if (GFX_LazyFullscreenRequested()) {
 	//	v->ogl_dimchange = true;
 	//}
-	VOGL_ClearBeginMode();
+	VOGL_ClearBeginMode(); VOGL_ClearBeginState();
 
 	SDL_GL_SwapWindow(sdlVoodoo.surface);
 
 	cached_line_front_y=-1;
-	cached_line_back_y=-1;
-	
+	cached_line_back_y=-1;	
+
+	Cache.Line.Frnt.Y = -1;
+	Cache.Line.Back.Y = -1;
 }
 
-
+/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 void voodoo_ogl_texture_clear(UINT32 texbase, int TMU) {
 	std::map<const UINT32, ogl_texmap>::iterator t;
+
 	t=textures[TMU].find(texbase);
 	if (t != textures[TMU].end()) {
-		VOGL_ClearBeginMode();
+		VOGL_ClearBeginMode(); VOGL_ClearBeginState();
 		if (t->second.ids != NULL) {
 			std::map<const UINT32, GLuint>::iterator u;
 			for (u=t->second.ids->begin(); u!=t->second.ids->end(); u++) {
@@ -1863,91 +2003,260 @@ void voodoo_ogl_texture_clear(UINT32 texbase, int TMU) {
 		glDeleteTextures(1, (GLuint*)&t->second.current_id);   // add this line here!!!	, From Kekko, Great	
 		textures[TMU].erase(t);		
 	}
-	
+}
+
+INLINE GLubyte Generate_Color(GLubyte k, GLubyte Dark, bool plus=false)
+{
+	GLubyte c = (GLubyte)(k & 0xff);
+
+	//LOG(LOG_FXOGL, LOG_NORMAL)("Eingang Color %d", c);
+
+	int color = c;
+
+	if (plus == false)
+	{
+		if (color != 0)
+		{
+			color = color - Dark;
+
+			if (color < 0)
+				color = 0;
+		}
+	}
+	else
+	{
+		if (color != 255)
+		{
+			color = color + Dark;
+
+			if (color > 255)
+				color = 255;
+		}
+	}
+	//LOG(LOG_FXOGL, LOG_NORMAL)("Ausgang Color %d\n", color);
+	return (GLubyte)color;
+}
+INLINE float Draw_Pixel_GetPointSize(int w, int h, float x, float y)
+{
+
+	switch (w)
+	{
+		case 512:
+		case 640:
+		{			
+				return 0.0f;
+		}
+		break;
+		case 800:
+		case 885:
+		case 960:
+		case 1024:
+		case 1066:
+		case 1152:
+		case 1280:
+		case 1440:
+		{
+			if ((h == 1024) || (h == 1080))
+				return 3.0f;
+			else 
+				return 1.5f;
+		}
+		break;
+		case 1200:
+			return 1.5;
+
+	}
+
+	#if defined(C_DEBUG)
+	//LOG(LOG_FXOGL, LOG_NORMAL)("Draw Pixel GetPointSize %f", c);
+	#endif
+	return  3.0f;
+
 }
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-void voodoo_ogl_draw_pixel(int x, int y, bool has_rgb, bool has_alpha, int r, int g, int b, int a) {
-	//LOG(LOG_VOODOO,LOG_WARN)("[x %d, y %d]",x,y,__FILE__,__LINE__);
-	GLfloat x2, y2;
-	
+INLINE void Draw_Pixel(int x, int y, bool has_rgb, bool has_alpha, int r, int g, int b, int a) {
+
+
 	if (m_hProgramObject != 0) {
 		glUseProgramObjectARB(0);
 		m_hProgramObject = 0;
 	}
 
-	if (LFBMODE_WRITE_BUFFER_SELECT(v->reg[lfbMode].u)==0) {
-					
-		VOGL_SetDrawMode(true);
-			v->fbi.vblank_flush_pending=true;			
-	} else {
-		VOGL_SetDrawMode(false);
+	int w = 0;
+	int h = 0;
+	if (sdlVoodoo.fullscreen)
+	{
+		w = sdlVoodoo.pciFSW;
+		h = sdlVoodoo.pciFSH;
 	}
+	else {
+		w = sdlVoodoo.pciW;
+		h = sdlVoodoo.pciH;
+	}
+
+	Select_FBZ_DrawMode(false, 2);
 
 	VOGL_SetDepthMode(0,0);
-
 	VOGL_SetDepthMaskMode(false);
 	VOGL_SetColorMaskMode(has_rgb, has_alpha);
-
 	VOGL_SetAlphaMode(0, 0,0,0,0);
 
-	x2 = (GLfloat) x; + 0.5;
-	y2 = (GLfloat) y; + 0.5;	
+	GLubyte cr = (GLubyte)(r & 0xff);
+	GLubyte cg = (GLubyte)(g & 0xff);
+	GLubyte cb = (GLubyte)(b & 0xff);
+	GLubyte ca = (GLubyte)(a & 0xff);
 
-	if ( sdlVoodoo.opengl.gl_QuadsDraw == true ){
+	GLfloat xp = (GLfloat)x;
+	GLfloat yp = (GLfloat)y;
+	GLfloat va = 1.0f;
 
-			VOGL_BeginMode(GL_QUADS);
-		{					
-			glColor4ub(r,g,b,a);
-			glVertex2f(x2     , y2);
-			glVertex2f(x2 + 1 , y2);
-			glVertex2f(x2 + 1 , y2 + 1);
-			glVertex2f(x2     , y2 + 1);		
+	if (sdlVoodoo.opengl.Bright > 0)
+	{
+		GLubyte acu = (GLubyte)sdlVoodoo.opengl.Bright;
+		cr = Generate_Color(r, acu);
+		cg = Generate_Color(g, acu);
+		cb = Generate_Color(b, acu);
+	}
+
+	if (sdlVoodoo.opengl.gl_QuadsDraw == true) {
+
+		VOGL_BeginMode(GL_QUADS);
+		{
+
+			/*glColor4ub((GLubyte)(r & 0xff), (GLubyte)(g & 0xff), (GLubyte)(b & 0xff), (GLubyte)(a & 0xff));*/
+
+			float VerticesA[]{xp		, yp		};/* Top Right Corner		----#	*/
+			float VerticesB[]{xp + va	, yp		};/* top Left Corner		#----	*/
+			float VerticesC[]{xp + va	, yp - va	};/* Bottom Left Corner		----#	*/
+			float VerticesD[]{xp		, yp - va	};/* Bottom Right Corner	#----	*/
+
+			if (sdlVoodoo.opengl.ScanMode == 0)
+			{
+				glColor4ub(cr, cg, cb, ca);
+				glVertex2fv(VerticesA);
+				glVertex2fv(VerticesB);
+				glVertex2fv(VerticesC);
+				glVertex2fv(VerticesD);
+			}
+			else if (sdlVoodoo.opengl.ScanMode == 1)
+			{
+				/* Scanline Horizontal 1*/
+				glColor4ub(0, 0, 0, ca);
+				glVertex2fv(VerticesA);
+				glColor4ub(cr, cg, cb, ca);
+				glVertex2fv(VerticesB);
+				glVertex2fv(VerticesC);
+				glColor4ub(0, 0, 0, ca);
+				glVertex2fv(VerticesD);
+
+			}
+			//else if (sdlVoodoo.opengl.ScanMode == 2)
+			//{
+			//	/* Scanline Horizontal 2*/
+			//	glColor4ub(cr, cg, cb, ca);
+			//	glVertex2fv(VerticesA);
+			//	glColor4ub(0, 0, 0, ca);
+			//	glVertex2fv(VerticesB);										
+			//	glVertex2fv(VerticesC);
+			//	glColor4ub(cr, cg, cb, ca);
+			//	glVertex2fv(VerticesD);
+			//}
+			else if (sdlVoodoo.opengl.ScanMode == 2)
+			{
+				glColor4ub(cr, cg, cb, ca);
+				glVertex2fv(VerticesA);
+				glVertex2fv(VerticesB);
+				glColor4ub(0, 0, 0, ca);
+				glVertex2fv(VerticesC);
+				glVertex2fv(VerticesD);
+			}
 		}
-		
-	}else{
+	}
+	else {
+		/* GL_PONTS*/
+		/* glPointSize(Draw_Pixel_GetPointSize(w, h, x, y));*/
+		float vertices[]{xp, yp};
+		glColor4ub(cr, cg, cb, ca);
 		VOGL_BeginMode(GL_POINTS);
-		{	
-			glColor4ub((GLubyte)(r&0xff), (GLubyte)(g&0xff), (GLubyte)(b&0xff), (GLubyte)(a&0xff));
-			glVertex2f(x2, y2);
-		}		
-		
-	}	
-	
-}
+		{
+			glVertex2fv(vertices);
+		}
+	}
 
-void voodoo_ogl_draw_z(int x, int y, int z) {
-	//LOG(LOG_VOODOO,LOG_WARN)("[x %d, y %d]",x,y,__FILE__,__LINE__);
-	VOGL_ClearBeginMode();
+}
+void voodoo_ogl_draw_pixel(int x, int y, bool has_rgb, bool has_alpha, int r, int g, int b, int a)
+{
+	Draw_Pixel(x, y, has_rgb, has_alpha, r, g, b, a);
+}
+/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+INLINE void Draw_Z(int x, int y, int z) {
+	VOGL_ClearBeginMode(); VOGL_ClearBeginState();
 
 	if (m_hProgramObject != 0) {
 		glUseProgramObjectARB(0);
 		m_hProgramObject = 0;
 	}
 
-	if (LFBMODE_WRITE_BUFFER_SELECT(v->reg[lfbMode].u)==0) {
-		VOGL_SetDrawMode(true);
-		v->fbi.vblank_flush_pending=true;
-	} else {
-		VOGL_SetDrawMode(false);
+	int w = 0;
+	int h = 0;
+	if (sdlVoodoo.fullscreen) {
+		w = sdlVoodoo.pciFSW;
+		h = sdlVoodoo.pciFSH;
 	}
+	else {
+		w = sdlVoodoo.pciW;
+		h = sdlVoodoo.pciH;
+	}
+
+	Select_FBZ_DrawMode(false, 2);
 
 	VOGL_SetDepthMode(1,GL_ALWAYS-GL_NEVER);
-
 	VOGL_SetDepthMaskMode(true);
 	VOGL_SetColorMaskMode(false, false);
-
 	VOGL_SetAlphaMode(0, 0,0,0,0);
 
-	VOGL_BeginMode(GL_POINTS);
-	{
-		glVertex3i(x, y, z);	// z adjustment??
-	}
-	
-}
 
-void voodoo_ogl_draw_pixel_pipeline(int x, int y, int r, int g, int b) {
-	VOGL_ClearBeginMode();
-	GLfloat x2, y2;
+	GLfloat xp = (GLfloat)x;
+	GLfloat yp = (GLfloat)y;
+	GLfloat zp = (GLfloat)z;
+	GLfloat va = 1.0f;
+
+	if (sdlVoodoo.opengl.gl_QuadsDraw == true) {
+
+		float VerticesA[]{ xp		, yp	 ,	zp };
+		float VerticesB[]{ xp + va	, yp	 ,	zp };
+		float VerticesC[]{ xp + va	, yp - va,	zp };
+		float VerticesD[]{ xp		, yp - va,	zp };
+
+		VOGL_BeginMode(GL_QUADS);
+		{
+			glVertex3fv(VerticesA);
+			glVertex3fv(VerticesB);
+			glVertex3fv(VerticesC);
+			glVertex3fv(VerticesD);
+		}
+	}
+	else
+	{
+		/* glPointSize(Draw_Pixel_GetPointSize(w, h, x, y));*/
+		float vertices[]
+		{
+			xp	, yp	,zp
+		};
+		VOGL_BeginMode(GL_POINTS);
+		{
+			//glVertex3f(x, y, z);	// z adjustment??
+			glVertex3fv(vertices);
+		}
+	}
+}
+void voodoo_ogl_draw_z(int x, int y, int z)
+{
+	Draw_Z(x, y, z);
+}
+/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+INLINE void Draw_Pixel_Pipeline(int x, int y, int r, int g, int b) {
+	VOGL_ClearBeginMode(); VOGL_ClearBeginState();
 
 	// TODO redo everything //
 	if (m_hProgramObject != 0) {
@@ -1955,166 +2264,399 @@ void voodoo_ogl_draw_pixel_pipeline(int x, int y, int r, int g, int b) {
 		m_hProgramObject = 0;
 	}
 
-	if (LFBMODE_WRITE_BUFFER_SELECT(v->reg[lfbMode].u)==0) {
-		VOGL_SetDrawMode(true);
-		v->fbi.vblank_flush_pending=true;
-	} else {
-		VOGL_SetDrawMode(false);
+	int w = 0;
+	int h = 0;
+	if (sdlVoodoo.fullscreen) {
+		w = sdlVoodoo.pciFSW;
+		h = sdlVoodoo.pciFSH;
 	}
+	else {
+		w = sdlVoodoo.pciW;
+		h = sdlVoodoo.pciH;
+	}
+
+	Select_FBZ_DrawMode(false, 2);
 
 	VOGL_SetDepthMode(0,0);
-
 	VOGL_SetDepthMaskMode(false);
-	if (FBZMODE_AUX_BUFFER_MASK(v->reg[fbzMode].u) > 0) {
+
+	if (FBZMODE_AUX_BUFFER_MASK(v->reg[fbzMode].u) > 0)
 		VOGL_SetColorMaskMode(true, true);
-	} else {
-		VOGL_SetColorMaskMode(true, false);
-	}
+	else
+		VOGL_SetColorMaskMode(true, false);	
 
-	if (ALPHAMODE_ALPHABLEND(v->reg[alphaMode].u)) {
-		VOGL_SetAlphaMode(1, ogl_sfactor[ALPHAMODE_SRCRGBBLEND(v->reg[alphaMode].u)], ogl_dfactor[ALPHAMODE_DSTRGBBLEND(v->reg[alphaMode].u)],
-			(ALPHAMODE_SRCALPHABLEND(v->reg[alphaMode].u)==4)?GL_ONE:GL_ZERO,
-			(ALPHAMODE_DSTALPHABLEND(v->reg[alphaMode].u)==4)?GL_ONE:GL_ZERO);
-	} else {
+
+	if (ALPHAMODE_ALPHABLEND(v->reg[alphaMode].u))
+	{
+		VOGL_SetAlphaMode(1, ogl_sfactor[ALPHAMODE_SRCRGBBLEND(v->reg[alphaMode].u)], 
+						     ogl_dfactor[ALPHAMODE_DSTRGBBLEND(v->reg[alphaMode].u)],
+							 (ALPHAMODE_SRCALPHABLEND(v->reg[alphaMode].u)==4)?GL_ONE:GL_ZERO,
+							 (ALPHAMODE_DSTALPHABLEND(v->reg[alphaMode].u)==4)?GL_ONE:GL_ZERO);
+	}
+	else
 		VOGL_SetAlphaMode(0, 0,0,0,0);
+
+	GLubyte cr = (GLubyte)(r & 0xff);
+	GLubyte cg = (GLubyte)(g & 0xff);
+	GLubyte cb = (GLubyte)(b & 0xff);
+
+	GLfloat xp = (GLfloat)x;
+	GLfloat yp = (GLfloat)y;
+	GLfloat va = 1.0f;
+
+	if (sdlVoodoo.opengl.Bright > 0)
+	{
+		GLubyte acu = (GLubyte)sdlVoodoo.opengl.Bright;
+		cr = Generate_Color(r, acu);
+		cg = Generate_Color(g, acu);
+		cb = Generate_Color(b, acu);
 	}
 
-	x2 = (GLfloat) x + 0.5;
-	y2 = (GLfloat) y + 0.5;						
-	
-	if ( sdlVoodoo.opengl.gl_QuadsDraw == true ){
+	if (sdlVoodoo.opengl.gl_QuadsDraw == true) {
 
-			VOGL_BeginMode(GL_QUADS);
-		{					
-			glColor4ub(r,g,b,0xff);
-			glVertex2f(x2     , y2);
-			glVertex2f(x2 + 1 , y2);
-			glVertex2f(x2 + 1 , y2 + 1);
-			glVertex2f(x2     , y2 + 1);		
+		VOGL_BeginMode(GL_QUADS);
+		{
+
+			/*glColor4ub((GLubyte)(r & 0xff), (GLubyte)(g & 0xff), (GLubyte)(b & 0xff), (GLubyte)(a & 0xff));*/
+
+			float VerticesA[]{ xp		, yp };/* Top Right Corner		----#	*/
+			float VerticesB[]{ xp + va	, yp };/* top Left Corner		#----	*/
+			float VerticesC[]{ xp + va	, yp - va };/* Bottom Left Corner		----#	*/
+			float VerticesD[]{ xp		, yp - va };/* Bottom Right Corner	#----	*/
+
+			if (sdlVoodoo.opengl.ScanMode == 0)
+			{
+				glColor3ub(cr, cg, cb);
+				glVertex2fv(VerticesA);
+				glVertex2fv(VerticesB);
+				glVertex2fv(VerticesC);
+				glVertex2fv(VerticesD);
+			}
+			else if (sdlVoodoo.opengl.ScanMode == 1)
+			{
+				/* Scanline Horizontal 1*/
+				glColor3ub(0, 0, 0);
+				glVertex2fv(VerticesA);
+				glColor3ub(cr, cg, cb);
+				glVertex2fv(VerticesB);
+				glVertex2fv(VerticesC);
+				glColor3ub(0, 0, 0);
+				glVertex2fv(VerticesD);
+
+			}
+			//else if (sdlVoodoo.opengl.ScanMode == 2)
+			//{
+			//	/* Scanline Horizontal 2*/
+			//	glColor3ub(cr, cg, cb);
+			//	glVertex2fv(VerticesA);
+			//	glColor3ub(0, 0, 0);
+			//	glVertex2fv(VerticesB);
+			//	glVertex2fv(VerticesC);
+			//	glColor3ub(cr, cg, cb);
+			//	glVertex2fv(VerticesD);
+			//}
+			else if (sdlVoodoo.opengl.ScanMode == 2)
+			{
+				glColor3ub(cr, cg, cb);
+				glVertex2fv(VerticesA);
+				glVertex2fv(VerticesB);
+				glColor3ub(0, 0, 0);
+				glVertex2fv(VerticesC);
+				glVertex2fv(VerticesD);
+			}
 		}
-		
-	}else{
-		VOGL_BeginMode(GL_POINTS);
-		{	
-			glColor3ub((GLubyte)(r&0xff), (GLubyte)(g&0xff), (GLubyte)(b&0xff));
-			glVertex2f(x2, y2);
-		}		
-		
 	}
-	
-}
+	else {
+		float vertices[]
+		{
+			xp, yp
+		};
+		glColor3ub(cr, cg, cb);
+		VOGL_BeginMode(GL_POINTS);
+		{
+			glVertex2fv(vertices);
+		}
+	}
 
+}
+void voodoo_ogl_draw_pixel_pipeline(int x, int y, int r, int g, int b)
+{
+	Draw_Pixel_Pipeline(x, y, r, g, b);
+}
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 void voodoo_ogl_clip_window(voodoo_state *v) {	
     (void)v;//UNUSED
 }
 
-/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-void voodoo_ogl_fastfill(void) {
-	
+void voodoo_ogl_fastfill_old(void) {
 	VOGL_ClearBeginMode();
 	VOGL_SetDepthMaskMode(true);
 
 	int w = 0;
-	int h = 0;	
+	int h = 0;
 	int sx = (v->reg[clipLeftRight].u >> 16) & 0x3ff;
 	int ex = (v->reg[clipLeftRight].u >> 0) & 0x3ff;
 	int sy = (v->reg[clipLowYHighY].u >> 16) & 0x3ff;
 	int ey = (v->reg[clipLowYHighY].u >> 0) & 0x3ff;
-	
-	if (sdlVoodoo.fullscreen){	
+
+	if (sdlVoodoo.fullscreen) {
 		int w = sdlVoodoo.pciFSW;
-		int h = sdlVoodoo.pciFSH;			
-			
-	} else {		
+		int h = sdlVoodoo.pciFSH;
+
+	}
+	else {
 		int w = sdlVoodoo.pciW;
-		int h = sdlVoodoo.pciH;					
+		int h = sdlVoodoo.pciH;
 	}
-	 
+
 	// if (FBZMODE_Y_ORIGIN(v->reg[fbzMode].u))
-	{		
-		int tmp = ((int)v->fbi.yorigin+1 - ey) & 0x3ff;
-		
-		if (sdlVoodoo.opengl.a_ClipLowYHigh){ 
-			tmp = ((int)v->fbi.yorigin+1 - h) & 0x3ff;		
+	{
+		int tmp = ((int)v->fbi.yorigin + 1 - ey) & 0x3ff;
+
+		if (sdlVoodoo.opengl.a_ClipLowYHigh) {
+			tmp = ((int)v->fbi.yorigin + 1 - h) & 0x3ff;
 		}
-		
-		ey  = ((int)v->fbi.yorigin+1 - sy) & 0x3ff;
-		sy  = tmp+sdlVoodoo.opengl.n_ClipLowYHigh;		
+
+		ey = ((int)v->fbi.yorigin + 1 - sy) & 0x3ff;
+		sy = tmp + sdlVoodoo.opengl.n_ClipLowYHigh;
 	}
-	
+
 	bool scissors_needed = sdlVoodoo.opengl.glScissor_flag;
 	if ((sx == 0) && (sy == 0)) {
-		
-		if (sdlVoodoo.opengl.a_ClipLowYHigh){ 
+
+		if (sdlVoodoo.opengl.a_ClipLowYHigh) {
 			if (((Bitu)ex == (Bitu)v->fbi.width) && ((Bitu)ey == (Bitu)h)) scissors_needed = false;
-		}else{
+		}
+		else {
 			if (((Bitu)ex == (Bitu)v->fbi.width) && ((Bitu)ey == (Bitu)v->fbi.height)) scissors_needed = false;
-		}	
+		}
+	}
+
+	if (scissors_needed) {
+		glEnable(GL_SCISSOR_TEST);
+
+		if (sdlVoodoo.opengl.a_ClipLowYHigh) {
+			glScissor(sx, sy, ex - sx, h - sy);
+		}
+		else {
+			glScissor(sx, sy, ex - sx, ey - sy);
+		}
+	}
+
+	Bit32u clear_mask = 0;
+	if (FBZMODE_RGB_BUFFER_MASK(v->reg[fbzMode].u)) {
+		clear_mask |= GL_COLOR_BUFFER_BIT;
+
+		if (FBZMODE_AUX_BUFFER_MASK(v->reg[fbzMode].u) && v->fbi.auxoffs != (UINT32)(~0))
+			VOGL_SetColorMaskMode(true, true);
+
+		if (last_clear_color != v->reg[color1].u) {
+			glClearColor((float)v->reg[color1].rgb.r / 255.0f,
+				(float)v->reg[color1].rgb.g / 255.0f,
+				(float)v->reg[color1].rgb.b / 255.0f,
+				(float)v->reg[color1].rgb.a / 255.0f);
+
+			last_clear_color = v->reg[color1].u;
+		}
+
+		if (FBZMODE_DRAW_BUFFER(v->reg[fbzMode].u) == 0) {
+			VOGL_SetDrawMode(true);
+			v->fbi.vblank_flush_pending = true;
+			cached_line_front_y = -1;
+		}
+		else {
+			VOGL_SetDrawMode(false);
+			cached_line_back_y = -1;
+		}
+	}
+
+
+	if (FBZMODE_AUX_BUFFER_MASK(v->reg[fbzMode].u) && v->fbi.auxoffs != (UINT32)(~0)) {
+		if (FBZMODE_ENABLE_DEPTHBUF(v->reg[fbzMode].u)) {
+			clear_mask |= GL_DEPTH_BUFFER_BIT;
+			glClearDepth((float)((UINT16)v->reg[zaColor].u) / 65535.0f);
+
+		}
+	}
+
+	if (clear_mask) {
+		glClear(clear_mask);
+	}
+
+	if (scissors_needed) {
+
+		if (sdlVoodoo.opengl.a_ClipLowYHigh) {
+			glScissor(0, 0, (int)v->fbi.width, (int)h);
+		}
+		else {
+			glScissor(0, 0, (int)v->fbi.width, (int)v->fbi.height);
+		}
+		glDisable(GL_SCISSOR_TEST);
+	}
+
+}
+/* ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+void voodoo_ogl_fastfill(void) {
+
+	bool UseOldFastfill = false;
+	bool UseHighScissor = true; /* needs more hoppala so....*/
+	if (UseOldFastfill == true)
+	{
+		/* Obsolete, developer quatsch*/
+		voodoo_ogl_fastfill_old();
+		return;
+	}
+
+	//sdlVoodoo.opengl.glScissor_flag = true;
+
+
+	VOGL_ClearBeginMode(); VOGL_ClearBeginState();
+	VOGL_SetDepthMaskMode(true);
+
+	int add_h = 1;
+
+	int w = 0;
+	int h = 0;
+
+	int sx = (v->reg[clipLeftRight].u >> 16) & 0x3ff;
+	int ex = (v->reg[clipLeftRight].u >> 0) & 0x3ff;
+	int sy = (v->reg[clipLowYHighY].u >> 16) & 0x3ff;
+	int ey = (v->reg[clipLowYHighY].u >> 0) & 0x3ff;
+
+	if (UseHighScissor) {
+		if (sdlVoodoo.fullscreen) {
+			w = sdlVoodoo.pciFSW;
+			h = sdlVoodoo.pciFSH;
+		}
+		else {
+			w = sdlVoodoo.pciW;
+			h = sdlVoodoo.pciH;
+		}
+
+		for (int i = v->fbi.height; i <= h; i = i * 2)
+		{
+			if (i == h)
+			{
+				add_h = 0;
+				break;
+			}
+		}
+
+		sy = (int)ScaleFastFillY(h, sy);
+		ey = (int)ScaleFastFillY(h, ey) + add_h;
+		sx = (int)ScaleFactorX(w, sx);
+		ex = (int)ScaleFactorX(w, ex);
+	}
+
+	if (FBZMODE_Y_ORIGIN(v->reg[fbzMode].u))
+	{
+		int tmp = 0;
+		int fbi_origin = v->fbi.yorigin + 1;
+
+		if (UseHighScissor)
+		{
+			fbi_origin = (int)ScaleFastFillY(h, fbi_origin) + add_h;
+			tmp = fbi_origin - ey;
+			ey = fbi_origin - sy;
+		}
+		else
+		{
+			tmp = (fbi_origin - ey) & 0x3ff;
+			ey = (fbi_origin - sy) & 0x3ff;
+		}
+		sy = tmp;
+	}
+
+	bool scissors_needed = sdlVoodoo.opengl.glScissor_flag;
+	if ((sx == 0) && (sy == 0))
+	{
+		int fbi_width = v->fbi.width;
+		int fbi_height = v->fbi.height;
+
+		if (sdlVoodoo.opengl.glScissor_flag)
+		{
+			fbi_width = (int)ScaleFactorX(w, fbi_width);
+			fbi_height = (int)ScaleFastFillY(h, fbi_height);
+		}
+
+		if ((ex == fbi_width) && (ey == fbi_height)) {
+			scissors_needed = false;
+		}
 	}
 
 	if (scissors_needed) {
 		glEnable(GL_SCISSOR_TEST);
 		
-		if (sdlVoodoo.opengl.a_ClipLowYHigh){ 
-			glScissor(sx,sy,ex-sx,h-sy);
-		}else{
-			glScissor(sx,sy,ex-sx,ey-sy);
+		int ax = 0;
+		int ay = 0;
+		if ( (sdlVoodoo.ScrOpenGL_Flags & SDL_WINDOW_FULLSCREEN_DESKTOP) && (sdlVoodoo.fullscreen) && (sdlVoodoo.opengl.voodoo_aspect))
+		{
+			/* Use for Fullscreen Desktop Mode with Aspect Mode*/
+			SDL_DisplayMode displayMode;
+			SDL_GetDesktopDisplayMode(SDL_GetWindowDisplayIndex(sdlVoodoo.surface), &displayMode);
+
+			double w = (GLsizei)sdlVoodoo.pciFSW;
+			double h = (GLsizei)sdlVoodoo.pciFSH;
+
+			ax = (displayMode.w - w) / 2;
+			ay = (displayMode.h - h) / 2;
+
+			glScissor((ax + sx), sy, ex - sx, ey - (sy - ay));
 		}
+		else
+			glScissor(sx, sy, ex - sx, ey - sy);
 	}
 
 	Bit32u clear_mask = 0;
-	if (FBZMODE_RGB_BUFFER_MASK(v->reg[fbzMode].u)) {		
-		clear_mask|=GL_COLOR_BUFFER_BIT;
+	if (FBZMODE_RGB_BUFFER_MASK(v->reg[fbzMode].u))
+	{
+		clear_mask |= GL_COLOR_BUFFER_BIT;
 
-		//if (FBZMODE_AUX_BUFFER_MASK(v->reg[fbzMode].u) && v->fbi.auxoffs != (UINT32)(~0))
+		if (FBZMODE_AUX_BUFFER_MASK(v->reg[fbzMode].u) && v->fbi.auxoffs != (UINT32)(~0))
 			VOGL_SetColorMaskMode(true, true);
 
-			if (last_clear_color!=v->reg[color1].u) {
-				glClearColor((float)v->reg[color1].rgb.r/255.0f,
-							 (float)v->reg[color1].rgb.g/255.0f,
-							 (float)v->reg[color1].rgb.b/255.0f,
-							 (float)v->reg[color1].rgb.a/255.0f);
-				
-				last_clear_color=v->reg[color1].u;
-			}
-			
-			if (FBZMODE_DRAW_BUFFER(v->reg[fbzMode].u)==0) {
-				VOGL_SetDrawMode(true);
-				v->fbi.vblank_flush_pending=true;
-				cached_line_front_y=-1;
-			} else {		
-				VOGL_SetDrawMode(false);
-				cached_line_back_y=-1;
-			}
+		if (last_clear_color != v->reg[color1].u)
+		{
+			glClearColor((float)v->reg[color1].rgb.r / 255.0f,
+						 (float)v->reg[color1].rgb.g / 255.0f,
+						 (float)v->reg[color1].rgb.b / 255.0f,
+						 (float)v->reg[color1].rgb.a / 255.0f);
+
+			last_clear_color = v->reg[color1].u;
 		}
-	
-	
-	if (FBZMODE_AUX_BUFFER_MASK(v->reg[fbzMode].u) && v->fbi.auxoffs != (UINT32)(~0)) {
+
+		Select_FBZ_DrawMode(false, 1);
+	}
+
+	if (FBZMODE_AUX_BUFFER_MASK(v->reg[fbzMode].u) && v->fbi.auxoffs != (UINT32)(~0))
+	{
 		//if (FBZMODE_ENABLE_DEPTHBUF(v->reg[fbzMode].u)) {
-			clear_mask|=GL_DEPTH_BUFFER_BIT;
-			glClearDepth((float)((UINT16)v->reg[zaColor].u)/65535.0f);
-				
+		clear_mask |= GL_DEPTH_BUFFER_BIT;
+		glClearDepth((float)((UINT16)v->reg[zaColor].u) / 65535.0f);
 		//}
 	}
 
-	if (clear_mask){
-		glClear(clear_mask);
-	}
+	if (clear_mask)	glClear(clear_mask);
 
 	if (scissors_needed) {
-		
-		if (sdlVoodoo.opengl.a_ClipLowYHigh){ 
-			glScissor(0,0,(int)v->fbi.width,(int)h);
-		}else{
-			glScissor(0,0,(int)v->fbi.width,(int)v->fbi.height);
+
+		int fbi_width = v->fbi.width;
+		int fbi_height = v->fbi.height;
+
+		if (sdlVoodoo.opengl.glScissor_flag)
+		{
+			fbi_width = (int)ScaleFactorX(w, fbi_width);
+			fbi_height = (int)ScaleFastFillY(h, fbi_height) + (int)add_h;
 		}
+		glScissor(0, 0, fbi_width, fbi_height);
 		glDisable(GL_SCISSOR_TEST);
 	}
+
 }
+
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 void voodoo_ogl_clear(void) {
-	VOGL_ClearBeginMode();
+	VOGL_ClearBeginMode(); VOGL_ClearBeginState();
 
 	VOGL_SetDrawMode(false);
 
@@ -2128,541 +2670,495 @@ void voodoo_ogl_clear(void) {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-void Voodoo_OGL_Read_Alloc(int LFBMode, INT32 Width){
-	
-	size_t span_length=((Width + 64u) & (~15u) );
+static INLINE void Voodoo_OGL_Read_Alloc(int LFBMode, INT32 Width) {
+
+	size_t span_length = ((Width + 64u) & (~15u));
 	//size_t span_length=1280*1024*3;	
 	switch (LFBMode) {
-		case 0:
-		{
-			Cache.Line.Frnt.Buffer = (UINT32*) malloc( sizeof(UINT32)*span_length );
-			Cache.Line.Frnt.L      = (INT32)span_length;						
-		}
-		break;
-		case 1:
-		{
-			Cache.Line.Back.Buffer = (UINT32*) malloc( sizeof(UINT32)*span_length );
-			Cache.Line.Back.L      = (INT32)span_length;						
-		}
-		break;
-	}							
-};
-
-/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-UINT32* Voodoo_OGL_Read_GlPix(GLint X, GLint Y, GLsizei Width, GLsizei Height, GLenum Format, GLenum Type, UINT32* data){
-	
-	glReadPixels(X,Y,Width,Height,Format,Type ,data);
-	return data;
-};
-
-/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-UINT32* Voodoo_OGL_Read_Clear(UINT32* nMemory) {
-	
-		if (nMemory != NULL) {
-			free(nMemory);
-		}
-		return nMemory;
-};
-
-/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-UINT32 Voodoo_OGL_Read_Back(GLint X, GLint Y, GLsizei Width, GLsizei Height, GLenum Format){
-
-
-	INT32 LFBMode = LFBMODE_READ_BUFFER_SELECT(v->reg[lfbMode].u);
-	
-	if ((Cache.Line.Back.Y != Y) || ( X+1 >= Cache.Line.Back.W) ) {
-			
-		if (Cache.Line.Back.L < Width) {
-								
-					Cache.Line.Back.Buffer = Voodoo_OGL_Read_Clear(Cache.Line.Back.Buffer);
-					                         Voodoo_OGL_Read_Alloc(LFBMode, Width);					
-		}
-			
-		if ( &Cache.Line.Back.Buffer[0] != 0) {
-			VOGL_SetReadMode(false);
-			Voodoo_OGL_Read_GlPix(0, Height-Y, Width, 1, Format, GL_UNSIGNED_INT_8_8_8_8_REV , &Cache.Line.Back.Buffer[0]);		
-		}
-		
-		if ( &Cache.Line.Back.Buffer[1] != 0) {		
-			VOGL_SetReadMode(false);
-			Voodoo_OGL_Read_GlPix(0, Height-Y, Width, 1, Format, GL_UNSIGNED_INT_8_8_8_8_REV , &Cache.Line.Back.Buffer[1]);	
-		}	
-		
-		Cache.Line.Back.Y = Y;				
-		Cache.Line.Back.W = Width;				
-	}		
-};
-
-/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-UINT32 Voodoo_OGL_Read_Front(GLint X, GLint Y, GLsizei Width, GLsizei Height, GLenum Format){
-
-	INT32 LFBMode = LFBMODE_READ_BUFFER_SELECT(v->reg[lfbMode].u);
-	
-	if ((Cache.Line.Frnt.Y != Y) || ( X+1 >= Cache.Line.Frnt.W) ) {
-			
-		if (Cache.Line.Frnt.L < Width) {
-								
-					Cache.Line.Frnt.Buffer = Voodoo_OGL_Read_Clear(Cache.Line.Frnt.Buffer);
-					                         Voodoo_OGL_Read_Alloc(LFBMode, Width);					
-		}
-
-						
-		if ( &Cache.Line.Frnt.Buffer[0] != 0) {		
-			VOGL_SetReadMode(true);		
-			Voodoo_OGL_Read_GlPix(0, Height - Y, Width, 1, Format, GL_UNSIGNED_BYTE , &Cache.Line.Frnt.Buffer[0]);		
-		}
-		
-		if ( &Cache.Line.Frnt.Buffer[1] != 0) {			
-			VOGL_SetReadMode(true);
-			Voodoo_OGL_Read_GlPix(0, Height - Y, Width, 1, Format, GL_UNSIGNED_BYTE , &Cache.Line.Frnt.Buffer[1]);		
-		}
-		
-		Cache.Line.Frnt.Y = Y;				
-		Cache.Line.Frnt.W = Width;				
-	}		
-};
-
-/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-void Voodoo_OGL_LOG_LFB_RegisterMode(INT16 LFBReg){
-	
-		if ( sdlVoodoo.opengl.nLFBMode == 0) {
-			LOG_MSG("LFB: Front Buffer: %d -> Using Register: 0x%x (%d)",sdlVoodoo.opengl.nLFBMode,v->reg[lfbMode].u,LFBReg);	
-		}
-		if ( sdlVoodoo.opengl.nLFBMode == 1) {
-			LOG_MSG("LFB: Back  Buffer: %d -> Using Register: 0x%x (%d)",sdlVoodoo.opengl.nLFBMode,v->reg[lfbMode].u,LFBReg);	
-		}	
-		if ( sdlVoodoo.opengl.nLFBMode == 2) {
-			LOG_MSG("LFB: Aux   Buffer: %d -> Using Register: 0x%x (%d)",sdlVoodoo.opengl.nLFBMode,v->reg[lfbMode].u,LFBReg);	
-		}	
-		
+	case 0:
+	{
+		Cache.Line.Frnt.Buffer = (UINT32*)malloc(sizeof(UINT32) * span_length);
+		Cache.Line.Frnt.L = (INT32)span_length;
+	}
+	break;
+	case 1:
+	{
+		Cache.Line.Back.Buffer = (UINT32*)malloc(sizeof(UINT32) * span_length);
+		Cache.Line.Back.L = (INT32)span_length;
+	}
+	break;
+	}
 }
-
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-void Voodoo_OGL_LOG_LFB_XY_Coords(GLint x, GLint y, int ViewPortW, int ViewPortH ){
-			
-		LOG_MSG("Coords: (x)%d X (y)%d  ([2]=%d X [3]=%d)  SetX= %f / SetY= %f",
-																					x,y, ViewPortW,ViewPortH,
-																					sdlVoodoo.opengl.CoordsX,
-																					sdlVoodoo.opengl.CoordsY);	
-		
-}
-
-#define LFB_LOGGER 0
-/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-float Voodoo_OGL_LFB_Get_Scale_Height(int ViewPortHeight)
+INLINE GLenum Voodoo_OGL_Buffer_GetFormat(void)
 {
-	/* 
-		This are Hardcoded Values, I doesn't found a "Automatic"
-		function to set corrct values.
+	/* Color Format*/
+	/*
+	* GL_RGB4	GL_RGB5		GL_RGB8		GL_RGB10	GL_RGB12	GL_RGB16	GL_RGBA2	GL_RGBA4	GL_RGB5_A1
+	* GL_RGBA8	GL_RGB10_A2	GL_RGBA12	GL_RGBA16	GL_RED		GL_GREEN	GL_BLUE		GL_RGB		GL_BGR
+	* GL_RGBA	GL_BGRA
 	*/
-	#if defined C_HEAVY_DEBUG && LFB_LOGGER >= 1	
-	if ( sdlVoodoo.opengl.CoordsY != 0.000000 )
-			return sdlVoodoo.opengl.CoordsY;
-	#endif
-	
-	switch ( ViewPortHeight )
-	{
-		case 480:
-				/*  640x480 */
-				return 1;
-		case 600:
-				/*  800x600 */	
-				return 3.950f;	
-		case 664:
-				/* 1176x664 */
-				return 2.585f;
-		case 720:
-				/* 1280x720 */
-				return 1.985f;
-		case 768:
-				/* 1024x768 */
-				/* 1280x768 */
-				/* 1360x768 */								
-				/* 1366x768 */								
-				return 1.660f;
-		case 800:
-				/* 1280x800 */
-				return 1.495f;
-		case 864:
-				/* 1152x864 */
-				return 1.245f;
-		case 900:
-				/* 1440x900 */
-				/* 1600x900 */
-				return 1.138f;
-		case 960:
-				/* 1280x960 */
-				return 2.0f;								
-		case 992:
-				/* 1768x992 */
-				return 28.000f;							
-		case 1024:
-				/* 1280x1024 */
-				/* 1600x1024 */
-				return 14.4f;
-		case 1050:
-				/* 1680x1050 */							
-				return 9.836f;				
-		case 1080:
-				/* 1920x1080 */								
-				return 7.850f;
-		case 1200:
-				/* 1600x1200 */								
-				return 3.950f;
-		case 1440:
-				/* 1920*1440 */
-				return 384.0f;
-		case 1536:
-				/* 2048x1536 */
-				return 14.5f;
-		case 1600:
-				/* 2560x1600 */
-				return 8.8f;
-		case 2160:
-				/* 3840x2160 */
-				return 7.85f;
-		case 4320:
-				/* 7680x4320 */
-				return 448.0f;				
-		default:
-				return 1.000f;		
-	}	
+
+	if ((Cache.Line.Frnt.a == 255) || (Cache.Line.Back.a == 255))
+		return GLenum(sdlVoodoo.opengl.RGB_Format)/*GL_RGBA*/;
+	else
+		return GLenum(sdlVoodoo.opengl.RGB_Format)/*GL_RGBA*/;
 }
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-float Voodoo_OGL_LFB_Get_Scale_Width(int ViewPortWidth)
+INLINE GLenum Voodoo_OGL_Buffer_GetType(void)
+{
+	/* Color Type */
+	/*
+	* GL_BYTE		GL_UNSIGNED_BYTE			GL_UNSIGNED_BYTE_3_3_2			GL_UNSIGNED_BYTE_2_3_3_REV
+	* GL_SHORT		GL_UNSIGNED_SHORT			GL_UNSIGNED_SHORT_5_6_5			GL_UNSIGNED_SHORT_5_6_5_REV
+	* GL_INT		GL_UNSIGNED_INT				GL_UNSIGNED_SHORT_4_4_4_4		GL_UNSIGNED_SHORT_4_4_4_4_REV
+	* GL_FLOAT		GL_HALF_FLOAT				GL_UNSIGNED_SHORT_5_5_5_1		GL_UNSIGNED_SHORT_1_5_5_5_REV
+	* GL_DOUBLE		GL_UNSIGNED_INT_24_8		GL_UNSIGNED_INT_8_8_8_8			GL_UNSIGNED_INT_8_8_8_8_REV
+	* GL_2_BYTES 	GL_UNSIGNED_INT_5_9_9_9_REV	GL_UNSIGNED_INT_10_10_10_2		GL_UNSIGNED_INT_2_10_10_10_REV
+	* GL_3_BYTES	GL_UNSIGNED_INT_10F_11F_11F_REV
+	* GL_4_BYTES	GL_FLOAT_32_UNSIGNED_INT_24_8_REV
+	*/
+
+	if ((Cache.Line.Frnt.a == 255) || (Cache.Line.Back.a == 255))
+		return GLenum(sdlVoodoo.opengl.RGB_Type);
+	else
+		return GLenum(sdlVoodoo.opengl.RGB_Type);
+}
+
+/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+INLINE bool Voodoo_OGL_Buffer_GetColor(UINT32 PixelData, int Buffer, int Side)
 {
 
-	#if defined C_HEAVY_DEBUG && LFB_LOGGER >= 1		
-	if ( sdlVoodoo.opengl.CoordsX != 0.000000 )	
-			return sdlVoodoo.opengl.CoordsX;		
-	#endif
-	
-	switch ( ViewPortWidth )
+	int a = static_cast<int>(RGB_ALPHA(PixelData)); /* Alpha */
+	int r = static_cast<int>(RGB_RED(PixelData));	/* Red   */
+	int g = static_cast<int>(RGB_GREEN(PixelData)); /* Green */
+	int b = static_cast<int>(RGB_BLUE(PixelData));  /* Blue  */
+
+	switch (Buffer)
 	{
-		case 480:
-				/*  640x480 */
-				return 1;
-		case 800:
-				/*  800x600 */	
-				return 3.980f;
-		case 885:
-				/*  885x664 */	
-				return 2.626f;	
-		case 960:
-				/*  960x720 */	
-				return 2.0f;
-		case 1024:
-				/* 1024x768 */
-				return 1.660f;
-		case 1067:
-				/* 1067x800 */							
-				return 1.490f;				
-		case 1152:
-				/* 1152x864 */
-				return 1.245f;
-		case 1176:
-				/* 1176x664 */
-				return 1.190f;
-		case 1200:
-				/* 1200x900 */
-				return 1.14f;					
-		case 1280:
-				/* 1280x720 */
-				/* 1280x768 */
-				/* 1280x800 */
-				/* 1280x1024*/
-				return 500.0f;	
-		case 1323:
-				/* 1323x992 */
-				return 32.4f;				
-		case 1360:
-				/* 1360x768 */
-				return 15.5f;
-		case 1365:
-				/* 1365x1024 */
-				return 14.7f;				
-		case 1366:
-				/* 1366x768 */
-				return 14.7f;
-		case 1400:
-				/* 1400*1050 */
-				return 10.4f;				
-		case 1440:
-				/* 1440*900 */
-				return 7.8f;
-		case 1600:
-				/* 1600*900 */
-				/* 1600x1024*/
-				/* 1600x1200*/
-				return 3.950f;				
-		case 1680:
-				/* 1680x1050 */
-				return 3.150f;
-		case 1768:
-				/* 1768x992 */
-				return 2.586f;
-		case 1920:
-				/* 1920x1080 */
-				/* 1920x1200 */
-				/* 1920*1440 */
-				return 256.0f;
-		case 2048:
-				/* 2048x1536 */
-				return 14.0f;
-		case 2133:
-				/* 2133x1600 */
-				return 8.6f;				
-		case 2560:
-				/* 2560x1440 */
-				return 256.0f;
-		case 2880:
-				/* 2880x2160 */
-				return 256.0f;				
-		case 3840:
-				/* 3840x2160 */
-				return 256.0f;
-		case 5760:
-				/* 5760x4320 */
-				return 256.0f;				
-		case 7860:
-				/* 7860x4320 */
-				return 256.0f;			
-		default:
-				return 1.000f;				
-	}	
+	case 1:
+	{
+		if ((Cache.Line.Back.r != r) &&
+			(Cache.Line.Back.g != g) &&
+			(Cache.Line.Back.b != b) &&
+			(Cache.Line.Back.a != a))
+		{
+			Cache.Line.Back.r = r;
+			Cache.Line.Back.g = g;
+			Cache.Line.Back.b = b;
+			Cache.Line.Back.a = a;
+		}
+		else {
+			//if (Side == 0)
+			//	Cache.Line.Back.Buffer[0] = 0;
+
+			//if (Side == 1)
+			//	Cache.Line.Back.Buffer[1] = 0;
+
+			return true;
+		}
+	}
+	break;
+	case 2:
+	{
+		if ((Cache.Line.Frnt.r != r) &&
+			(Cache.Line.Frnt.g != g) &&
+			(Cache.Line.Frnt.b != b) &&
+			(Cache.Line.Frnt.a != a))
+		{
+			Cache.Line.Frnt.r = r;
+			Cache.Line.Frnt.g = g;
+			Cache.Line.Frnt.b = b;
+			Cache.Line.Frnt.a = a;
+		}
+		else {
+			//if (Side == 0)
+			//	Cache.Line.Frnt.Buffer[0] = 0;
+
+			//if (Side == 1)
+			//	Cache.Line.Frnt.Buffer[1] = 0;
+			return true;
+		}
+	}
+	break;
+	default:
+		break;
+	}
+
+	#if defined(C_DEBUG)
+		//LOG(LOG_FXOGL, LOG_NORMAL)("Read Pixel Color (Buffer %d:%d) [r:%d, g:%d, b:%d, a:%d]", Buffer, Side, r, g, b, a);
+	#endif
+	return true;
+}
+/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+INLINE UINT32* Voodoo_OGL_Read_GlPix(GLint X, GLint Y, GLsizei Width, GLsizei Height, GLenum Format, GLenum Type, int Side, int Place, UINT32* data) {
+
+	if ((Side == 1) && (Place == 0))
+	{
+		if (Voodoo_OGL_Buffer_GetColor(Cache.Line.Back.Buffer[0], Side, Place) == true)
+		{
+			Format = Voodoo_OGL_Buffer_GetFormat();
+			Type = Voodoo_OGL_Buffer_GetType();
+			glReadPixels(X, Y, Width, Height, Format, GL_UNSIGNED_INT_8_8_8_8_REV/*Type*/, &Cache.Line.Back.Buffer[0]);
+		}
+
+	}
+	else if ((Side == 1) && (Place == 1))
+	{
+		if (Voodoo_OGL_Buffer_GetColor(Cache.Line.Back.Buffer[1], Side, Place) == true)
+		{
+			Format = Voodoo_OGL_Buffer_GetFormat();
+			Type = Voodoo_OGL_Buffer_GetType();
+			glReadPixels(X, Y, Width, Height, Format, GL_UNSIGNED_INT_8_8_8_8_REV/*Type*/, &Cache.Line.Back.Buffer[1]);
+		}
+	}
+	else if ((Side == 0) && (Place == 0))
+	{
+		if (Voodoo_OGL_Buffer_GetColor(Cache.Line.Frnt.Buffer[0], Side, Place) == true)
+		{
+			Format = Voodoo_OGL_Buffer_GetFormat();
+			Type = Voodoo_OGL_Buffer_GetType();
+			glReadPixels(X, Y, Width, Height, Format, GL_UNSIGNED_INT_8_8_8_8_REV/*Type*/, &Cache.Line.Frnt.Buffer[0]);
+		}
+	}
+	else if ((Side == 0) && (Place == 1))
+	{
+		if (Voodoo_OGL_Buffer_GetColor(Cache.Line.Frnt.Buffer[1], Side, Place) == true)
+		{
+			Format = Voodoo_OGL_Buffer_GetFormat();
+			Type = Voodoo_OGL_Buffer_GetType();
+			glReadPixels(X, Y, Width, Height, Format, GL_UNSIGNED_INT_8_8_8_8_REV/*Type*/, &Cache.Line.Frnt.Buffer[1]);
+		}
+	}
+	else if ((Side == 2) && (Place == 0))
+	{
+		glReadPixels(X, Y, Width, Height, Format, Type, &data);
+		//LOG(LOG_FXOGL, LOG_NORMAL)("glReadPixels (2) [x=%d]", X);
+	}
+};
+
+/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+INLINE UINT32* Voodoo_OGL_Read_Clear(UINT32* nMemory) {
+	if (nMemory != NULL)free(nMemory);
+};
+
+/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+INLINE UINT32 Voodoo_OGL_Read_Back(GLint X, GLint Y, GLsizei Width, GLsizei Height, GLenum Format) {
+
+
+	INT32 LFBMode = LFBMODE_READ_BUFFER_SELECT(v->reg[lfbMode].u);
+
+	if ((Cache.Line.Back.Y != Y) || (X + 1 >= Cache.Line.Back.W)) {
+
+		if (Cache.Line.Back.L < Width) {
+
+			for (int j = 0; j < 2; j++)
+			{
+				Voodoo_OGL_Read_Clear(&Cache.Line.Back.Buffer[j]);
+			}
+			Voodoo_OGL_Read_Alloc(LFBMode, Width);
+		}
+
+		for (int k = 0; k < 2; k++)
+		{
+			if (Cache.Line.Back.Buffer[k] != 0)
+			{
+				VOGL_SetReadMode(false);
+				Voodoo_OGL_Read_GlPix(0, Height - Y, Width, 1, Format, GL_UNSIGNED_INT_8_8_8_8_REV, 1, k, &Cache.Line.Back.Buffer[k]);
+				Cache.Line.Back.Y = Y;
+				Cache.Line.Back.W = Width;
+			}
+		}
+
+		//if (Cache.Line.Back.Buffer[0] != 0) {
+		//	VOGL_SetReadMode(false);
+		//	Voodoo_OGL_Read_GlPix(0, Height - Y, Width, 1, Format, GL_UNSIGNED_INT_8_8_8_8_REV, 1, 0, &Cache.Line.Back.Buffer[0]);
+		//}
+
+		//if (Cache.Line.Back.Buffer[1] != 0) {
+		//	VOGL_SetReadMode(false);
+		//	Voodoo_OGL_Read_GlPix(0, Height - Y, Width, 1, Format, GL_UNSIGNED_INT_8_8_8_8_REV, 1, 1, &Cache.Line.Back.Buffer[1]);
+		//}
+
+		//Cache.Line.Back.Y = Y;
+		//Cache.Line.Back.W = Width;
+	}
+	return 0;
+};
+
+/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+INLINE UINT32 Voodoo_OGL_Read_Front(GLint X, GLint Y, GLsizei Width, GLsizei Height, GLenum Format) {
+
+	INT32 LFBMode = LFBMODE_READ_BUFFER_SELECT(v->reg[lfbMode].u);
+
+	if ((Cache.Line.Frnt.Y != Y) || (X + 1 >= Cache.Line.Frnt.W)) {
+
+		if (Cache.Line.Frnt.L < Width) {
+
+			for (int j = 0; j < 2; j++)
+			{
+				Voodoo_OGL_Read_Clear(&Cache.Line.Frnt.Buffer[j]);
+			}
+			Voodoo_OGL_Read_Alloc(LFBMode, Width);
+		}
+
+		for (int k = 0; k < 2; k++)
+		{
+			if (Cache.Line.Frnt.Buffer[k] != 0)
+			{
+				VOGL_SetReadMode(true);
+				Voodoo_OGL_Read_GlPix(0, Height - Y, Width, 1, Format, GL_UNSIGNED_BYTE, 0, k, &Cache.Line.Frnt.Buffer[k]);
+				Cache.Line.Frnt.Y = Y;
+				Cache.Line.Frnt.W = Width;
+			}
+		}
+
+		//if (Cache.Line.Frnt.Buffer[0] != 0) {
+		//	VOGL_SetReadMode(true);
+		//	Voodoo_OGL_Read_GlPix(0, Height - Y, Width, 1, Format, GL_UNSIGNED_BYTE, 0, 0, &Cache.Line.Frnt.Buffer[0]);
+		//}
+
+		//if (Cache.Line.Frnt.Buffer[1] != 0) {
+		//	VOGL_SetReadMode(true);
+		//	Voodoo_OGL_Read_GlPix(0, Height - Y, Width, 1, Format, GL_UNSIGNED_BYTE, 0, 1, &Cache.Line.Frnt.Buffer[1]);
+		//}
+
+		//Cache.Line.Frnt.Y = Y;
+		//Cache.Line.Frnt.W = Width;
+
+	}
+	return 0;
+};
+
+/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+void Voodoo_OGL_LOG_LFB_RegisterMode(INT16 LFBReg) {
+
+	if (sdlVoodoo.opengl.nLFBMode == 0) {
+		LOG_MSG("LFB: Front Buffer: %d -> Using Register: 0x%x (%d)", sdlVoodoo.opengl.nLFBMode, v->reg[lfbMode].u, LFBReg);
+	}
+	if (sdlVoodoo.opengl.nLFBMode == 1) {
+		LOG_MSG("LFB: Back  Buffer: %d -> Using Register: 0x%x (%d)", sdlVoodoo.opengl.nLFBMode, v->reg[lfbMode].u, LFBReg);
+	}
+	if (sdlVoodoo.opengl.nLFBMode == 2) {
+		LOG_MSG("LFB: Aux   Buffer: %d -> Using Register: 0x%x (%d)", sdlVoodoo.opengl.nLFBMode, v->reg[lfbMode].u, LFBReg);
+	}
+
 }
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-UINT32 voodoo_ogl_read_pixel(GLint x, GLint y) {
-		
-	
-// format
-                    // Specifies the format of the pixel data.
-                    // The following symbolic values are accepted:
-                    // GL_COLOR_INDEX,
-                    // GL_STENCIL_INDEX,
-                    // GL_DEPTH_COMPONENT,
-                    // GL_RED,
-                    // GL_GREEN,
-                    // GL_BLUE,
-                    // GL_ALPHA,
-                    // GL_RGB,
-                    // GL_BGR,
-                    // GL_RGBA,
-                    // GL_BGRA,
-                    // GL_LUMINANCE, and
-                    // GL_LUMINANCE_ALPHA.
+INLINE float ScaleAspectRatioX(GLsizei w, GLint x)
+{
+	if ((sdlVoodoo.opengl.voodoo_aspect == true) && (sdlVoodoo.fullscreen))
+	{
+		return x = x + ((w / 2) / 2) / 2;
+	}
+	return x;
+}
+INLINE float ScaleAspectRatioW(GLsizei w)
+{
+	if ((sdlVoodoo.opengl.voodoo_aspect == true) && (sdlVoodoo.fullscreen))
+	{
+		return w = w - ((w / 2) / 2);
+	}
+	return w;
+}
+/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+INLINE UINT32 Voodoo_Read_Pixel(GLint x, GLint y) {
                 			
-	UINT32 data[2]; GLsizei w; GLsizei h; INT16 LFBReg = v->reg[lfbMode].u; GLenum Format = GL_RGBA;int xy;int nShift=0;
-	
-	
-	if ((x >= (GLsizei)v->fbi.width<<1) || (y >= (GLsizei)v->fbi.height<<1)){
-		return 0xffff;
-	}
-	
-	if ( sdlVoodoo.opengl.nLFBMode != LFBMODE_READ_BUFFER_SELECT(v->reg[lfbMode].u) ){
-		 
-		 sdlVoodoo.opengl.nLFBMode = LFBMODE_READ_BUFFER_SELECT(v->reg[lfbMode].u);
-	}
-	 				
+	UINT32 data[2]; GLsizei w; GLsizei h; INT16 LFBReg = v->reg[lfbMode].u; GLenum Format = GL_RGBA;
+		
 	if (sdlVoodoo.fullscreen)
 	{
 		SDL_DisplayMode displayMode;
-		/*
-			w = sdlVoodoo.pciFSW; 
-			h = sdlVoodoo.pciFSH;
-		*/
-				
-		SDL_GetDesktopDisplayMode(sdlVoodoo.desktop.Index, &displayMode);		
+		SDL_GetDesktopDisplayMode(sdlVoodoo.desktop.Index, &displayMode);
 		w = displayMode.w;
 		h = displayMode.h;
-		
 	}
 	else
-	{	w = sdlVoodoo.pciW;
+	{
+		w = sdlVoodoo.pciW;
 		h = sdlVoodoo.pciH;
 	}
 
-	if (sdlVoodoo.opengl.bLFBFixFrnt == true || sdlVoodoo.opengl.bLFBFixBack == true){
-		nShift = 1;
+	if ((x >= (GLsizei)w << 1) || (y >= (GLsizei)h << 1))
+	//if ((x >= (GLsizei)v->fbi.width<<1) || (y >= (GLsizei)v->fbi.height<<1))
+	{
+		LOG(LOG_FXOGL, LOG_NORMAL)("Read_Pixel Return [x]=%dx[y]=%d, %d", x, y, 0xffff);
+		return 0xffff;
 	}
 	
-	
+	GLfloat PixelFixY = 1.0f;
+	GLfloat PixelFixX = 0.0f;
+	GLint   PixelFixW = 0;
+
+	if ( sdlVoodoo.opengl.nLFBMode != LFBMODE_READ_BUFFER_SELECT(v->reg[lfbMode].u) )
+	{		 
+		 sdlVoodoo.opengl.nLFBMode = LFBMODE_READ_BUFFER_SELECT(v->reg[lfbMode].u);
+	}
+	 					
 	if ( sdlVoodoo.opengl.bLFBDebugLg == true ){
 		Voodoo_OGL_LOG_LFB_RegisterMode(LFBReg);	
 	}	
 
 	switch (sdlVoodoo.opengl.nLFBMode) {
 		
-		case 0:	
-		{		
-						
-			/* Front Buffer used most for Intros/Movies */
-			// LOG(LOG_VOODOO,LOG_WARN)("Front Buffer Register Access %d (0x%x)",LFBReg,LFBReg);	
-			switch(LFBReg){
-				case 0:
-				case 16:	/* <-- Road To India 				*/					
-				case 18:	/* Freespace 2 						*/
-				case 261:	/* <-- Tomb Raider                  */					
-				case 272:	/* <-- Incubation, Game Match & Net */
-				case 8208:  /* <-- Die By The Sword 			*/				
-				{				
-				
-					if (sdlVoodoo.opengl.bLFBFixFrnt == true){
-						
-						/*
-							This fix is just in work. Not Final.
-						*/  						
-											
-						if (( w == 640 && h == 480 ) ||  ( w == 1280 && h == 960 ))
-						{
-							/* 640x480 */
-							/* 1280x960 */
-							x = x << nShift;
-							y = y << nShift;
-							GLsizei Width  = v->fbi.width  <<nShift;
-							GLsizei Height = v->fbi.height <<nShift;
-							
-							Voodoo_OGL_Read_Front(0, y, Width, Height, Format);								
-														
-						}
-						else						
-						{												
-							x = ( (x-1) * ( w / v->fbi.width  ) ) + x * ( w / v->fbi.width )/Voodoo_OGL_LFB_Get_Scale_Width( w);	
-							y = ( (y-1) * ( h / v->fbi.height ) ) + y * ( h / v->fbi.height)/Voodoo_OGL_LFB_Get_Scale_Height(h);
-						
-							#if defined C_HEAVY_DEBUG && LFB_LOGGER >= 1
-							if (sdlVoodoo.opengl.LogCntY != y)
-							{
-								sdlVoodoo.opengl.LogCntY = y;
-								Voodoo_OGL_LOG_LFB_XY_Coords(x, y, w, h);
-							}			
-							#endif
-							
-							if ( sdlVoodoo.opengl.voodoo_aspect == true )
-							{
-								Voodoo_OGL_Read_Front(0, y, w, h, Format);	
-							}
-							else
-							{
-								Voodoo_OGL_Read_Front(x, y, w, h, Format);
-							}
-						}									
+		case 0:
+		{
 
-					} else {
-						Voodoo_OGL_Read_Front(0, y, v->fbi.width, v->fbi.height, Format);																	
+				/* Front Buffer used most for Intros/Movies */	
+				switch (LFBReg) {
+				case 0:
+				case 16:	/* <-- Road To India 				*/
+				case 18:	/* Freespace 2 						*/
+				case 64:	/* Freespace 2 						*/
+				case 256:	/* <-- Might and Magic 8 v1.21      */
+				case 261:	/* <-- Tomb Raider                  */
+				case 272:	/* <-- Incubation, Game Match & Net */
+				case 8208:  /* <-- Die By The Sword 			*/
+				{
+
+					if (sdlVoodoo.opengl.bLFBFixFrnt == true) {
+						
+						if (w == 1024 && h == 768)
+							PixelFixW = 1;
+
+						y = ScaleFactorY(h, y + PixelFixY);
+						x = ScaleAspectRatioX(w, ScaleFactorX(ScaleAspectRatioW(w) + PixelFixW, x));
+						/*
+						y = ScaleFactorY(h, y);
+						x = ScaleFactorX(w, x);
+						*/
+
+						if (sdlVoodoo.opengl.voodoo_aspect == true)
+						{
+							Voodoo_OGL_Read_Front(0, y, w, h, Format);
+						}
+						else
+						{
+							Voodoo_OGL_Read_Front(x, y, w, h, Format);
+						}
 					}
-					
+					else {
+						Voodoo_OGL_Read_Front(0, y, v->fbi.width, v->fbi.height, Format);
+					}
+
 					data[0] = Cache.Line.Frnt.Buffer[x+2];
 					data[1] = Cache.Line.Frnt.Buffer[x+4];
-					
-				}
+					//return ((data[0] >> 16) & 0x0000ffff) | (data[1] & 0xffff0000);
+					/*
+					return ((RGB_BLUE (Cache.Line.Frnt.Buffer[x + 2]) >> 3) << 11) |
+						   ((RGB_GREEN(Cache.Line.Frnt.Buffer[x + 2]) >> 2) << 5)  |
+						    (RGB_RED  (Cache.Line.Frnt.Buffer[x + 2]) >> 3) |
+						   ((RGB_BLUE (Cache.Line.Frnt.Buffer[x + 4]) >> 3) << 27) |
+						   ((RGB_GREEN(Cache.Line.Frnt.Buffer[x + 4]) >> 2) << 21) |
+						   ((RGB_RED  (Cache.Line.Frnt.Buffer[x + 4]) >> 3) << 16);
+					*/
+					}
 				break;
 				default:
-				{
-					E_Exit("Unknown Front Buffer Register Access %d (0x%x)",LFBReg,LFBReg);					
+					E_Exit("Unknown Front Buffer Register Access %d (0x%x)", LFBReg, LFBReg);
+					break;
 				}
-				break;
-			}
 		}
-		break;	
-		
+		break;		
 		case 1:
-		{				
-		
-			switch(LFBReg){
+		{
+			switch (LFBReg) {
 				case 0:
-				case 64:	/* 
-								Revenant				
-								Tomb Raider 1 (DOS) 				
+				case 64:	/*
+								Revenant
+								Tomb Raider 1 (DOS)
 								Warhammer - Dark Omen
 							*/
-				case 80:	/* Flying Saucer 						*/	
-				case 82:	/* Freespace 2 							*/					
-				case 336:	/* Incubation 							*/					
-				case 338:	/* Sub Culture, Keypress F9				*/					
-				{			
-												
-					if (sdlVoodoo.opengl.bLFBFixBack == true){	
-					
-						/*
-							This fix is just in work. Not Final.
-						*/  						
-											
-						if (( w == 640 && h == 480 ) ||  ( w == 1280 && h == 960 ))
-						{
-							/* 640x480 */
-							/* 1280x960 */
-							x = x << nShift;
-							y = y << nShift;
-							GLsizei Width  = v->fbi.width  <<nShift;
-							GLsizei Height = v->fbi.height <<nShift;
+				case 80:	/* Flying Saucer 						*/
+				case 82:	/* Freespace 2 							*/
+				case 336:	/* Incubation 							*/
+				case 338:	/* Sub Culture, Keypress F9				*/
+				{
 
-							Voodoo_OGL_Read_Back(0, y, Width, Height, Format);							
-														
-						}
-						else						
-						{			
-					
-							x = ( (x-1) * ( w / v->fbi.width  ) ) + x * ( w / v->fbi.width )/Voodoo_OGL_LFB_Get_Scale_Width( w);	
-							y = ( (y-1) * ( h / v->fbi.height ) ) + y * ( h / v->fbi.height)/Voodoo_OGL_LFB_Get_Scale_Height(h);
-						
-							#if defined C_HEAVY_DEBUG && LFB_LOGGER >= 1
-							if (sdlVoodoo.opengl.LogCntY != y)
+					if (sdlVoodoo.opengl.bLFBFixBack == true) {
+
+						if (w == 1024 && h == 768)
+							PixelFixW = 1;
+
+						y = ScaleFactorY(h, y + PixelFixY);
+						x = ScaleAspectRatioX(w, ScaleFactorX(ScaleAspectRatioW(w) + PixelFixW, x));
+
+						/*
+						y = ScaleFactorY(h, y);
+						x = ScaleFactorX(w, x);
+						*/
+
+						if (sdlVoodoo.opengl.voodoo_aspect == true)
+						{
+							if (sdlVoodoo.fullscreen)
 							{
-								sdlVoodoo.opengl.LogCntY = y;								
-								Voodoo_OGL_LOG_LFB_XY_Coords(x, y, w, h);
-							}			
-							#endif						
-							if ( sdlVoodoo.opengl.voodoo_aspect == true )
-							{	
-						
-								if (sdlVoodoo.fullscreen)
-								{
-									Voodoo_OGL_Read_Back(0, y, w, h, Format);
-								}
-								else
-								{
-									Voodoo_OGL_Read_Back(0, y, w, h, Format);
-								}
-								
+								Voodoo_OGL_Read_Back(0, y, w, h, Format);
 							}
 							else
 							{
-								Voodoo_OGL_Read_Back(x, y, w, h, Format);
+								Voodoo_OGL_Read_Back(0, y, w, h, Format);
 							}
-						}																									
-					
-					} else {
-						Voodoo_OGL_Read_Back(0, y, v->fbi.width, v->fbi.height, Format);																						
+						}
+						else
+						{
+							Voodoo_OGL_Read_Back(x, y, w, h, Format);
+						}
 					}
-					
+					else
+					{
+						Voodoo_OGL_Read_Back(0, y, v->fbi.width, v->fbi.height, Format);
+					}
+
 					data[0] = Cache.Line.Back.Buffer[x+2];	
-					data[1] = Cache.Line.Back.Buffer[x+4];																	
+					data[1] = Cache.Line.Back.Buffer[x+4];	
+					//return ((data[0] >> 16) & 0x0000ffff) | (data[1] & 0xffff0000);
+					/*
+					return ((RGB_BLUE (Cache.Line.Back.Buffer[x + 2]) >> 3) << 11) |
+						   ((RGB_GREEN(Cache.Line.Back.Buffer[x + 2]) >> 2) << 5)  |
+						    (RGB_RED  (Cache.Line.Back.Buffer[x + 2]) >> 3) |
+						   ((RGB_BLUE (Cache.Line.Back.Buffer[x + 4]) >> 3) << 27) |
+						   ((RGB_GREEN(Cache.Line.Back.Buffer[x + 4]) >> 2) << 21) |
+						   ((RGB_RED  (Cache.Line.Back.Buffer[x + 4]) >> 3) << 16);
+					*/
 				}
 				break;
 				default:
-				{
-					E_Exit("Unknown Back Buffer Register Access %d (0x%x)",LFBReg,LFBReg);	
-				}
+					E_Exit("Unknown Back Buffer Register Access %d (0x%x)", LFBReg, LFBReg);				
 			}
-			break;		
+			break;
 		}
-		break;		
+		break;
 		case 2:
 		{	
 			VOGL_SetReadMode(false);
 			GLint X 	  = x;
 			GLint Y 	  = v->fbi.height - y;
 			GLsizei Width = 2;
-			GLsizei Height= 1;
-			Format        = GL_DEPTH_COMPONENT;
-			GLenum Type   = GL_UNSIGNED_INT;
+			GLsizei	Height= 1;
+			Format        = GLenum(sdlVoodoo.opengl.RGB_Format)/*GL_DEPTH_COMPONENT*/;
+			GLenum Type   = GLenum(sdlVoodoo.opengl.RGB_Type);/*GL_UNSIGNED_INT*/;
 		
-			Voodoo_OGL_Read_GlPix(X, Y, Width, Height, Format, Type, (UINT32*)&data);
+			Y		= ScaleFastFillY(h, Y);
+			X		= ScaleFactorX(ScaleAspectRatioW(w), X);
+			X		= ScaleAspectRatioX(w, X);
+
+			Height	= ScaleFastFillY(h, Height);
+			Width	= ScaleFactorX(ScaleAspectRatioW(w), Width);
+
+			Voodoo_OGL_Read_GlPix(X, Y, Width, Height, Format, Type, 2,0,(UINT32*)&data);
 		
-			return ( (data[0]>>16)&0xffff ) | ( data[1] & 0xffff0000 );
+			//return ( (data[0]>>16)&0xffff ) | ( data[1] & 0xffff0000 );
+			/*
+			return ((RGB_BLUE ((data[0] >> 16) & 0xffff) >> 3) << 11) |
+				   ((RGB_GREEN((data[0] >> 16) & 0xffff) >> 2) << 5)  |
+				    (RGB_RED  ((data[0] >> 16) & 0xffff) >> 3) |
+				   ((RGB_BLUE  (data[1] & 0xffff0000)	 >> 3) << 27) |
+				   ((RGB_GREEN (data[1] & 0xffff0000)	 >> 2) << 21) |
+				   ((RGB_RED   (data[1] & 0xffff0000)	 >> 3) << 16);
+				   */
+			return ((data[0] >> 16) & 0x0000ffff) | (data[1] & 0xffff0000);
 		}	
 		break;
 		
@@ -2678,10 +3174,13 @@ UINT32 voodoo_ogl_read_pixel(GLint x, GLint y) {
 	return ((RGB_BLUE(data[0])>>3)<<11) | ((RGB_GREEN(data[0])>>2)<<5)  |  (RGB_RED(data[0])>>3) |
 	       ((RGB_BLUE(data[1])>>3)<<27) | ((RGB_GREEN(data[1])>>2)<<21) | ((RGB_RED(data[1])>>3)<<16);
 }
-
+UINT32 voodoo_ogl_read_pixel(GLint x, GLint y)
+{
+	return Voodoo_Read_Pixel(x, y);
+}
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 void voodoo_ogl_vblank_flush(void) {
-	VOGL_ClearBeginMode();
+	VOGL_ClearBeginMode(); VOGL_ClearBeginState();
 	glFlush();
 }
 
@@ -2809,34 +3308,30 @@ void voodoo_ogl_set_GLShadeModel(void) {
 void voodoo_ogl_set_glViewport(void) {
 				
 		//if (GFX_LazyFullscreenRequested()){}
-	
 
-	
 		if ( nScreenSetup  == true){
 			
 			return;
 		}
-		
-		if (sdlVoodoo.fullscreen){
+
+		if (sdlVoodoo.fullscreen)
+		{			
+			sdlVoodoo.isFullscreen = true;
 			if (sdlVoodoo.ScrOpenGL_Flags & SDL_WINDOW_FULLSCREEN_DESKTOP){
-				/* Fullscreen Desktop Modus */
-				/* TODO
-				- Miss Calculate on Lower Screens
-				*/
+
 				SDL_DisplayMode displayMode;
 				SDL_GetDesktopDisplayMode(SDL_GetWindowDisplayIndex(sdlVoodoo.surface), &displayMode);
-											
-				adjust_x = (displayMode.w - (GLsizei)sdlVoodoo.pciFSW) /2;
-				adjust_y = (displayMode.h - (GLsizei)sdlVoodoo.pciFSH) /2;						
-				glViewport( adjust_x, adjust_y, (GLsizei)sdlVoodoo.pciFSW, (GLsizei)sdlVoodoo.pciFSH );		
+
+				double w = (GLsizei)sdlVoodoo.pciFSW;
+				double h = (GLsizei)sdlVoodoo.pciFSH;
+
+				adjust_x = (displayMode.w - w) / 2;
+				adjust_y = (displayMode.h - h) / 2;				
+				glViewport(adjust_x, adjust_y, (GLsizei)sdlVoodoo.pciFSW, (GLsizei)sdlVoodoo.pciFSH );
 				
 				
 			} else {		
-				 /* Fullscreen Own Screen Modus */
-				 /* Todo
-				  - Fullscreen Calculate on Won Screen Modes
-				  - W/O Aspect/Zoom Faktor
-				 */
+
 				 if ( sdlVoodoo.opengl.glZoomFaktor_W == 0){
 					 /* Ohne Aspect Modus */
 					 glViewport( 0,0, (GLsizei)sdlVoodoo.pciFSW, (GLsizei)sdlVoodoo.pciFSH );
@@ -2848,42 +3343,43 @@ void voodoo_ogl_set_glViewport(void) {
 				
 				if (sdlVoodoo.fullscreen){
 					voodoo_ogl_update_dimensions();
-				}				
-				       			
+				}								       			
 			}
-		}else{					
-			glViewport( 0, 0, (GLsizei)sdlVoodoo.pciW, (GLsizei)sdlVoodoo.pciH );		
+		}else
+		{
+			if (!sdlVoodoo.fullscreen)
+			{
+				sdlVoodoo.isFullscreen = false;
+				glViewport(0, 0, (GLsizei)sdlVoodoo.pciW, (GLsizei)sdlVoodoo.pciH);
+			}
 		}
-		nScreenSetup = false;
+		//nScreenSetup = false; 
 		
 };
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 
 void voodoo_ogl_set_window(voodoo_state *v) {
-	VOGL_ClearBeginMode();
+	VOGL_ClearBeginMode(); VOGL_ClearBeginState();
 		
 	bool size_changed=false;
 	
 	if ((v->fbi.width!=sdlVoodoo.pciW) || (v->fbi.height!=sdlVoodoo.pciH)){
 		 size_changed=true;
 	}
-	 
+
 	if (size_changed || (last_orientation != (INT32)FBZMODE_Y_ORIGIN(v->reg[fbzMode].u)))
 	
 	{
-						
-		static float zoomFactor;						
-		
 		glMatrixMode( GL_PROJECTION );	
 		glLoadIdentity( );
 		
-		if (FBZMODE_Y_ORIGIN(v->reg[fbzMode].u)){
+		if (FBZMODE_Y_ORIGIN(v->reg[fbzMode].u))
+		{
 			glOrtho( sdlVoodoo.opengl.glZoomFaktor_W, (GLdouble)v->fbi.width  - sdlVoodoo.opengl.glZoomFaktor_W, sdlVoodoo.opengl.glZoomFaktor_H, (GLdouble)v->fbi.height - sdlVoodoo.opengl.glZoomFaktor_H, (float)sdlVoodoo.opengl.gl_ortho_zNear, (float)sdlVoodoo.opengl.gl_ortho_zFar);
 		}		
 		else
-		{		
-			glOrtho( sdlVoodoo.opengl.glZoomFaktor_W, (GLdouble)v->fbi.width  - sdlVoodoo.opengl.glZoomFaktor_W, (GLdouble)v->fbi.height - sdlVoodoo.opengl.glZoomFaktor_H,sdlVoodoo.opengl.glZoomFaktor_H,(float)sdlVoodoo.opengl.gl_ortho_zNear, (float)sdlVoodoo.opengl.gl_ortho_zFar );
-			
+		{
+			glOrtho( sdlVoodoo.opengl.glZoomFaktor_W, (GLdouble)v->fbi.width  - sdlVoodoo.opengl.glZoomFaktor_W, (GLdouble)v->fbi.height - sdlVoodoo.opengl.glZoomFaktor_H,sdlVoodoo.opengl.glZoomFaktor_H,(float)sdlVoodoo.opengl.gl_ortho_zNear, (float)sdlVoodoo.opengl.gl_ortho_zFar );	
 		}
 		if (last_orientation != (INT32)FBZMODE_Y_ORIGIN(v->reg[fbzMode].u))
 			last_orientation = FBZMODE_Y_ORIGIN(v->reg[fbzMode].u);
@@ -2943,15 +3439,9 @@ void vPCI_SetOpenGL_Hints (void){
 		/* TODO
 			glHint(SDL_RENDERER_PRESENTVSYNC, 1);	
 		*/			
-			// glEnable(GL_TEXTURE_1D);
-			// glEnable(GL_TEXTURE_2D);
-			// glEnable(GL_TEXTURE_3D);
-			// glEnable(GL_TEXTURE_GEN_S);
-			// glEnable(GL_TEXTURE_GEN_T);
-			// glEnable(GL_TEXTURE_GEN_R);
-			// glEnable(GL_TEXTURE_GEN_Q);
-			
-			//glCheck(glEnable(GL_MULTISAMPLE_ARB));
+		//glCheck(glEnable(GL_MULTISAMPLE_ARB));
+		glEnable(GL_POINT_SMOOTH);
+		glHint(GL_POINT_SMOOTH_HINT, GL_FASTEST);
 
 };		
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
@@ -2966,10 +3456,9 @@ void vPCI_Set2DScreen (void){
 		voodoo_ogl_set_GLShadeModel();					
 		voodoo_ogl_set_glViewport();
 
-		glEnable(GL_DEPTH_TEST);
-		
-		glDepthFunc(GL_LEQUAL); //glDepthFunc(GL_LESS);		
-
+		glEnable(GL_PROGRAM_POINT_SIZE);
+		/*glEnable(GL_FRAMEBUFFER_SRGB);*/
+		glDepthFunc(GL_LESS);		
 		
 		glMatrixMode( GL_MODELVIEW );
 		glLoadIdentity();		
@@ -2978,9 +3467,9 @@ void vPCI_Set2DScreen (void){
 
 		glTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
     
-		glPixelStorei( GL_PACK_ALIGNMENT, 2);
-		glPixelStorei( GL_UNPACK_ALIGNMENT, 2);		
-		
+		glPixelStorei( GL_PACK_ALIGNMENT, 4);
+		/*glPixelStorei( GL_UNPACK_ALIGNMENT, 2);*/
+
 }
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 
@@ -2998,8 +3487,253 @@ void vPCI_SDL_Free_VSurface(void){
 	}
 }
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+INLINE void SST_Get_Config_GL_Filter(void)
+{
+	sdlVoodoo.opengl.GL_filtering = 1;		/* Standard*/
 
-void vPCI_Get_Configuration(void){
+	if		(!_stricmp( sdlVoodoo.opengl.sfiltering, "none"))		{	sdlVoodoo.opengl.GL_filtering = 0;}
+	else if (!_stricmp( sdlVoodoo.opengl.sfiltering, "point"))		{	sdlVoodoo.opengl.GL_filtering = 1;}
+	else if (!_stricmp( sdlVoodoo.opengl.sfiltering, "bilinear"))	{	sdlVoodoo.opengl.GL_filtering = 2;}
+	else if (!_stricmp( sdlVoodoo.opengl.sfiltering, "trilinear"))	{	sdlVoodoo.opengl.GL_filtering = 3;}
+	else if (!_stricmp( sdlVoodoo.opengl.sfiltering, "anisotropic")){	sdlVoodoo.opengl.GL_filtering = 4;}
+	else if (!_stricmp( sdlVoodoo.opengl.sfiltering, "testmode"))	{	sdlVoodoo.opengl.GL_filtering = 5;}
+
+	/*
+		Check SDL Main (CPP) at main beginning (Voodoo Struct Inits)
+	*/
+	if (extVoodoo.GL_filtering != 999) {
+
+		sdlVoodoo.opengl.GL_filtering = extVoodoo.GL_filtering;
+
+		switch (sdlVoodoo.opengl.GL_filtering) {
+		case 0: { sdlVoodoo.opengl.sfiltering = "none"; }; break;
+		case 1: { sdlVoodoo.opengl.sfiltering = "point"; }; break;
+		case 2: { sdlVoodoo.opengl.sfiltering = "bilinear"; }; break;
+		case 3: { sdlVoodoo.opengl.sfiltering = "trilinear"; }; break;
+		case 4: { sdlVoodoo.opengl.sfiltering = "anisotropic"; }; break;
+		case 5: { sdlVoodoo.opengl.sfiltering = "testmode"; }; break;
+		}
+	}
+}
+INLINE void SST_Get_Config_GL_Shade (void)
+{
+	sdlVoodoo.opengl.GL_ShadeModel = 0;
+
+	if		(!_stricmp( sdlVoodoo.opengl.sglshademdl, "none"))	{	sdlVoodoo.opengl.GL_ShadeModel = 0;}
+	else if (!_stricmp( sdlVoodoo.opengl.sglshademdl, "flat"))	{	sdlVoodoo.opengl.GL_ShadeModel = 1;}
+	else if (!_stricmp( sdlVoodoo.opengl.sglshademdl, "smooth")){	sdlVoodoo.opengl.GL_ShadeModel = 2;}
+
+	if (extVoodoo.GL_shade != 999)
+	{
+
+		sdlVoodoo.opengl.GL_ShadeModel = extVoodoo.GL_shade;
+
+		switch (sdlVoodoo.opengl.GL_ShadeModel)
+		{
+			case 0: { sdlVoodoo.opengl.GL_ShadeModel = 0; }; break;
+			case 1: { sdlVoodoo.opengl.GL_ShadeModel = 1; }; break;
+			case 2: { sdlVoodoo.opengl.GL_ShadeModel = 2; }; break;
+		}
+	}
+}
+INLINE void SST_Get_Config_Tx_Wrap_S(void)
+{
+	sdlVoodoo.opengl.gl_wrap_s = 10497;
+	if		(!_stricmp(sdlVoodoo.opengl.sgl_wrap_s, "gl_repeat"))			{	sdlVoodoo.opengl.gl_wrap_s = 10497;}
+	else if (!_stricmp(sdlVoodoo.opengl.sgl_wrap_s, "gl_mirrored_repeat"))	{	sdlVoodoo.opengl.gl_wrap_s = 33648;}
+	else if (!_stricmp(sdlVoodoo.opengl.sgl_wrap_s, "gl_clamp_to_border"))	{	sdlVoodoo.opengl.gl_wrap_s = 33069;}
+	else if (!_stricmp(sdlVoodoo.opengl.sgl_wrap_s, "gl_clamp_to_edge"))	{	sdlVoodoo.opengl.gl_wrap_s = 33071;}
+
+	if (extVoodoo.gl_wrap_s != 999)
+	{
+		sdlVoodoo.opengl.gl_wrap_s = extVoodoo.gl_wrap_s;
+
+		switch (sdlVoodoo.opengl.gl_wrap_s) {
+		case 0: { sdlVoodoo.opengl.gl_wrap_s = 10497; }; break;
+		case 1: { sdlVoodoo.opengl.gl_wrap_s = 33648; }; break;
+		case 2: { sdlVoodoo.opengl.gl_wrap_s = 33069; }; break;
+		case 3: { sdlVoodoo.opengl.gl_wrap_s = 33071; }; break;
+		}
+	}
+}
+INLINE void SST_Get_Config_Tx_Wrap_T(void)
+{
+	sdlVoodoo.opengl.gl_wrap_t = 10497;
+	if		(!_stricmp(sdlVoodoo.opengl.sgl_wrap_t, "gl_repeat"))			{	sdlVoodoo.opengl.gl_wrap_t = 10497;}
+	else if (!_stricmp(sdlVoodoo.opengl.sgl_wrap_t, "gl_mirrored_repeat"))	{	sdlVoodoo.opengl.gl_wrap_t = 33648;}
+	else if (!_stricmp(sdlVoodoo.opengl.sgl_wrap_t, "gl_clamp_to_border"))	{	sdlVoodoo.opengl.gl_wrap_t = 33069;}
+	else if (!_stricmp(sdlVoodoo.opengl.sgl_wrap_t, "gl_clamp_to_edge"))	{	sdlVoodoo.opengl.gl_wrap_t = 33071;}
+
+	if (extVoodoo.gl_wrap_t != 999)
+	{
+		sdlVoodoo.opengl.gl_wrap_t = extVoodoo.gl_wrap_t;
+
+		switch (sdlVoodoo.opengl.gl_wrap_t) {
+		case 0: { sdlVoodoo.opengl.gl_wrap_t = 10497; }; break;
+		case 1: { sdlVoodoo.opengl.gl_wrap_t = 33648; }; break;
+		case 2: { sdlVoodoo.opengl.gl_wrap_t = 33069; }; break;
+		case 3: { sdlVoodoo.opengl.gl_wrap_t = 33071; }; break;
+		}
+	}
+}
+INLINE void SST_Get_Config_RGB_Type (void)
+{
+	sdlVoodoo.opengl.RGB_Type = 0x8035;					/* GL_UNSIGNED_INT_8_8_8_8 (Default)*/
+	
+	#if defined(C_DEBUG)
+	if		(!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_BYTE"))							{sdlVoodoo.opengl.RGB_Type = 0x1400; /*GL_BYTE*/}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_UNSIGNED_BYTE"))					{sdlVoodoo.opengl.RGB_Type = 0x1401; /*GL_UNSIGNED_BYTE*/}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_SHORT"))							{sdlVoodoo.opengl.RGB_Type = 0x1402; /*GL_SHORT*/}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_UNSIGNED_SHORT"))					{sdlVoodoo.opengl.RGB_Type = 0x1403; /*GL_UNSIGNED_SHORT*/}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_INT"))							{sdlVoodoo.opengl.RGB_Type = 0x1404; /*GL_INT*/}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_UNSIGNED_INT"))					{sdlVoodoo.opengl.RGB_Type = 0x1405; /*GL_UNSIGNED_INT*/}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_FLOAT"))							{sdlVoodoo.opengl.RGB_Type = 0x1406; /*GL_FLOAT*/}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_2_BYTES"))						{sdlVoodoo.opengl.RGB_Type = 0x1407; /*GL_2_BYTES*/}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_3_BYTES"))						{sdlVoodoo.opengl.RGB_Type = 0x1408; /*GL_3_BYTES*/}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_4_BYTES"))						{sdlVoodoo.opengl.RGB_Type = 0x1409; /*GL_4_BYTES*/}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_DOUBLE"))							{sdlVoodoo.opengl.RGB_Type = 0x140A; /*GL_DOUBLE*/}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_HALF_FLOAT"))						{sdlVoodoo.opengl.RGB_Type = 0x140B; /*GL_HALF_FLOAT*/}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_UNSIGNED_BYTE_3_3_2"))			{sdlVoodoo.opengl.RGB_Type = 0x8032; /*GL_UNSIGNED_BYTE_3_3_2*/	}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_UNSIGNED_SHORT_4_4_4_4"))			{sdlVoodoo.opengl.RGB_Type = 0x8033; /*GL_UNSIGNED_SHORT_4_4_4_4*/	}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_UNSIGNED_SHORT_5_5_5_1"))			{sdlVoodoo.opengl.RGB_Type = 0x8034; /*GL_UNSIGNED_SHORT_5_5_5_1*/	}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_UNSIGNED_INT_8_8_8_8"))			{sdlVoodoo.opengl.RGB_Type = 0x8035; /*GL_UNSIGNED_INT_8_8_8_8*/}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_UNSIGNED_INT_10_10_10_2"))		{sdlVoodoo.opengl.RGB_Type = 0x8036; /*GL_UNSIGNED_INT_10_10_10_2*/}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_UNSIGNED_BYTE_2_3_3_REV"))		{sdlVoodoo.opengl.RGB_Type = 0x8362; /*GL_UNSIGNED_BYTE_2_3_3_REV*/}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_UNSIGNED_SHORT_5_6_5"))			{sdlVoodoo.opengl.RGB_Type = 0x8363; /*GL_UNSIGNED_SHORT_5_6_5*/}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_UNSIGNED_SHORT_5_6_5_REV"))		{sdlVoodoo.opengl.RGB_Type = 0x8364; /*GL_UNSIGNED_SHORT_5_6_5_REV*/	}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_UNSIGNED_SHORT_4_4_4_4_REV"))		{sdlVoodoo.opengl.RGB_Type = 0x8365; /*GL_UNSIGNED_SHORT_4_4_4_4_REV*/	}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_UNSIGNED_SHORT_1_5_5_5_REV"))		{sdlVoodoo.opengl.RGB_Type = 0x8366; /*GL_UNSIGNED_SHORT_1_5_5_5_REV*/}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_UNSIGNED_INT_8_8_8_8_REV"))		{sdlVoodoo.opengl.RGB_Type = 0x8367; /*GL_UNSIGNED_INT_8_8_8_8_REV*/}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_UNSIGNED_INT_2_10_10_10_REV"))	{sdlVoodoo.opengl.RGB_Type = 0x8368; /*GL_UNSIGNED_INT_2_10_10_10_REV*/	}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_UNSIGNED_INT_24_8"))				{sdlVoodoo.opengl.RGB_Type = 0x84FA; /*GL_UNSIGNED_INT_24_8*/}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_UNSIGNED_INT_10F_11F_11F_REV"))	{sdlVoodoo.opengl.RGB_Type = 0x8C3B; /*GL_UNSIGNED_INT_10F_11F_11F_REV*/	}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_UNSIGNED_INT_5_9_9_9_REV"))		{sdlVoodoo.opengl.RGB_Type = 0x8C3E; /*GL_UNSIGNED_INT_5_9_9_9_REV*/}
+	else if (!_stricmp(sdlVoodoo.opengl.sRGBType, "GL_FLOAT_32_UNSIGNED_INT_24_8_REV"))	{sdlVoodoo.opengl.RGB_Type = 0x8DAD; /*GL_FLOAT_32_UNSIGNED_INT_24_8_REV*/	}
+
+	if (extVoodoo.RGB_Type != 999) {
+
+		switch (extVoodoo.RGB_Type) {
+		case 0:  { sdlVoodoo.opengl.RGB_Type = 0x1400; }; break;
+		case 1:  { sdlVoodoo.opengl.RGB_Type = 0x1401; }; break;
+		case 2:  { sdlVoodoo.opengl.RGB_Type = 0x1402; }; break;
+		case 3:  { sdlVoodoo.opengl.RGB_Type = 0x1403; }; break;
+		case 4:  { sdlVoodoo.opengl.RGB_Type = 0x1404; }; break;
+		case 5:  { sdlVoodoo.opengl.RGB_Type = 0x1405; }; break;
+		case 6:  { sdlVoodoo.opengl.RGB_Type = 0x1406; }; break;
+		case 7:  { sdlVoodoo.opengl.RGB_Type = 0x1407; }; break;
+		case 8:  { sdlVoodoo.opengl.RGB_Type = 0x1408; }; break;
+		case 9:  { sdlVoodoo.opengl.RGB_Type = 0x1409; }; break;
+		case 10: { sdlVoodoo.opengl.RGB_Type = 0x140A; }; break;
+		case 11: { sdlVoodoo.opengl.RGB_Type = 0x140B; }; break;
+		case 12: { sdlVoodoo.opengl.RGB_Type = 0x8032; }; break;
+		case 13: { sdlVoodoo.opengl.RGB_Type = 0x8033; }; break;
+		case 14: { sdlVoodoo.opengl.RGB_Type = 0x8034; }; break;
+		case 15: { sdlVoodoo.opengl.RGB_Type = 0x8035; }; break;
+		case 16: { sdlVoodoo.opengl.RGB_Type = 0x8036; }; break;
+		case 17: { sdlVoodoo.opengl.RGB_Type = 0x8362; }; break;
+		case 18: { sdlVoodoo.opengl.RGB_Type = 0x8363; }; break;
+		case 19: { sdlVoodoo.opengl.RGB_Type = 0x8364; }; break;
+		case 20: { sdlVoodoo.opengl.RGB_Type = 0x8365; }; break;
+		case 21: { sdlVoodoo.opengl.RGB_Type = 0x8366; }; break;
+		case 22: { sdlVoodoo.opengl.RGB_Type = 0x8367; }; break;
+		case 23: { sdlVoodoo.opengl.RGB_Type = 0x8368; }; break;
+		case 24: { sdlVoodoo.opengl.RGB_Type = 0x84FA; }; break;
+		case 25: { sdlVoodoo.opengl.RGB_Type = 0x8C3B; }; break;
+		case 26: { sdlVoodoo.opengl.RGB_Type = 0x8C3E; }; break;
+		case 27: { sdlVoodoo.opengl.RGB_Type = 0x8DAD; }; break;
+		}
+	}
+	#endif
+}
+INLINE void SST_Get_Config_RGBFormat(void)
+{
+
+	/* Color Format*/
+	sdlVoodoo.opengl.RGB_Format = 0x1908; /* GL_RGBA (Default)*/
+
+	#if defined(C_DEBUG)
+	if (!_stricmp(sdlVoodoo.opengl.sRGBFormat, "GL_RGB4"))		{	sdlVoodoo.opengl.RGB_Format = 0x804F; /*GL_BYTE*/}
+	if (!_stricmp(sdlVoodoo.opengl.sRGBFormat, "GL_RGB5"))		{	sdlVoodoo.opengl.RGB_Format = 0x8050; /*GL_RGB5*/}
+	if (!_stricmp(sdlVoodoo.opengl.sRGBFormat, "GL_RGB8"))		{	sdlVoodoo.opengl.RGB_Format = 0x8051; /*GL_RGB8*/}
+	if (!_stricmp(sdlVoodoo.opengl.sRGBFormat, "GL_RGB10"))		{	sdlVoodoo.opengl.RGB_Format = 0x8052; /*GL_RGB10*/}
+	if (!_stricmp(sdlVoodoo.opengl.sRGBFormat, "GL_RGB12"))		{	sdlVoodoo.opengl.RGB_Format = 0x8053; /*GL_RGB12*/}
+	if (!_stricmp(sdlVoodoo.opengl.sRGBFormat, "GL_RGB16"))		{	sdlVoodoo.opengl.RGB_Format = 0x8054; /*GL_RGB16*/}
+	if (!_stricmp(sdlVoodoo.opengl.sRGBFormat, "GL_RGBA2"))		{	sdlVoodoo.opengl.RGB_Format = 0x8055; /*GL_RGBA2*/}
+	if (!_stricmp(sdlVoodoo.opengl.sRGBFormat, "GL_RGBA4"))		{	sdlVoodoo.opengl.RGB_Format = 0x8056; /*GL_RGBA4*/}
+	if (!_stricmp(sdlVoodoo.opengl.sRGBFormat, "GL_RGB5_A1"))	{	sdlVoodoo.opengl.RGB_Format = 0x8057; /*GL_RGB5_A1*/}
+	if (!_stricmp(sdlVoodoo.opengl.sRGBFormat, "GL_RGBA8"))		{	sdlVoodoo.opengl.RGB_Format = 0x8058; /*GL_RGBA8*/}
+	if (!_stricmp(sdlVoodoo.opengl.sRGBFormat, "GL_RGB10_A2"))	{	sdlVoodoo.opengl.RGB_Format = 0x8059; /*GL_RGB10_A2*/}
+	if (!_stricmp(sdlVoodoo.opengl.sRGBFormat, "GL_RGBA12"))	{	sdlVoodoo.opengl.RGB_Format = 0x805A; /*GL_RGBA12*/}
+	if (!_stricmp(sdlVoodoo.opengl.sRGBFormat, "GL_RGBA16"))	{	sdlVoodoo.opengl.RGB_Format = 0x805B; /*GL_RGBA16*/}
+	if (!_stricmp(sdlVoodoo.opengl.sRGBFormat, "GL_RED"))		{	sdlVoodoo.opengl.RGB_Format = 0x1903; /*GL_RED*/}
+	if (!_stricmp(sdlVoodoo.opengl.sRGBFormat, "GL_GREEN"))		{	sdlVoodoo.opengl.RGB_Format = 0x1904; /*GL_GREEN*/}
+	if (!_stricmp(sdlVoodoo.opengl.sRGBFormat, "GL_BLUE"))		{	sdlVoodoo.opengl.RGB_Format = 0x1905; /*GL_BLUE*/}
+	if (!_stricmp(sdlVoodoo.opengl.sRGBFormat, "GL_RGB"))		{	sdlVoodoo.opengl.RGB_Format = 0x1907; /*GL_RGB*/}
+	if (!_stricmp(sdlVoodoo.opengl.sRGBFormat, "GL_BGR"))		{	sdlVoodoo.opengl.RGB_Format = 0x80E0; /*GL_BGR*/}
+	if (!_stricmp(sdlVoodoo.opengl.sRGBFormat, "GL_RGBA"))		{	sdlVoodoo.opengl.RGB_Format = 0x1908; /*GL_RGBA*/}
+	if (!_stricmp(sdlVoodoo.opengl.sRGBFormat, "GL_BGRA"))		{	sdlVoodoo.opengl.RGB_Format = 0x80E1; /*GL_BGRA*/}
+
+	/* For Menu */
+	if (extVoodoo.RGB_Format != 999) {
+
+		switch (extVoodoo.RGB_Format)
+		{
+		case 0:  { sdlVoodoo.opengl.RGB_Format = 0x804F; }; break;
+		case 1:  { sdlVoodoo.opengl.RGB_Format = 0x8050; }; break;
+		case 2:  { sdlVoodoo.opengl.RGB_Format = 0x8051; }; break;
+		case 3:  { sdlVoodoo.opengl.RGB_Format = 0x8052; }; break;
+		case 4:  { sdlVoodoo.opengl.RGB_Format = 0x8053; }; break;
+		case 5:  { sdlVoodoo.opengl.RGB_Format = 0x8054; }; break;
+		case 6:  { sdlVoodoo.opengl.RGB_Format = 0x8055; }; break;
+		case 7:  { sdlVoodoo.opengl.RGB_Format = 0x8056; }; break;
+		case 8:  { sdlVoodoo.opengl.RGB_Format = 0x8057; }; break;
+		case 9:  { sdlVoodoo.opengl.RGB_Format = 0x8058; }; break;
+		case 10: { sdlVoodoo.opengl.RGB_Format = 0x8059; }; break;
+		case 11: { sdlVoodoo.opengl.RGB_Format = 0x805A; }; break;
+		case 12: { sdlVoodoo.opengl.RGB_Format = 0x805B; }; break;
+		case 13: { sdlVoodoo.opengl.RGB_Format = 0x1903; }; break;
+		case 14: { sdlVoodoo.opengl.RGB_Format = 0x1904; }; break;
+		case 15: { sdlVoodoo.opengl.RGB_Format = 0x1905; }; break;
+		case 16: { sdlVoodoo.opengl.RGB_Format = 0x1907; }; break;
+		case 17: { sdlVoodoo.opengl.RGB_Format = 0x80E0; }; break;
+		case 18: { sdlVoodoo.opengl.RGB_Format = 0x1908; }; break;
+		case 19: { sdlVoodoo.opengl.RGB_Format = 0x80E1; }; break;
+		}
+	}
+	#endif
+}
+INLINE void SST_Get_Config_DrawPScan(const char* s)
+{
+	if		(!_stricmp(s, "Option1"))	{	sdlVoodoo.opengl.ScanMode = 1;}
+	else if (!_stricmp(s, "Option2"))	{	sdlVoodoo.opengl.ScanMode = 2;}
+	else
+	{
+		sdlVoodoo.opengl.ScanMode = 0;
+	}
+
+	/* For Menu */
+	if (extVoodoo.GLScan != 999)
+	{
+
+		switch (extVoodoo.GLScan)
+		{
+			case 0: { sdlVoodoo.opengl.ScanMode = 0; }; return;
+			case 1: { sdlVoodoo.opengl.ScanMode = 1; }; return;
+			case 2: { sdlVoodoo.opengl.ScanMode = 2; }; return;
+		}
+		return;
+	}
+}
+INLINE void SST_Get_Config_DrawPDark(void)
+{
+	/* For Menu */
+	if (extVoodoo.GLDark != 999)
+	{
+		sdlVoodoo.opengl.Bright = extVoodoo.GLDark;
+	}
+}
+void vPCI_Get_Configuration(void)
+{
 	
 	
 	Section_prop *section = static_cast<Section_prop *>(control->GetSection("pci"));
@@ -3014,13 +3748,7 @@ void vPCI_Get_Configuration(void){
 		
 	UseOwnWindowResolution  = sectsdl->Get_bool("VoodooUseOwnWindowRes");
 	UseOwnFullScResolution  = sectsdl->Get_bool("VoodooUseOwnFullScRes");	
-	sdlVoodoo.displaynumber 	    = SDL_GetWindowDisplayIndex(sdlVoodoo.surface); //sectsdl->Get_int("display");	
-		
-	sdlVoodoo.opengl.sfiltering   =section->Get_string("Voodoo_Filter");
-	sdlVoodoo.opengl.sglshademdl  =section->Get_string("Voodoo_GLShade");	
-	sdlVoodoo.opengl.sgl_wrap_s   =section->Get_string("Texture_Wrap_S");		
-	sdlVoodoo.opengl.sgl_wrap_t   =section->Get_string("Texture_Wrap_T");	
-	
+	sdlVoodoo.displaynumber = SDL_GetWindowDisplayIndex(sdlVoodoo.surface); //sectsdl->Get_int("display");			
 
 	sOpenGLOutput=section->Get_string("voodoo");
 
@@ -3108,147 +3836,91 @@ void vPCI_Get_Configuration(void){
 			}
 		}
 
-	
-	sdlVoodoo.opengl.GL_filtering=1;
-	if (!strcasecmp(sdlVoodoo.opengl.sfiltering,"none"))
-	{
-		sdlVoodoo.opengl.GL_filtering=0;
-		
-	}else if (!strcasecmp(sdlVoodoo.opengl.sfiltering,"point"))
-	{
-		sdlVoodoo.opengl.GL_filtering=1;
-		
-	}else if (!strcasecmp(sdlVoodoo.opengl.sfiltering,"bilinear"))
-	{
-		sdlVoodoo.opengl.GL_filtering=2;
-	
-	}else if (!strcasecmp(sdlVoodoo.opengl.sfiltering,"trilinear"))
-	{
-		sdlVoodoo.opengl.GL_filtering=3;
-		
-	}else if (!strcasecmp(sdlVoodoo.opengl.sfiltering,"anisotropic"))
-	{
-		sdlVoodoo.opengl.GL_filtering=4;
-	
-	}else if (!strcasecmp(sdlVoodoo.opengl.sfiltering,"testmode"))
-	{
-		sdlVoodoo.opengl.GL_filtering=5;
-	}	
-	
-	/* 
-		Check SDL Main (CPP) at main beginning (Voodoo Struct Inits)
-	*/
-	if ( extVoodoo.GL_filtering != 999 ){
-		
-		sdlVoodoo.opengl.GL_filtering = extVoodoo.GL_filtering;
-		
-		switch(sdlVoodoo.opengl.GL_filtering){		
-			case 0:{ sdlVoodoo.opengl.sfiltering = "none"		;};break;
-			case 1:{ sdlVoodoo.opengl.sfiltering = "point"		;};break;
-			case 2:{ sdlVoodoo.opengl.sfiltering = "bilinear"	;};break;
-			case 3:{ sdlVoodoo.opengl.sfiltering = "trilinear"	;};break;		
-			case 4:{ sdlVoodoo.opengl.sfiltering = "anisotropic";};break;
-			case 5:{ sdlVoodoo.opengl.sfiltering = "testmode"	;};break;			
-		}
-	}	
-	
-	sdlVoodoo.opengl.GL_ShadeModel=0;
-	if (!strcasecmp(sdlVoodoo.opengl.sglshademdl,"none"))
-	{
-		sdlVoodoo.opengl.GL_ShadeModel=0;
-		
-	}else if (!strcasecmp(sdlVoodoo.opengl.sglshademdl,"flat"))
-	{
-		sdlVoodoo.opengl.GL_ShadeModel=1;
-		
-	}else if (!strcasecmp(sdlVoodoo.opengl.sglshademdl,"smooth"))
-	{
-		sdlVoodoo.opengl.GL_ShadeModel=2;
-	
-	}		
+	sdlVoodoo.opengl.gl_ortho_zNear		= 0.0f;
+	sdlVoodoo.opengl.gl_ortho_zFar		= -1.0f;
+	sdlVoodoo.opengl.glZoomFaktor_W		= 0;
+	sdlVoodoo.opengl.glZoomFaktor_H		= 0;
+	sdlVoodoo.opengl.gl_Major_Version	= 2;
+	sdlVoodoo.opengl.gl_Minor_Version	= 1;
 
-	sdlVoodoo.opengl.gl_wrap_s=10497;
-	if (!strcasecmp(sdlVoodoo.opengl.sgl_wrap_s,"gl_repeat"))
-	{
-		sdlVoodoo.opengl.gl_wrap_s=10497;
-		
-	}else if (!strcasecmp(sdlVoodoo.opengl.sgl_wrap_s,"gl_mirrored_repeat"))
-	{
-		sdlVoodoo.opengl.gl_wrap_s=33648;
-		
-	}else if (!strcasecmp(sdlVoodoo.opengl.sgl_wrap_s,"gl_clamp_to_border"))
-	{
-		sdlVoodoo.opengl.gl_wrap_s=33069;
-	
-	}else if (!strcasecmp(sdlVoodoo.opengl.sgl_wrap_s,"gl_clamp_to_edge"))
-	{
-		sdlVoodoo.opengl.gl_wrap_s=33071;
-	
-	}	
-	
-	sdlVoodoo.opengl.gl_wrap_t=10497;
-	if (!strcasecmp(sdlVoodoo.opengl.sgl_wrap_t,"gl_repeat"))
-	{
-		sdlVoodoo.opengl.gl_wrap_t=10497;
-		
-	}else if (!strcasecmp(sdlVoodoo.opengl.sgl_wrap_t,"gl_mirrored_repeat"))
-	{
-		sdlVoodoo.opengl.gl_wrap_t=33648;
-		
-	}else if (!strcasecmp(sdlVoodoo.opengl.sgl_wrap_t,"gl_clamp_to_border"))
-	{
-		sdlVoodoo.opengl.gl_wrap_t=33069;
-	
-	}else if (!strcasecmp(sdlVoodoo.opengl.sgl_wrap_t,"gl_clamp_to_edge"))
-	{
-		sdlVoodoo.opengl.gl_wrap_t=33071;
-	
-	}	
-	
-	sdlVoodoo.opengl.gl_ortho_zNear		= 0.0f;		sdlVoodoo.opengl.gl_ortho_zFar		= -1.0f;
-	sdlVoodoo.opengl.glZoomFaktor_W		= 0;		sdlVoodoo.opengl.glZoomFaktor_H		= 0;
-	sdlVoodoo.opengl.gl_Major_Version 	= 2;		sdlVoodoo.opengl.gl_Minor_Version 	= 1;
-	
-	sdlVoodoo.opengl.Anisotropic_Level	=  section->Get_float ("Anisotropic_Level");
-	sdlVoodoo.opengl.a_ClipLowYHigh		=  section->Get_bool ("a_ClipLowYHigh");
-	sdlVoodoo.opengl.n_ClipLowYHigh   	=  section->Get_int  ("n_ClipLowYHigh");
-	sdlVoodoo.opengl.compatibleFlag		=  section->Get_bool ("compatible_flag");
-	sdlVoodoo.opengl.glScissor_flag   	=  section->Get_bool ("glScissor_flag");	
-	sdlVoodoo.opengl.gl_QuadsDraw     	=  section->Get_bool ("gl_QuadsDraw_use");		
-	sdlVoodoo.opengl.glP_Smoth_flag		=  section->Get_bool ("glP_Smoth_flag");
-	sdlVoodoo.opengl.glL_Smoth_flag		=  section->Get_bool ("glL_Smoth_flag");
-	sdlVoodoo.opengl.glBlendFc_flag		=  section->Get_bool ("glBlendFc_flag");
-	sdlVoodoo.opengl.gl_GLFog__flag		=  section->Get_bool ("gl_GLFog__flag");				
-	sdlVoodoo.opengl.glGMipMap_flag		=  section->Get_bool ("glGMipMap_flag");
-	sdlVoodoo.opengl.glPersCor_flag		=  section->Get_bool ("glPersCor_flag");
-	sdlVoodoo.opengl.glG_Smoth_flag		=  section->Get_bool ("glG_Smoth_flag");
-	sdlVoodoo.opengl.voodoo_aspect    	=  section->Get_bool ("voodoo_Aspect");
-	sdlVoodoo.opengl.gl_Minor_Version 	=  section->Get_int  ("gl_Minor_Version");
-	sdlVoodoo.opengl.gl_Major_Version 	=  section->Get_int  ("gl_Major_Version");	
-	
-	sdlVoodoo.opengl.gl_ortho_zNear		=  section->Get_float("gl_ortho_zNear");	
-	sdlVoodoo.opengl.gl_ortho_zFar		=  section->Get_float("gl_ortho_zFar");	
-	
-	sdlVoodoo.opengl.sh_FbzcpCca_Sw2	=  section->Get_bool("sh_FbzcpCca_Sw2");
-	
-	sdlVoodoo.opengl.glZoomFaktor_W		=  section->Get_int("ZoomScreen_Width");
-	sdlVoodoo.opengl.glZoomFaktor_H		=  section->Get_int("ZoomScreen_Height");	
-	
-	sdlVoodoo.opengl.bLFBFixFrnt		=  section->Get_bool("LFB_ScreenFixFrnt");	
-	sdlVoodoo.opengl.bLFBFixBack		=  section->Get_bool("LFB_ScreenFixBack");
-	sdlVoodoo.opengl.bLFBDebugLg		=  section->Get_bool("LFB_LogRegisterNr");
-	
-	sdlVoodoo.opengl.CoordsY			=  section->Get_float("LFB_SetPixel_Y");
-	sdlVoodoo.opengl.CoordsX			=  section->Get_float("LFB_SetPixel_X");
-	
-	/*///////////////////// Section SDL */	
+	sdlVoodoo.opengl.sfiltering			= section->Get_string("Voodoo_Filter");
+	sdlVoodoo.opengl.sglshademdl		= section->Get_string("Voodoo_GLShade");
+	sdlVoodoo.opengl.sgl_wrap_s			= section->Get_string("Texture_Wrap_S");
+	sdlVoodoo.opengl.sgl_wrap_t			= section->Get_string("Texture_Wrap_T");
+	const char* ScanMode				= section->Get_string("DrawPixel_Scan");
+
+	sdlVoodoo.opengl.sRGBType			= section->Get_string("LFB_RGB_Type");
+	sdlVoodoo.opengl.sRGBFormat			= section->Get_string("LFB_RGBFormat");
+
+	sdlVoodoo.opengl.voodoo_aspect		= section->Get_bool("voodoo_Aspect");
+	sdlVoodoo.opengl.compatibleFlag		= section->Get_bool("compatible_flag");
+	sdlVoodoo.opengl.gl_QuadsDraw		= section->Get_bool("gl_QuadsDraw_use");
+	sdlVoodoo.opengl.glP_Smoth_flag		= section->Get_bool("glP_Smoth_flag");
+	sdlVoodoo.opengl.glL_Smoth_flag		= section->Get_bool("glL_Smoth_flag");
+	sdlVoodoo.opengl.glBlendFc_flag		= section->Get_bool("glBlendFc_flag");
+	sdlVoodoo.opengl.gl_GLFog__flag		= section->Get_bool("gl_GLFog__flag");
+	sdlVoodoo.opengl.glGMipMap_flag		= section->Get_bool("glGMipMap_flag");
+	sdlVoodoo.opengl.glPersCor_flag		= section->Get_bool("glPersCor_flag");
+	sdlVoodoo.opengl.glG_Smoth_flag		= section->Get_bool("glG_Smoth_flag");
+	sdlVoodoo.opengl.bLFBFixFrnt		= section->Get_bool("LFB_ScreenFixFrnt");
+	sdlVoodoo.opengl.bLFBFixBack		= section->Get_bool("LFB_ScreenFixBack");
+	sdlVoodoo.opengl.bLFBDebugLg		= section->Get_bool("LFB_LogRegisterNr");
+	sdlVoodoo.opengl.ChacheDelete		= section->Get_bool("Cache_Delete_Loop");
+	sdlVoodoo.opengl.sh_FbzcpCca_Sw2	= section->Get_bool("sh_FbzcpCca_Sw2");
+	sdlVoodoo.opengl.glScissor_flag		= section->Get_bool("glScissor_flag");
+
+	sdlVoodoo.opengl.Use3DFXCycles		= section->Get_bool("High_Cycles_Ratio");
+	bVoodooUseHighRatio					= sdlVoodoo.opengl.Use3DFXCycles;
+
+	sdlVoodoo.opengl.gl_Minor_Version	= section->Get_int("gl_Minor_Version");
+	sdlVoodoo.opengl.gl_Major_Version	= section->Get_int("gl_Major_Version");
+	sdlVoodoo.opengl.Bright				= section->Get_int("DrawPixel_Dark");
+
+	sdlVoodoo.opengl.Anisotropic_Level	= section->Get_float("Anisotropic_Level");
+	sdlVoodoo.opengl.gl_ortho_zNear		= section->Get_float("gl_ortho_zNear");
+	sdlVoodoo.opengl.gl_ortho_zFar		= section->Get_float("gl_ortho_zFar");
+
+	SST_Get_Config_GL_Filter();			/* Voodoo Filter	*/
+	SST_Get_Config_GL_Shade ();			/* Voodoo GL Shade	*/
+	SST_Get_Config_Tx_Wrap_S();			/* Texture_Wrap_S	*/
+	SST_Get_Config_Tx_Wrap_T();			/* Texture_Wrap_T	*/
+	SST_Get_Config_RGB_Type ();			/* LFB_RGB_Type		*/
+	SST_Get_Config_RGBFormat();			/* LFB_RGBFormat	*/
+	SST_Get_Config_DrawPScan(ScanMode);	/* Draw Pixel Scan	*/
+	SST_Get_Config_DrawPDark();			/* Draw Pixel Dark	*/
+
+	/*///////////////////// Section SDL ////////////////////////////////////////////////*/	
 	sdlVoodoo.OpenGLDesktopFullScreen 	=  sectsdl->Get_bool  ("VoodooDesktopFullScrn");		
 	sdlVoodoo.windowstaskbaradjust 		=  sectsdl->Get_int   ("WindowsTaskbarAdjust");	
 	sdlVoodoo.dosbox.output  			=  sectsdl->Get_string("output");
 	sdlVoodoo.dosbox.texture 			=  sectsdl->Get_string("texture.renderer");  
-	
 }
 
+/*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+void FX_Menu(int /*Menu*/Option)
+{
+	switch (Option)
+	{
+
+		case 15:	{	sdlVoodoo.opengl.glScissor_flag		= extVoodoo.glScissor_flag;		} return;
+		case 14:	{	sdlVoodoo.opengl.compatibleFlag		= extVoodoo.compatibleFlag;		} return;
+		case 13:	{	sdlVoodoo.opengl.gl_GLFog__flag		= extVoodoo.gl_GLFog__flag;		} return;
+		case 12:	{	sdlVoodoo.opengl.glPersCor_flag		= extVoodoo.glPersCor_flag;		} return;
+		case 11:	{	sdlVoodoo.opengl.glGMipMap_flag		= extVoodoo.glGMipMap_flag;		} return;
+		case 10:	{	sdlVoodoo.opengl.glBlendFc_flag		= extVoodoo.glBlendFc_flag;		} return;
+		case 9: 	{	sdlVoodoo.opengl.glL_Smoth_flag		= extVoodoo.glL_Smoth_flag;		} return;
+		case 8:		{	sdlVoodoo.opengl.glP_Smoth_flag		= extVoodoo.glP_Smoth_flag;		} return;
+		case 7:		{	sdlVoodoo.opengl.sh_FbzcpCca_Sw2	= extVoodoo.sh_FbzcpCca_Sw2;	} return;
+		case 6:		{	sdlVoodoo.opengl.voodoo_aspect		= extVoodoo.voodoo_aspect;		} return;
+		case 5:		{	sdlVoodoo.opengl.Use3DFXCycles		= extVoodoo.Use3DFXCycles;
+						bVoodooUseHighRatio					= sdlVoodoo.opengl.Use3DFXCycles;}return;
+		case 4:		{	sdlVoodoo.opengl.ChacheDelete		= extVoodoo.ChacheDelete;		} return;
+		case 3:		{	sdlVoodoo.opengl.gl_QuadsDraw		= extVoodoo.gl_QuadsDraw;		} return;
+		case 2:		{	sdlVoodoo.opengl.gl_QuadsDraw		= extVoodoo.bLFBDebugLg;		} return;
+		case 1:		{	sdlVoodoo.opengl.bLFBFixBack		= extVoodoo.bLFBFixBack;		} return;
+		case 0:		{	sdlVoodoo.opengl.bLFBFixFrnt		= extVoodoo.bLFBFixFrnt;		} return;				
+	}
+}
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 void vPCI_Reset_GLVideoMode(void){
 	last_clear_color=0;
@@ -3285,22 +3957,24 @@ void vPCI_Set_GL_Attributes(void){
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, sdlVoodoo.opengl.gl_Major_Version);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, sdlVoodoo.opengl.gl_Minor_Version);
 		
-		SDL_GL_SetAttribute(SDL_GL_CONTEXT_RELEASE_BEHAVIOR, 1);		
-		SDL_GL_SetAttribute(SDL_GL_RED_SIZE,		  8);
-		SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE,		  8);
-		SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE,		  8);
-		SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE,        8);		
-		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE,		 32);
-		SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE,	  2);		
-		SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE,		 32);
-		SDL_GL_SetAttribute(SDL_GL_ACCUM_RED_SIZE,    8);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_RELEASE_BEHAVIOR, 1);
+		SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
+		SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
+		SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
+		SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
+		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);/*32*/
+		SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 16);/*2*/
+		SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE, 32);
+		SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 0);
+		SDL_GL_SetAttribute(SDL_GL_ACCUM_RED_SIZE,  8);
 		SDL_GL_SetAttribute(SDL_GL_ACCUM_GREEN_SIZE,  8);
 		SDL_GL_SetAttribute(SDL_GL_ACCUM_BLUE_SIZE,   8);
 		SDL_GL_SetAttribute(SDL_GL_ACCUM_ALPHA_SIZE,  8);
-				
-		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS,1);
-		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS,0);		
-		SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 1);
+		
+		/*SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS,1);
+		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS,0);		*/
+
+		
 		
 		
 	}
@@ -3314,7 +3988,7 @@ void vPCI_Set_GL_Attributes(void){
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 void vPCI_SDL_SetVideoFlags(void) {
 	
-		if (strcasecmp(sdlVoodoo.dosbox.texture,"vulkan") == 1 ){
+		if (_stricmp(sdlVoodoo.dosbox.texture,"vulkan") == 1 ){
 			sdlVoodoo.ScreenType = SDL_WINDOW_VULKAN;
 		} else {
 			sdlVoodoo.ScreenType = SDL_WINDOW_OPENGL;
@@ -3419,8 +4093,9 @@ void vOGL_OGL_AspectRatio(void)
 						
 			/*////////////////////////////////////////////////////////////////////////////*/	
 			
-		if ( (4 * h == 3 * w) || (5 * h == 4 * w)){	
-		 // sdlVoodoo.opengl.voodoo_aspect = false;	  
+		if ( (4 * h == 3 * w) || (5 * h == 4 * w))
+		{	
+		 // sdlVoodoo.opengl.voodoo_aspect = false;
 		}		
 		else
 		{				
@@ -3439,7 +4114,7 @@ void vOGL_OGL_AspectRatio(void)
 			if(aRatio > ratioScreen)
 			{
 					gl_width = 2;
-						gl_height = 2 * ratioScreen / aRatio;
+					gl_height = 2 * ratioScreen / aRatio;
 			}
 			else
 			{
@@ -3474,24 +4149,30 @@ void vOGL_OGL_AspectRatio(void)
 void vPCI_SDL_Init_OpenGLCX(void){
 
 	/*
+	#ifdef C_DEBUG
 	SDL_Event vEvent;
 	while (SDL_PollEvent(&vEvent)) {
-		switch (vEvent.type) {	
-			
+		switch (vEvent.type) {
+
 			case SDL_WINDOWEVENT:
 			{
 				switch (vEvent.window.event) {
-					
+
 					case SDL_WINDOWEVENT_MOVED:
 					{
-						LOG(LOG_VOODOO,LOG_WARN)("VOODOO : Display Use  : %d",SDL_GetWindowDisplayIndex(sdlVoodoo.surface));
+						LOG(LOG_FXOGL,LOG_WARN)("VOODOO : Display Use  : %d",SDL_GetWindowDisplayIndex(sdlVoodoo.surface));
 						nCurrentDisplay   = SDL_GetWindowDisplayIndex(sdlVoodoo.surface);
 						//continue;
+
+						LOG(LOG_FXOGL, LOG_NORMAL)("[%d] LFB Read: Drawing Pixel through Framebuffer [%d][%d]", __LINE__, LFBMODE_READ_BUFFER_SELECT (v->reg[lfbMode].u), sdlVoodoo.count.iDrawPixelLFB0);
+						LOG(LOG_FXOGL, LOG_NORMAL)("[%d] LFB Write: Drawing Pixel through Framebuffer [%d][%d]", __LINE__,LFBMODE_WRITE_BUFFER_SELECT(v->reg[lfbMode].u), sdlVoodoo.count.iDrawPixelLFB1);
+
 					}
 				}
-			}		
+			}
 		}
 	}
+	#endif
 	*/
 	
 	if (GFX_LazyFullscreenRequested()){
@@ -3680,9 +4361,9 @@ void vPCI_get_DosboxVideo(void){
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 void vPCI_check_OpenGLIII(void){
-	if (strcasecmp(sdlVoodoo.dosbox.output,"opengl")   == 0 ||
-	    strcasecmp(sdlVoodoo.dosbox.output,"openglnb") == 0 ||
-		strcasecmp(sdlVoodoo.dosbox.output,"vulkan") == 0)   {
+	if (_stricmp(sdlVoodoo.dosbox.output,"opengl")   == 0 ||
+		_stricmp(sdlVoodoo.dosbox.output,"openglnb") == 0 ||
+		_stricmp(sdlVoodoo.dosbox.output,"vulkan") == 0)   {
 		//E_Exit("VOODOO: OpenGL3 Not Supportet as Output Render (Init error)\n"
 		//	   "        Choose surface, texture or texturenb, don't use opengl or openglnb");
 	}	
@@ -3692,16 +4373,16 @@ void vPCI_check_OpenGLIII(void){
 void vPCI_force_to_OpenGL(void){
 	bool force = false;
 	
-	if (strcasecmp(sdlVoodoo.dosbox.output,"surface") == 0) {	
+	if (_stricmp(sdlVoodoo.dosbox.output,"surface") == 0) {
 		force = true;
 	}
-	if (strcasecmp(sdlVoodoo.dosbox.texture,"auto") == 0) {	
+	if (_stricmp(sdlVoodoo.dosbox.texture,"auto") == 0) {
 		force = true;
 	}	
-	if (strcasecmp(sdlVoodoo.dosbox.texture,"direct3d") == 0) {	
+	if (_stricmp(sdlVoodoo.dosbox.texture,"direct3d") == 0) {
 		force = true;
 	}	
-	if (strcasecmp(sdlVoodoo.dosbox.texture,"software") == 0) {	
+	if (_stricmp(sdlVoodoo.dosbox.texture,"software") == 0) {
 		force = true;
 	}	
 	
@@ -3714,8 +4395,6 @@ void vPCI_force_to_OpenGL(void){
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 bool voodoo_ogl_init(voodoo_state *v) {
 
-
-		
 	Cache.Line.Frnt.Y = -1;
 	Cache.Line.Frnt.W = -1;
 	Cache.Line.Frnt.L = -1;
@@ -3739,6 +4418,16 @@ bool voodoo_ogl_init(voodoo_state *v) {
 	sdlVoodoo.posX = 0;
 	sdlVoodoo.posY = 0;
 	
+	#if defined(C_DEBUG)
+	/*
+	* Show Selected Framebuffer & Count
+	*/
+	sdlVoodoo.count.bDrawPixelLFB0 = false;
+	sdlVoodoo.count.bDrawPixelLFB1 = false;
+	sdlVoodoo.count.iDrawPixelLFB0 = 0;
+	sdlVoodoo.count.iDrawPixelLFB1 = 0;
+	#endif
+
 	vPCI_Get_Configuration();
 	
 	if ( extVoodoo.bForceFullSnUpdate == true ){		
@@ -3781,8 +4470,8 @@ bool voodoo_ogl_init(voodoo_state *v) {
 
 	std::string features = "";
 	if (VOGL_CheckFeature(VOGL_HAS_SHADERS)) features += "Shader\n";
-	if (VOGL_CheckFeature(VOGL_HAS_ALPHA_PLANE)) features += "                        Alpha-Planen\n";
-	if (VOGL_CheckFeature(VOGL_HAS_STENCIL_BUFFER)) features += "                        Stencil-Buffer\n";
+	if (VOGL_CheckFeature(VOGL_HAS_ALPHA_PLANE)) features += "                          Alpha-Planen\n";
+	if (VOGL_CheckFeature(VOGL_HAS_STENCIL_BUFFER)) features += "                          Stencil-Buffer\n";
 
 	if (features == "") features = " None";
 
@@ -3837,7 +4526,7 @@ bool voodoo_ogl_init(voodoo_state *v) {
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 void voodoo_ogl_leave(bool leavemode) {
-	VOGL_ClearBeginMode();
+	VOGL_ClearBeginMode(); VOGL_ClearBeginState();
 
 	std::map<const UINT32, ogl_texmap>::iterator t;
 	for (int j=0; j<2; j++) {
@@ -3856,8 +4545,6 @@ void voodoo_ogl_leave(bool leavemode) {
 		}
 		if (!textures[j].empty()) textures[j].clear();
 	}
-
-	
 
 	if (m_hProgramObject != 0) {
 		glUseProgramObjectARB(0);
@@ -3884,9 +4571,31 @@ void voodoo_ogl_leave(bool leavemode) {
 		}
 	}
 
-
 	cached_line_front_y=-1;
 	cached_line_back_y=-1;
+
+	Cache.Line.Frnt.Y = -1;
+	Cache.Line.Frnt.W = -1;
+	Cache.Line.Frnt.L = -1;
+	Cache.Line.Frnt.P = -1;
+	Cache.Line.Frnt.Buffer = NULL;
+
+	Cache.Line.Back.Y = -1;
+	Cache.Line.Back.W = -1;
+	Cache.Line.Back.L = -1;
+	Cache.Line.Back.P = -1;
+	Cache.Line.Back.Buffer = NULL;
+
+	sdlVoodoo.opengl.glZoomFaktor_W = 0;
+	sdlVoodoo.opengl.glZoomFaktor_H = 0;
+
+	sdlVoodoo.pciFSH = 0;
+	sdlVoodoo.pciFSW = 0;
+	sdlVoodoo.pciH = 0;
+	sdlVoodoo.pciW = 0;
+
+	sdlVoodoo.posX = 0;
+	sdlVoodoo.posY = 0;
 
 	if (leavemode) {
 		glEnd();
@@ -3913,96 +4622,4 @@ void voodoo_ogl_shutdown(voodoo_state *v) {
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 #else
-
-
-bool voodoo_ogl_init(voodoo_state *v) {
-    (void)v;
-	return false;
-}
-
-void voodoo_ogl_leave(void) {
-}
-
-void voodoo_ogl_shutdown(voodoo_state *v) {
-    (void)v;
-}
-
-void voodoo_ogl_set_window(voodoo_state *v) {
-    (void)v;
-	E_Exit("invalid call to voodoo_ogl_set_window");
-}
-
-void voodoo_ogl_swap_buffer(void) {
-	E_Exit("invalid call to voodoo_ogl_swap_buffer");
-}
-
-void voodoo_ogl_vblank_flush(void) {
-	E_Exit("invalid call to voodoo_ogl_vblank_flush");
-}
-
-void voodoo_ogl_clear(void) {
-	E_Exit("invalid call to voodoo_ogl_clear");
-}
-
-void voodoo_ogl_fastfill(void) {
-	E_Exit("invalid call to voodoo_ogl_fastfill");
-}
-
-void voodoo_ogl_clip_window(voodoo_state *v) {
-    (void)v;
-	E_Exit("invalid call to voodoo_ogl_clip_window");
-}
-
-void voodoo_ogl_texture_clear(UINT32 texbase, int TMU) {
-    (void)texbase;
-    (void)TMU;
-	E_Exit("invalid call to voodoo_ogl_texture_clear");
-}
-
-void voodoo_ogl_invalidate_paltex(void) {
-	E_Exit("invalid call to voodoo_ogl_invalidate_paltex");
-}
-
-void voodoo_ogl_draw_pixel(int x, int y, bool has_rgb, bool has_alpha, int r, int g, int b, int a) {
-    (void)has_alpha;
-    (void)has_rgb;
-    (void)x;
-    (void)y;
-    (void)r;
-    (void)g;
-    (void)b;
-    (void)a;
-	E_Exit("invalid call to voodoo_ogl_draw_pixel");
-}
-
-void voodoo_ogl_draw_z(int x, int y, int z1, int z2) {
-    (void)z1;
-    (void)z2;
-    (void)x;
-    (void)y;
-	E_Exit("invalid call to voodoo_ogl_draw_z");
-}
-
-void voodoo_ogl_draw_pixel_pipeline(int x, int y, int r, int g, int b) {
-    (void)x;
-    (void)y;
-    (void)r;
-    (void)g;
-    (void)b;	
-	E_Exit("invalid call to voodoo_ogl_draw_pixel_pipeline");
-}
-
-UINT32 voodoo_ogl_read_pixel(int x, int y) {
-    (void)x;
-    (void)y;
-	E_Exit("invalid call to voodoo_ogl_read_pixel");
-
-	return 0;
-}
-
-void voodoo_ogl_draw_triangle(poly_extra_data *extra) {
-   (void)extra;
-	E_Exit("invalid call to voodoo_ogl_draw_triangle");
-}
-
 #endif

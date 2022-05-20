@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -74,7 +74,8 @@ public:
 	virtual void	SetName(const char* _name)	{ if (name) delete[] name; name = new char[strlen(_name)+1]; strcpy(name,_name); }
 	virtual char*	GetName(void)				{ return name; };
 	virtual bool	IsOpen()					{ return open; };
-	virtual bool	IsName(const char* _name)	{ if (!name) return false; return strcasecmp(name,_name)==0; };
+	virtual bool	IsName(const char* _name)	{ if (!name) return false; return _stricmp(name,_name)==0; };
+	//virtual bool	IsName(const char* _name) { if (!name) return false; return strcasecmp(name, _name) == 0; };
 	virtual void	AddRef()					{ refCtr++; };
 	virtual Bits	RemoveRef()					{ return --refCtr; };
 	virtual bool	UpdateDateTimeFromHost()	{ return true; }
@@ -90,6 +91,7 @@ public:
 /* Some Device Specific Stuff */
 private:
 	Bit8u hdrive;
+
 };
 
 class DOS_Device : public DOS_File {
@@ -216,17 +218,17 @@ private:
 	void		Clear			(void);
 
 	CFileInfo*	dirBase;
-	char		dirPath				[CROSS_LEN];
-	char		basePath			[CROSS_LEN];
+	char		dirPath				[CROSS_LEN] = {};;
+	char		basePath			[CROSS_LEN] = {};;
 	bool		dirFirstTime;
 	TDirSort	sortDirType;
 	CFileInfo*	save_dir;
-	char		save_path			[CROSS_LEN];
-	char		save_expanded		[CROSS_LEN];
+	char		save_path			[CROSS_LEN] = {};;
+	char		save_expanded		[CROSS_LEN] = {};;
 
 	Bit16u		srchNr;
 	CFileInfo*	dirSearch			[MAX_OPENDIRS];
-	char		dirSearchName		[MAX_OPENDIRS];
+	char		dirSearchName		[MAX_OPENDIRS] = {};;
 	CFileInfo*	dirFindFirst		[MAX_OPENDIRS];
 	Bit16u		nextFreeFindFirst;
 
@@ -270,6 +272,13 @@ public:
 
 	// disk cycling functionality (request resources)
 	virtual void Activate(void) {};
+	virtual void UpdateDPB(unsigned char dos_drive) { (void)dos_drive; }; /*CDROm WECHSEL*/
+
+	// INT 25h/INT 26h
+	virtual uint32_t GetSectorCount(void) { return 0; }
+	virtual uint32_t GetSectorSize(void) { return 0; } // LOGICAL sector size (from the FAT driver) not PHYSICAL disk sector size
+	virtual uint8_t Read_AbsoluteSector_INT25(uint32_t sectnum, void* data) { (void)sectnum; (void)data; return 0x05; }
+	virtual uint8_t Write_AbsoluteSector_INT25(uint32_t sectnum, void* data) { (void)sectnum; (void)data; return 0x05; }
 };
 
 enum { OPEN_READ=0, OPEN_WRITE=1, OPEN_READWRITE=2, OPEN_READ_NO_MOD=4, DOS_NOT_INHERIT=128};
@@ -291,4 +300,5 @@ void DOS_AddDevice(DOS_Device * adddev);
 void DOS_DelDevice(DOS_Device * dev);
 
 void VFILE_Register(const char * name,Bit8u * data,Bit32u size);
+void VFILE_SaveFake(const char* name, Bit8u* data, Bit32u size);
 #endif

@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,12 +16,15 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-
+#if defined __MINGW32__
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <WinNls.h>
-#include <windows.h>
+#endif
+#if defined __MINGW32__
+	#include <windows.h>
+#endif
 #include "dosbox.h"
 #include "cross.h"
 #include "support.h"

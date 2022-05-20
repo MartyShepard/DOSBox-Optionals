@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -44,6 +44,7 @@
 #include "ints/int10.h"
 #include "render.h"
 #include "pci_bus.h"
+#include "reelmagic.h"		/* Reelmagic */
 #include "pinhacks.h"
 
 Config * control;
@@ -51,6 +52,7 @@ MachineType machine;
 SVGACards svgaCard;
 
 bool PS1AudioCard;
+bool ignore_opcode_63 = true;
 /* The whole load of startups for all the subfunctions */
 void MSG_Init(Section_prop *);
 void LOG_StartUp(void);
@@ -81,12 +83,12 @@ void MIXER_Init(Section*);
 void MIDI_Init(Section*);
 void HARDWARE_Init(Section*);
 
-#if defined(PCI_FUNCTIONALITY_ENABLED)
+//#if defined(PCI_FUNCTIONALITY_ENABLED)
 void PCI_Init(Section*);
 /* Voodoo /////////////////////////////////////////////////////////////////////////////////////////////*/
 void VOODOO_Init(Section*);	
 					   
-#endif
+//#endif
 
 /* IDE Emulation /////////////////////////////////////////////////////////////////////////////////////////////*/
 void IDE_Primary_Init(Section*);
@@ -171,7 +173,8 @@ void parsetriggerrange (const char*&range,int &min, int &max, char delim) { // P
 }
 
 
-bool CPU_FastForward = false;
+bool CPU_FastForward	 = false;
+bool bVoodooUseHighRatio = false;
 
 const char* GFX_Type="Not Specified";
 
@@ -271,6 +274,13 @@ void increaseticks() { //Make it return ticksRemain and set it in the function a
 	if (!CPU_CycleAutoAdjust || CPU_SkipCycleAutoAdjust) return;
 	
 	if (ticksScheduled >= 250 || ticksDone >= 250 || (ticksAdded > 15 && ticksScheduled >= 5) ) {
+
+		/* 3DFX Cycles */
+		double FXG_Ratio_1 = 0.256;
+		double FXG_Ratio_2 = 0.512;
+		double DOS_Ratio_1 = 1024;		/* Dosbox Standard */
+		double DOS_Ratio_2 = 1024;		/* Dosbox Standard */
+
 		if(ticksDone < 1) ticksDone = 1; // Protect against div by zero
 		/* ratio we are aiming for is around 90% usage*/
 		Bit32s ratio = (ticksScheduled * (CPU_CyclePercUsed*90*1110/100/100+1)) / ticksDone;
@@ -298,14 +308,23 @@ void increaseticks() { //Make it return ticksRemain and set it in the function a
 				if (ticksAdded > 15 && ticksScheduled >= 5 && ticksScheduled <= 20 && ratio > 800)
 					ratio = 800;
 				
-				if (ratio <= 1024) {
+				if ( (bVoodooOpen) && (bVoodooUseHighRatio == true) )
+				{   /*3DFX Cycles*/
+					DOS_Ratio_1 = FXG_Ratio_1;
+					DOS_Ratio_2 = FXG_Ratio_2;
+
+				}
+
+				if (ratio <= DOS_Ratio_1) {
 					// ratio_not_removed = 1.0; //enabling this restores the old formula
 					double r = (1.0 + ratio_not_removed) /(ratio_not_removed + 1024.0/(static_cast<double>(ratio)));
 					new_cmax = 1 + static_cast<Bit32s>(CPU_CycleMax * r);
+					if ((bVoodooOpen) && (bVoodooUseHighRatio == true)) new_cmax += CPU_FX_Cycles;
 				} else {
 					Bit64s ratio_with_removed = (Bit64s) ((((double)ratio - 1024.0) * ratio_not_removed) + 1024.0);
 					Bit64s cmax_scaled = (Bit64s)CPU_CycleMax * ratio_with_removed;
 					new_cmax = (Bit32s)(1 + (CPU_CycleMax >> 1) + cmax_scaled / (Bit64s)2048);
+					if ((bVoodooOpen) && (bVoodooUseHighRatio == true)) new_cmax += CPU_FX_Cycles;
 				}
 			}
 		}
@@ -577,6 +596,7 @@ void DOSBOX_Init(void) {
 		"486_prefetch",
 		"pentium_slow",
 		"pentiumpro_slow" ,
+		"pentium_mmx_slow",
 								0};	
 
 
@@ -677,7 +697,7 @@ void DOSBOX_Init(void) {
 	secprop->AddInitFunction(&MEM_Init);//done
 	secprop->AddInitFunction(&HARDWARE_Init);//done
 	Pint = secprop->Add_int("memsize", Property::Changeable::WhenIdle,16);
-	Pint->SetMinMax(1,3072);
+	//Pint->SetMinMax(1,8192);
 	Pint->Set_help(     "================================================================================================\n"
 		                "Amount of memory DOSBox has in megabytes.\n"
 		                "This value is best left at its default to avoid problems with some games, though few games\n"
@@ -691,7 +711,7 @@ void DOSBOX_Init(void) {
 		
 
 	Pint = secprop->Add_int("memsvga3", Property::Changeable::WhenIdle,0);	
-	Pint->SetMinMax(0,32);
+	Pint->SetMinMax(0,512);
 	Pint->Set_help(     "================================================================================================\n"
 		                "Amount of memory for the machine SVGA_S3. Possible Values are 0 (Dosbox Default) / 1 >> 32mb\n"
 						"Note: If a Program/ Game or Scene Demo comes with a Message e.q. Not enough Video Memory. You can\n"
@@ -732,7 +752,16 @@ void DOSBOX_Init(void) {
 	Pbool = secprop->Add_bool("LogVesaResolutionIndex",Property::Changeable::Always,false);	
 	Pbool->Set_help(		  "================================================================================================\n"
 						  "Log the VESA Video mode List to 'dosbox_log'.");
-						  				 
+						  				
+	Pint = secprop->Add_int("S3_Overdrive_Clock_kHz", Property::Changeable::Always, 0);
+	Pint->SetMinMax(0, 4);
+	Pint->Set_help(		  "================================================================================================\n"
+						  "Use this in combination with svga_s3 to chnage the khz clock (Default is 0: 14.318kHz\n"
+						  "1: 28.636kHz\n"
+						  "2: 57.272kHz\n"
+						  "3: 85.908kHz\n"
+						  "4: 114.544kHz\n");
+
 	Pbool = secprop->Add_bool("S3Screen_Fix_320x240x8",Property::Changeable::Always,false);
 	Pbool->Set_help(     "================================================================================================\n"
 	                     "This Patch and Change the Resolution at index 0x153. From 320x240x4 bit to 320x200x8 Bit. Use\n"
@@ -754,15 +783,21 @@ void DOSBOX_Init(void) {
 	Pbool->Set_help(     "================================================================================================\n"
 	                     "This Patch and Change the Resolution at index 0x211. From 640x480x16 bit to 320x480x8 Bit. Use\n"
 						 "this if your Game or Scene Demo is stretched with this Mode. Example? This fixed: (Default false)\n"
-						 "- Game: 3 Skulls of the Toltecs [Gold, Windows]");							 
+						 "- Game: 3 Skulls of the Toltecs [Gold, Windows]");
+
+	Pbool = secprop->Add_bool("S3Screen_Fix_320x256x8", Property::Changeable::Always, false);
+	Pbool->Set_help("================================================================================================\n"
+		"This Patch and Change the Resolution at index 0x012. From 640x480x8 bit to 320x240x8 Bit. Use\n"
+		"this if your Game or Scene Demo is distorted with this Mode. Example? This fixed: (Default false)\n"
+		"- Game: Dyna Blaster");
 
 	Pbool = secprop->Add_bool("VesaVbe1.2_32Bit_Modes",Property::Changeable::Always,true);
 	Pbool->Set_help(     "================================================================================================\n"
 	                     "This Change the Vesa 1.2 High Color Modes to 8:8:8 (24-bit) (0x10F, 0x112, 0x115, 0x118).\n"
 						 "Note: Version 1.2 of the VESA BIOS Extensions explicitly states 24Bit Color Modes not 32Bit. Set\n"
 						 "this to false use 24Bit Modes. Default is True, DOSBox Original Settings. Example? This fixed:\n"
-						 "- Scene Demo: COMA 'Parhaat' 1997 demo");						 
-		
+						 "- Scene Demo: COMA 'Parhaat' 1997 demo");
+
 		
 	secprop->AddInitFunction(&CALLBACK_Init);
 	secprop->AddInitFunction(&PIC_Init);//done
@@ -883,12 +918,15 @@ void DOSBOX_Init(void) {
 	
 	Pmulti_remain = secprop->Add_multiremain("cycles",Property::Changeable::Always," ");
 	Pmulti_remain->Set_help("================================================================================================\n"
-							"Amount of instructions DOSBox tries to emulate each millisecond. Setting this value too high\n"
+							"Number of instructions DOSBox tries to emulate each millisecond. Setting this value too high\n"
 							"results in sound dropouts and lags. Cycles can be set in 3 ways:\n"
 							"  'auto'          tries to guess what a game needs. It usually works, but can fail for certain\n"
 							"                  games.\n"
-							"  'fixed #number' will set a fixed amount of cycles. This is what you usually need if'auto'fails\n"
+							"  'fixed #number' will set a fixed number of cycles. This is what you usually need if'auto'fails\n"
 							"                  (Example: fixed 4000).\n"
+							"  'fxsst #number' will set add seperate a number of cycles special for 3DFX/Glide/OpenGL Games\n"
+							"				   under Win9x. If the sound is crackled the numer is too high for your Host Machine\n"
+							"				   (Ex: fxsst 4000) (Default: 3000).\n"
 							"  'max'           will allocate as much cycles as your computer is able to handle. The next\n"
 							"                  values based on The Speed Test Program, v1.14. Note: These values give an\n"
 							"                  approximate guide value to CPU_CycleMax aka Max Cyles\n"
@@ -945,6 +983,10 @@ void DOSBOX_Init(void) {
 	Pbool->Set_help(        "================================================================================================\n"
 							"Only use this with CPUID 543. MMX Added from Daum's Version. Set this to true can slowly things");
 							
+	Pbool = secprop->Add_bool("Enable-MXT", Property::Changeable::Always, false);
+	Pbool->Set_help("================================================================================================\n"
+							"Only use this with CPUID 543. MMX-EXT Test Only");
+
 	Pbool = secprop->Add_bool("Enable-SSE1",Property::Changeable::Always,false);
 	Pbool->Set_help(        "================================================================================================\n"
 							"Only use this with CPUID 543. Testing Only");
@@ -1161,6 +1203,7 @@ void DOSBOX_Init(void) {
 	Pbool->Set_help(        "================================================================================================\n"
 	                        "Dont Stretch the Mode on Widescreen Resolutions. (Default: true)" );
 							
+	/*
 	Pint = secprop->Add_int("ZoomScreen_Width",Property::Changeable::OnlyAtStart,0);
 	Pint->SetMinMax(-4096,4096);
 	Pint->Set_help(         "================================================================================================\n"
@@ -1170,12 +1213,24 @@ void DOSBOX_Init(void) {
 	Pint->SetMinMax(-4096,4096);
 	Pint->Set_help(         "================================================================================================\n"
 	                        "Zoom Voodoo Game Screen (Height Aspect) (Default: 0)");							
-	
+	*/
 	Pfloat = secprop->Add_float("Anisotropic_Level",Property::Changeable::OnlyAtStart,16.0);
 	Pfloat->SetMinMax(2.0,16.0);
 	Pfloat->Set_help(       "================================================================================================\n"
 	                        "Anisotropic Filtering Levels. Only for Anisotropic Filter Mode (Default is Value 16)");
-														
+					
+	Pbool = secprop->Add_bool("Cache_Delete_Loop", Property::Changeable::Always, false);
+	Pbool->Set_help(		 "================================================================================================\n"
+							 "A Performance Switch. On True, it will Delete Textures in the Cache Routine and slowdown LowLevel\n"
+							 "Voodoo Emulation. To test, check this with Blood 3DFX. (Default False)");
+
+	Pbool = secprop->Add_bool("High_Cycles_Ratio", Property::Changeable::Always, false);
+	Pbool->Set_help(		 "================================================================================================\n"
+							 "On true in combination cpu max, it will be modified the Cycles Ratio if 3DFX Activated. This\n"
+							 "brings a Performance boost but on higher very Ratios the Sound will be stutterted. (Default False)");
+	
+
+		/*
 	Pbool = secprop->Add_bool("a_ClipLowYHigh",Property::Changeable::Always,false);		
 	Pbool->Set_help(        "================================================================================================\n"
 							"OpenGL Only, Alternate Height Patch for VooDoo's ClipLow Y High.\n"
@@ -1185,7 +1240,7 @@ void DOSBOX_Init(void) {
 	Pint->SetMinMax(0,100);
 	Pint->Set_help(         "================================================================================================\n"
 	                        "OpenGL Only. Pitch VooDoo's ClipLow Y High (Default: 0)");
-							
+	*/						
 							
 	Pbool = secprop->Add_bool("compatible_flag",Property::Changeable::Always,false);		
 	Pbool->Set_help(        "================================================================================================\n"
@@ -1195,7 +1250,8 @@ void DOSBOX_Init(void) {
 	Pbool = secprop->Add_bool("gl_QuadsDraw_use",Property::Changeable::Always,false);		
 	Pbool->Set_help(        "================================================================================================\n"
 	                        "OpenGL Only. Modify the 2D Texture on Higher Resolution and use GL_QUADS (Default False)");
-																			
+			
+	
 	Pbool = secprop->Add_bool("glScissor_flag",Property::Changeable::Always,true);		
 	Pbool->Set_help(        "================================================================================================\n"
 	                        "If you have on High Resolution a problem with the Viewport and this is Cutted to Left/Bottom or.\n"
@@ -1203,8 +1259,9 @@ void DOSBOX_Init(void) {
 							"Set this to False forces to not use the glScissor calculation and free the fixed the Resolution:\n"
 							"- Argosy 2325\n"
 							"- Pyl\n"
-							"- Warhammer: Dark Omen (Fixed Cutscenes) and i think on other 3DFX Games. (Default true)");
-							
+							"- Warhammer: Dark Omen (Fixed Cutscenes) and i think on other 3DFX Games. (Default true)\n"
+							"- Final Fantasy 7 set to false");
+						
 	Pbool = secprop->Add_bool("glP_Smoth_flag",Property::Changeable::Always,false);		
 	Pbool->Set_help(        "================================================================================================\n"
 	                        "OpenGL Only, Enable Antialiasing for points (Default false) (Just For Testing)" );
@@ -1259,6 +1316,17 @@ void DOSBOX_Init(void) {
 							"Set this to False Fix F1'97 Massive Grafic Glitch\n"
 							"Shader: The FBZCOLORPATH in the switch FBZCP_CC_ASELECT will be not used (default true)");												
 	
+	Pstring = secprop->Add_string("DrawPixel_Scan", Property::Changeable::WhenIdle, "false");
+	Pstring->Set_help(		"================================================================================================\n"
+							"Allow a Scanline Mode for Pixel Draws eq: Backgrounds,Huds etc... Commands are:"
+							"\'Option1\' | \'Option2\' | \'false\'");
+
+	Pint = secprop->Add_int("DrawPixel_Dark", Property::Changeable::OnlyAtStart, 0);
+	Pint->SetMinMax(0, 254);
+	Pint->Set_help(			"================================================================================================\n"
+							"Change Brithtness for Draw Pixel Routines (Backgrounds,Huds etc..). (default 0)");
+
+
 	Pbool = secprop->Add_bool("LFB_ScreenFixFrnt",Property::Changeable::Always,false);		
 	Pbool->Set_help(        "================================================================================================\n"
 							"Set this to true will be Fix the LFB Front Buffer Static Draw Screen\n"
@@ -1278,18 +1346,16 @@ void DOSBOX_Init(void) {
 	Pbool = secprop->Add_bool("LFB_LogRegisterNr",Property::Changeable::Always,false);		
 	Pbool->Set_help(        "================================================================================================\n"
 							"Set this to true will be Logging the Frame Buffer Mode and Register Nr. (default false)");
-							
-	Pfloat = secprop->Add_float("LFB_SetPixel_X",Property::Changeable::OnlyAtStart,0.0);
-	Pfloat->SetMinMax(-15360.0,15360.0);
-	Pfloat->Set_help(        "================================================================================================\n"
-	                         "Modify the X Coords on the LFB (Default 0.0). Attention Developer Valaue");	
-	
-	Pfloat = secprop->Add_float("LFB_SetPixel_Y",Property::Changeable::OnlyAtStart,0.0);
-	Pfloat->SetMinMax(-15360.0,15360.0);
-	Pfloat->Set_help(        "================================================================================================\n"
-	                         "Modify the Y Coords on the LFB (Default 0.0). Attention Developer Valaue");							 
 
+	#if defined(C_DEBUG)
+	Pstring = secprop->Add_string("LFB_RGBFormat", Property::Changeable::OnlyAtStart, "GL_RGBA");
+	Pstring->Set_help(		"================================================================================================\n"
+							"RGB Format\n");
 
+	Pstring = secprop->Add_string("LFB_RGB_Type", Property::Changeable::OnlyAtStart, "GL_UNSIGNED_INT_8_8_8_8");
+	Pstring->Set_help(		"================================================================================================\n"
+							"RGB Format\n");
+	#endif
 
 	secprop=control->AddSection_prop("mixer",&MIXER_Init);
 	Pbool = secprop->Add_bool("nosound",Property::Changeable::OnlyAtStart,false);
@@ -1477,7 +1543,7 @@ void DOSBOX_Init(void) {
 	
 	secprop=control->AddSection_prop("sblaster",&SBLASTER_Init,true);//done
 
-	Pstring = secprop->Add_string("sbtype",Property::Changeable::WhenIdle,"sb16");
+	Pstring = secprop->Add_string("sbtype",Property::Changeable::WhenIdle,"sb16vibra");
 	Pstring->Set_values(sbtypes);
 	Pstring->Set_help(      "================================================================================================\n"
 	                        "Type of Soundblaster to emulate. 'gb' is Gameblaster.");
@@ -1515,7 +1581,7 @@ void DOSBOX_Init(void) {
 							"Gameblaster.");
 
 	const char* oplemus[]={ "default", "compat", "fast", "mame","nuked", 0};
-	Pstring = secprop->Add_string("oplemu",Property::Changeable::WhenIdle,"default");
+	Pstring = secprop->Add_string("oplemu",Property::Changeable::WhenIdle,"nuked");
 	Pstring->Set_values(oplemus);	
 	Pstring->Set_help(      "================================================================================================\n"
 	                        "Provider for the OPL emulation.\n"
@@ -1554,7 +1620,7 @@ void DOSBOX_Init(void) {
 							"Whether or not to set the BLASTER environment variable automatically at startup");
 
 							
-	Pbool = secprop->Add_bool("GoldPlay",Property::Changeable::WhenIdle,false);	
+	Pbool = secprop->Add_bool("GoldPlay",Property::Changeable::WhenIdle,true);	
 	Pbool->Set_help(        "================================================================================================\n"
 							"Enable Goldplay Emulation. (Default False)");
 							
@@ -1837,7 +1903,7 @@ void DOSBOX_Init(void) {
 	                        "Enable the Gravis Ultrasound emulation.");
 			
 
-	Pstring = secprop->Add_string("gustype",Property::Changeable::WhenIdle,"classic");
+	Pstring = secprop->Add_string("gustype",Property::Changeable::WhenIdle,"classic37");
 	Pstring->Set_values(gustypes);	
 	Pstring->Set_help(       "================================================================================================\n"	
 							 "Type of Gravis Ultrasound to emulate.\n"
@@ -2094,7 +2160,7 @@ void DOSBOX_Init(void) {
 							"    wheel  : Driving Wheel          [Axes: 4, Buttons:4]\n"
 		                    "    none   : Disable joystick(s) Emulation\n"
 		                    "    auto   : Chooses emulation depending on real joystick(s).\n"
-		                    "(Remember to reset/ delet dosbox's mapperfile if you saved it earlier)");
+		                    "(Remember to reset/ delete DOSBox's mapperfile if you saved it earlier)");
 
 	const char* hosttypes[] = { "default", "saitekx45", "lgex3dpro","tfhotasone" ,"ldriveforcepro",0};
 	Pstring = secprop->Add_string("joystickhost",Property::Changeable::WhenIdle,"default");
@@ -2140,6 +2206,18 @@ void DOSBOX_Init(void) {
 	Pint->Set_help(        "================================================================================================\n"
 	                       "Overwrite the Default Emulated Buttons in DOSBox for 2axis,4axis,4axis_2");						   
 							
+	Pbool = secprop->Add_bool("invertyaxis1", Property::Changeable::WhenIdle, false);
+	Pbool->Set_help("================================================================================================\n"
+		"Invert the Y-Axis of joystick #1.(Default False).");
+
+	Pbool = secprop->Add_bool("invertyaxis2", Property::Changeable::WhenIdle, false);
+	Pbool->Set_help("================================================================================================\n"
+		"Invert the Y-Axis of joystick #2.(Default False).");
+
+	Pbool = secprop->Add_bool("invertyaxis3", Property::Changeable::WhenIdle, false);
+	Pbool->Set_help("================================================================================================\n"
+		"Invert the Y-Axis of joystick #3 for CH Virtual Pilot Pro.(Default False).");
+
 	secprop=control->AddSection_prop("serial",&SERIAL_Init,true);
 	const char* serials[] = { "dummy", "disabled", "modem", "nullmodem",
 	                          "directserial",0 };
@@ -2207,6 +2285,14 @@ void DOSBOX_Init(void) {
 	Pint->Set_help(         "================================================================================================\n"
 	                         "Number Of File Handles For DOS programs. (equivalent to \"files=\" in config.sys) (Default: 127)");
 	
+	Pint = secprop->Add_int("major", Property::Changeable::OnlyAtStart, 5);
+	Pint->Set_help("================================================================================================\n"
+		"Dos major Version (Default: 5)");
+
+	Pint = secprop->Add_int("minor", Property::Changeable::OnlyAtStart, 0);
+	Pint->Set_help("================================================================================================\n"
+		"Dos minor Version (Default: 0)");
+
 	const char* ldz_settings[] = { "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s",
 	                               "t", "u", "v", "w", "x", "y", "z", 0};
 	Pstring = secprop->Add_string("LastDrive",Property::Changeable::WhenIdle,"e");
@@ -2236,8 +2322,7 @@ void DOSBOX_Init(void) {
 	Pbool = secprop->Add_bool("DOS4GW_As_DOS32",Property::Changeable::WhenIdle,false);
 	Pbool->Set_help(        "================================================================================================\n"
 	                        "Use DOS32A Extender 9.12 instead of DOS4GW 2.01 (e.q. as Benchmark and Compare)");							
-							
-							
+	
 	// Mscdex
 	secprop->AddInitFunction(&MSCDEX_Init);
 	secprop->AddInitFunction(&DRIVES_Init);
@@ -2277,7 +2362,58 @@ void DOSBOX_Init(void) {
                             "a part of your adapters name, e.g. VIA here.");		
 #endif // C_NE2000
 
+	/* ReelMagic Emulator -- where is the right place to put this? probably after mixer...
+	* https://github.com/jrdennisoss/dosboxrm
+	* Credits:
+	* Jon Dennis <jrdennisoss_at_gmail.com>
+	* Chris Guthrie <csguthrieoss_at_gmail.com>
+	* Joseph Whittaker <j.whittaker.us_at_ieee.org>
+	* 
+	*/
+	secprop = control->AddSection_prop("reelmagic", &ReelMagic_Init, false);
+	Pbool = secprop->Add_bool("enabled", Property::Changeable::OnlyAtStart, false);
+	Pbool->Set_help(		"================================================================================================\n"
+						    "Enable the ReelMagic emulator.");
+
+	Pbool = secprop->Add_bool("alwaysresident", Property::Changeable::OnlyAtStart, false);
+	Pbool->Set_help(		"================================================================================================\n"
+							"Force the FMPDRV.EXE to always be resident and not unloadable.");
+
+	Pbool = secprop->Add_bool("vgadup5hack", Property::Changeable::OnlyAtStart, false);
+	Pbool->Set_help(		"================================================================================================\n"
+							"Enable the VGA DUP5 Hack. Duplicate's every VGA 5th line.");
 	
+	Pint = secprop->Add_int("audiolevel", Property::Changeable::OnlyAtStart, 150);
+	Pint->Set_help( 		"================================================================================================\n"
+							"Sets the MPEG audio sample level in percents. Defaults to 150%");
+
+	Pint = secprop->Add_int("audiofifosize", Property::Changeable::OnlyAtStart, 30);
+	Pint->Set_help(			"================================================================================================\n"
+							"Sets the MPEG audio frame FIFO size. Defaults to 30 MPEG audio frames.");
+	
+	Pint = secprop->Add_int("audiofifodispose", Property::Changeable::OnlyAtStart, 2);
+	Pint->Set_help(			"================================================================================================\n"
+						     "Sets the count of MPEG audio frames to dispose of when the MPEG is going faster than audio-side\n"
+						     "of things and the FIFO hits max. Defaults to 2.");
+
+	Pstring = secprop->Add_string("initialmagickey", Property::Changeable::OnlyAtStart, "40044041");
+	Pstring->Set_help(		 "================================================================================================\n"
+							 "Provides and alternate value for the initial global \"magic key\" value in hex. Defaults to 40044041.");
+
+	Pint = secprop->Add_int("magicfhack", Property::Changeable::OnlyAtStart, 0);
+	Pint->Set_help(			"================================================================================================\n"
+							"MPEG debugging only! Consult the reelmagic_player.cpp source code and NOTES_MPEG.md");
+
+	Pbool = secprop->Add_bool("a204debug", Property::Changeable::OnlyAtStart, true);
+	Pbool->Set_help(		"================================================================================================\n"
+							"Turns on/off FMPDRV.EXE function Ah subfunction 204h debug logging. Only works in heavy debugging\n"
+							"mode. Consult the reelmagic_driver.cpp source code and RMDOS_API.md");
+
+	Pbool = secprop->Add_bool("a206debug", Property::Changeable::OnlyAtStart, true);
+	Pbool->Set_help(		"================================================================================================\n"
+							"Turns on/off FMPDRV.EXE function Ah subfunction 206h debug logging. Only works in heavy debugging\n"
+							"mode. Consult the reelmagic_driver.cpp source code and RMDOS_API.md");
+
 	// PINHACK: pinhack config file section
 	// https://github.com/DeXteRrBDN/dosbox-pinhack/commit/7ebc8ec9e5d078c1cf12091ef311fc15e4ce0907#diff-050e892e88fb9f49cc8a822c3599c8fd
 	// https://www.vogons.org/viewtopic.php?f=41&p=844238#p844238

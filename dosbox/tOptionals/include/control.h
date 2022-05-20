@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -121,7 +121,10 @@ public:
 	
 	float ReadConfig_Float(std::string sSection, std::string sProperty);
 	UINT  CHECKMARK(std::string sSection, std::string sProperty);
-	
+
+	/* For Menu */
+	bool  Menu_ChangeCheck(std::string sSection, std::string sProperty, std::string sValue);
+
 public:
 	std::string opt_editconf,opt_opensaves,opt_opencaptures,opt_lang;
 	std::vector<std::string> config_file_list;

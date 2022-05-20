@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -48,7 +48,7 @@ static CacheBlockDynRec * CreateCacheBlock(CodePageHandlerDynRec * codepage,Phys
 
 	// every codeblock that is run sets cache.block.running to itself
 	// so the block linking knows the last executed block
-	gen_mov_direct_ptr(&cache.block.running,(DRC_PTR_SIZE_IM)decode.block);
+	gen_mov_direct_ptr(&cache.block.running,(Bitu)decode.block);
 
 	// start with the cycles check
 	gen_mov_word_to_reg(FC_RETOP,&CPU_Cycles,true);
@@ -324,7 +324,11 @@ restart_prefix:
 		case 0x8b:dyn_dop_gvev_mov();break;
 
 		// move segment register into memory or a 16bit register
-		case 0x8c:dyn_mov_ev_seg();break;
+		case 0x8d:
+			dyn_get_modrm();
+			if (GCC_UNLIKELY(decode.modrm.mod == 3)) goto illegalopcode;
+			dyn_lea();
+			break;
 
 		// load effective address
 		case 0x8d:dyn_lea();break;
@@ -359,6 +363,7 @@ restart_prefix:
 		case 0x9d:	// popf
 			gen_call_function_I((void *)&CPU_POPF,decode.big_op);
 			dyn_check_exception(FC_RETOP);
+			dyn_check_trapflag();
 			InvalidateFlags();
 			break;
 
@@ -447,7 +452,7 @@ restart_prefix:
 
 		// int/iret
 #if !(C_DEBUG)
- 		case 0xcd:dyn_interrupt(decode_fetchb());goto finish_block;
+		case 0xcd:dyn_interrupt(decode_fetchb());goto finish_block;
 #endif
 		case 0xcf:dyn_iret();goto finish_block;
 

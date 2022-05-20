@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -305,18 +305,26 @@ public:
 		if (IS_TANDY_ARCH)
 		{
 			/* enable tandy sound if tandy=true/auto */
-			if ((strcmp(section->Get_string("tandy"),"true")!=0) &&
-				(strcmp(section->Get_string("tandy"),"on")!=0) &&
-				(strcmp(section->Get_string("tandy"),"auto")!=0))
+			if ((strcmp(section->Get_string("tandy"), "true") != 0) &&
+				(strcmp(section->Get_string("tandy"), "on") != 0) &&
+				(strcmp(section->Get_string("tandy"), "auto") != 0))
+			{
+				useSoundTandy = false;
 				return;
+			}
 		}
 		else
 		{
 			/* only enable tandy sound if tandy=true */
-			if ((strcmp(section->Get_string("tandy"),"true")!=0) &&
-				(strcmp(section->Get_string("tandy"),"on")!=0)) return;
+			if ((strcmp(section->Get_string("tandy"), "true") != 0) &&
+				(strcmp(section->Get_string("tandy"), "on")   != 0))
+			{
+				useSoundTandy = false;
+				return;
+			}
 	
 			nCurrentSnTandy = "Tandy 1000/2000 Music Synthesizer";
+			useSoundTandy	= true;
 			if (enable_hw_tandy_dac) {
 				WriteHandler[2].Install(0x1e0,SN76496Write,IO_MB,2);
 				WriteHandler[3].Install(0x1e4,TandyDACWrite,IO_MB,4);

@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -32,9 +32,15 @@
 #include "debug.h"
 #include "support.h"
 #include "video.h"
+#if defined(_MSC_VER)
+	#include "SDL2/include/SDL_mixer.h"
+	#include "SDL2/include/SDL_syswm.h"
+	#include "SDL2/include/SDL.h"
+#else
 #include "SDL2/SDL_mixer.h"
 #include "SDL2/SDL_syswm.h"
 #include "SDL2/SDL.h"
+#endif
 
 void upcase(std::string &str) {
 	int (*tf)(int) = std::toupper;

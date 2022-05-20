@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -11,7 +11,7 @@
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License along along
+ *  You should have received a copy of the GNU General Public License along
  *  with this program; if not, write to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
@@ -78,8 +78,8 @@ static void dyn_string(STRING_OP op) {
 	}
 	DynState rep_state;
 	dyn_savestate(&rep_state);
-	Bit8u * rep_start=cache.pos;
-	Bit8u * rep_ecx_jmp;
+	const Bit8u * rep_start=cache.pos;
+	const Bit8u * rep_ecx_jmp;
 	/* Check if ECX!=zero */
 	if (decode.rep) {
 		gen_dop_word(DOP_TEST,decode.big_addr,DREG(ECX),DREG(ECX));

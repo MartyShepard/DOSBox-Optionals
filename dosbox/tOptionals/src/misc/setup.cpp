@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -784,7 +784,7 @@ bool Section_prop::HandleInputline(string const& gegevens){
 	trim(name);
 	trim(val);
 	for(it tel = properties.begin();tel != properties.end();++tel){
-		if (!strcasecmp((*tel)->propname.c_str(),name.c_str())){
+		if (!_stricmp((*tel)->propname.c_str(),name.c_str())){
 			return (*tel)->SetValue(val);
 		}
 	}
@@ -810,7 +810,7 @@ void Section_prop::PrintData(FILE* outfile) const {
 
 string Section_prop::GetPropValue(string const& _property) const {
 	for(const_it tel = properties.begin();tel != properties.end();++tel){
-		if (!strcasecmp((*tel)->propname.c_str(),_property.c_str())){
+		if (!_stricmp((*tel)->propname.c_str(),_property.c_str())){
 			return (*tel)->GetValue().ToString();
 		}
 	}
@@ -831,8 +831,10 @@ string Section_line::GetPropValue(string const& /* _property*/) const {
 	return NO_SUCH_PROPERTY;
 }
 
+#define HELPLINE_SIZE 256
 bool Config::PrintConfig(char const * const configfilename) const {
-	char temp[50];char helpline[256];
+	char temp[50];
+	char helpline[HELPLINE_SIZE] = { 0 };
 	FILE* outfile = fopen(configfilename,"w+t");
 	if (outfile == NULL) return false;
 
@@ -892,7 +894,7 @@ bool Config::PrintConfig(char const * const configfilename) const {
 			const char * helpstr = MSG_Get(temp);
 			const char * linestart = helpstr;
 			char * helpwrite = helpline;
-			while (*helpstr && helpstr - linestart < sizeof(helpline)) {
+			while (*helpstr && helpstr - linestart < HELPLINE_SIZE - 2) {
 				*helpwrite++ = *helpstr;
 				if (*helpstr == '\n') {
 					*helpwrite = 0;
@@ -1105,6 +1107,54 @@ UINT Config::CHECKMARK(std::string sSection, std::string sProperty)
 	return MFS_UNCHECKED;
 }
 
+bool Config::Menu_ChangeCheck(std::string sSection, std::string sProperty, std::string sValue)
+{
+	Section* OTF = control->GetSection(sSection.c_str());
+
+	std::string Handle;
+	std::string OldVal = GetValueFromProp(sSection, sProperty);
+
+	bool bvalue = false;
+	;
+	if (sValue.compare("BOOL") == 0)
+	{
+		UINT uCheck = CHECKMARK(sSection.c_str(), sProperty.c_str());
+		if (uCheck == MFS_CHECKED)
+			sValue = "false";
+			bvalue = false;
+
+
+		if (uCheck == MFS_UNCHECKED)
+			sValue = "true";
+			bvalue = true;
+
+	}
+
+	Handle += sProperty;
+	Handle += "=";
+	Handle += sValue;
+
+	//OTF->ExecuteDestroy(false);
+	bool r = OTF->HandleInputline(Handle.c_str());
+	if (r)
+	{
+		LOG_MSG("Config : [%s]\n"
+			" - Old : %s=%s\n"
+			" - New : %s=%s\n"
+			"Config : Temporary Changed - Not Real Saved\n\n", sSection.c_str(), sProperty.c_str(), OldVal.c_str(), sProperty.c_str(), sValue.c_str());
+	}
+	else
+	{
+		LOG_MSG("Config : [%s]\n"
+			" - Old : %s=%s\n"
+			" ERROR : %s\n"
+			"Config : Temporary Changed - Not Real Saved\n\n", sSection.c_str(), OldVal.c_str(), sProperty.c_str(), sValue.c_str());
+	}
+	//OTF->ExecuteInit(false);
+
+	return bvalue;
+}
+
 bool Config::ChangeOnTheFly(std::string sSection, std::string sProperty, std::string sValue)
 {
 	Section* OTF = control->GetSection(sSection.c_str());
@@ -1142,7 +1192,9 @@ bool Config::ChangeOnTheFly(std::string sSection, std::string sProperty, std::st
 				" ERROR : %s\n"
 				"Config : Temporary Changed - Not Real Saved\n\n",sSection.c_str(), OldVal.c_str(), sProperty.c_str(), sValue.c_str());
 	}
-	OTF->ExecuteInit(false);	
+	OTF->ExecuteInit(false);
+
+	return false;
 }
 
 Section_prop* Config::AddSection_prop(char const * const _name,void (*_initfunction)(Section*),bool canchange) {
@@ -1221,7 +1273,7 @@ Section* Config::GetSection(int index) {
 
 Section* Config::GetSection(string const& _sectionname) const {
 	for (const_it tel = sectionlist.begin(); tel != sectionlist.end(); ++tel){
-		if (!strcasecmp((*tel)->GetName(),_sectionname.c_str())) return (*tel);
+		if (!_stricmp((*tel)->GetName(),_sectionname.c_str())) return (*tel);
 	}
 	return NULL;
 }
@@ -1260,7 +1312,7 @@ bool Config::ParseConfigFile(char const * const configfilename) {
 
 		/* strip leading/trailing whitespace */
 		
-		if ( strcasecmp( gegevens.c_str(),"[autoexec]" ) == 0)
+		if (_stricmp( gegevens.c_str(),"[autoexec]" ) == 0)
 		{
 			/*
 				Verändere nicht die Autoexec.bat
@@ -1427,7 +1479,7 @@ bool CommandLine::FindCommand(unsigned int which,std::string & value) {
 
 bool CommandLine::FindEntry(char const * const name,cmd_it & it,bool neednext) {
 	for (it = cmds.begin(); it != cmds.end(); ++it) {
-		if (!strcasecmp((*it).c_str(),name)) {
+		if (!_stricmp((*it).c_str(),name)) {
 			cmd_it itnext=it;++itnext;
 			if (neednext && (itnext==cmds.end())) return false;
 			return true;
@@ -1532,7 +1584,7 @@ int CommandLine::GetParameterFromList(const char* const params[], std::vector<st
 	while(it != cmds.end()) {
 		bool found = false;
 		for(Bitu i = 0; *params[i]!=0; i++) {
-			if (!strcasecmp((*it).c_str(),params[i])) {
+			if (!_stricmp((*it).c_str(),params[i])) {
 				// found a parameter
 				found = true;
 				switch(parsestate) {
@@ -1612,30 +1664,54 @@ Bit16u CommandLine::Get_arglength() {
 
 
 CommandLine::CommandLine(char const * const name,char const * const cmdline) {
-	if (name) file_name=name;
+	if (name)
+		file_name=name;
+	
 	/* Parse the cmds and put them in the list */
-	bool inword,inquote;char c;
-	inword=false;inquote=false;
+	bool inword,inquote;
+	char c;
+	
+	inword	= false;
+	inquote	= false;
+	
 	std::string str;
 	const char * c_cmdline=cmdline;
-	while ((c=*c_cmdline)!=0) {
-		if (inquote) {
-			if (c!='"') str+=c;
-			else {
+	
+	while ((c=*c_cmdline)!=0)
+	{
+		if (inquote)
+		{
+			if (c!='"')
+				str+=c;
+			else
+			{
 				inquote=false;
 				cmds.push_back(str);
 				str.erase();
 			}
-		} else if (inword) {
-			if (c!=' ') str+=c;
-			else {
+		}
+		else if (inword)
+		{
+			
+			if (c!=' ')
+				str+=c;
+			else
+			{
 				inword=false;
 				cmds.push_back(str);
 				str.erase();
 			}
+		}	
+		else if (c=='\"')
+		{
+			inquote=true;
 		}
-		else if (c=='\"') { inquote=true;}
-		else if (c!=' ') { str+=c;inword=true;}
+		else if (c!=' ')
+		{
+			str+=c;
+			inword=true;
+		}
+		
 		c_cmdline++;
 	}
 	if (inword || inquote) cmds.push_back(str);

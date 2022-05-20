@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -317,7 +317,34 @@ static void TandyDAC_Handler(Bit8u tfunction) {
 	}
 }
 
+bool date_host_forced = true;
+static uint8_t ReadCmosByte(Bitu index) {
+	IO_Write(0x70, index);
+	return IO_Read(0x71);
+}
+
+static void WriteCmosByte(Bitu index, Bitu val) {
+	IO_Write(0x70, index);
+	IO_Write(0x71, val);
+}
+
+static bool RtcUpdateDone() {
+	while ((ReadCmosByte(0x0a) & 0x80) != 0) CALLBACK_Idle();
+	return true;            // cannot fail in DOSbox
+}
+
+static void InitRtc() {
+	WriteCmosByte(0x0a, 0x26);      // default value (32768Hz, 1024Hz)
+
+	// leave bits 6 (pirq), 5 (airq), 0 (dst) untouched
+	// reset bits 7 (freeze), 4 (uirq), 3 (sqw), 2 (bcd)
+	// set bit 1 (24h)
+	WriteCmosByte(0x0b, (ReadCmosByte(0x0b) & 0x61u) | 0x02u);
+
+	ReadCmosByte(0x0c);             // clear any bits set
+}
 static Bitu INT1A_Handler(void) {
+	CALLBACK_SIF(true);
 	switch (reg_ah) {
 	case 0x00:	/* Get System time */
 		{
@@ -332,6 +359,17 @@ static Bitu INT1A_Handler(void) {
 		mem_writed(BIOS_TIMER,(reg_cx<<16)|reg_dx);
 		break;
 	case 0x02:	/* GET REAL-TIME CLOCK TIME (AT,XT286,PS) */
+		if (date_host_forced) {
+			InitRtc();                          // make sure BCD and no am/pm
+			if (RtcUpdateDone()) {              // make sure it's safe to read
+				reg_ch = ReadCmosByte(0x04);    // hours
+				reg_cl = ReadCmosByte(0x02);    // minutes
+				reg_dh = ReadCmosByte(0x00);    // seconds
+				reg_dl = ReadCmosByte(0x0b) & 0x01; // daylight saving time
+			}
+			CALLBACK_SCF(false);
+			break;
+		}
 		IO_Write(0x70,0x04);		//Hours
 		reg_ch=IO_Read(0x71);
 		IO_Write(0x70,0x02);		//Minutes
@@ -342,6 +380,17 @@ static Bitu INT1A_Handler(void) {
 		CALLBACK_SCF(false);
 		break;
 	case 0x04:	/* GET REAL-TIME ClOCK DATE  (AT,XT286,PS) */
+		if (date_host_forced) {
+			InitRtc();                          // make sure BCD and no am/pm
+			if (RtcUpdateDone()) {              // make sure it's safe to read
+				reg_ch = ReadCmosByte(0x32);    // century
+				reg_cl = ReadCmosByte(0x09);    // year
+				reg_dh = ReadCmosByte(0x08);    // month
+				reg_dl = ReadCmosByte(0x07);    // day
+			}
+			CALLBACK_SCF(false);
+			break;
+		}
 		IO_Write(0x70,0x32);		//Centuries
 		reg_ch=IO_Read(0x71);
 		IO_Write(0x70,0x09);		//Years
@@ -351,6 +400,17 @@ static Bitu INT1A_Handler(void) {
 		IO_Write(0x70,0x07);		//Days
 		reg_dl=IO_Read(0x71);
 		CALLBACK_SCF(false);
+		break;
+	case 0x05:  // set RTC date
+		if (date_host_forced) {
+			InitRtc();                          // make sure BCD and no am/pm
+			WriteCmosByte(0x0b, ReadCmosByte(0x0b) | 0x80);     // prohibit updates
+			WriteCmosByte(0x32, reg_ch);    // century
+			WriteCmosByte(0x09, reg_cl);    // year
+			WriteCmosByte(0x08, reg_dh);    // month
+			WriteCmosByte(0x07, reg_dl);    // day
+			WriteCmosByte(0x0b, (ReadCmosByte(0x0b) & 0x7f));   // allow updates
+		}
 		break;
 	case 0x80:	/* Pcjr Setup Sound Multiplexer */
 		LOG(LOG_BIOS,LOG_ERROR)("INT1A:80:Setup tandy sound multiplexer to %d",reg_al);
@@ -363,11 +423,13 @@ static Bitu INT1A_Handler(void) {
 		TandyDAC_Handler(reg_ah);
 		break;
 	case 0xb1:		/* PCI Bios Calls */
-		LOG(LOG_BIOS,LOG_WARN)("INT1A:PCI bios call %2X",reg_al);
-#if defined(PCI_FUNCTIONALITY_ENABLED)
+		LOG(LOG_BIOS,LOG_WARN)("INT1A:PCI bios call %2X (%d,0x%x)",reg_al,reg_al,reg_al);
+//#if defined(PCI_FUNCTIONALITY_ENABLED)
 		switch (reg_al) {
 			case 0x01:	// installation check
+			case 0x0e:	// installation check
 				if (PCI_IsInitialized()) {
+					LOG(LOG_BIOS, LOG_WARN)("INT1A:PCI bios Initialized");
 					reg_ah=0x00;
 					reg_al=0x01;	// cfg space mechanism 1 supported
 					reg_bx=0x0210;	// ver 2.10
@@ -474,9 +536,9 @@ static Bitu INT1A_Handler(void) {
 				CALLBACK_SCF(true);
 				break;
 		}
-#else
+//#else
 		CALLBACK_SCF(true);
-#endif
+//#endif
 		break;
 	default:
 		LOG(LOG_BIOS,LOG_ERROR)("INT1A:Undefined call %2X",reg_ah);
@@ -566,11 +628,11 @@ static Bitu INT8_Handler(void) {
 #endif
 	mem_writed(BIOS_TIMER,value);
 
-	/* decrease floppy motor timer */
+	/* decrement FDD motor timeout counter; roll over on earlier PC, stop at zero on later PC */
 	Bit8u val = mem_readb(BIOS_DISK_MOTOR_TIMEOUT);
-	if (val) mem_writeb(BIOS_DISK_MOTOR_TIMEOUT,val-1);
-	/* and running drive */
-	mem_writeb(BIOS_DRIVE_RUNNING,mem_readb(BIOS_DRIVE_RUNNING) & 0xF0);
+	if (val || !IS_EGAVGA_ARCH) mem_writeb(BIOS_DISK_MOTOR_TIMEOUT, val - 1);
+	/* clear FDD motor bits when counter reaches zero */
+	if (val == 1) mem_writeb(BIOS_DRIVE_RUNNING, mem_readb(BIOS_DRIVE_RUNNING) & 0xF0);
 	return CBRET_NONE;
 }
 #undef DOSBOX_CLOCKSYNC
@@ -779,6 +841,32 @@ static Bitu INT15_Handler(void) {
 	
 	switch (reg_ah) {
 	case 0x06:
+	case 0x24:		//A20 stuff
+		switch (reg_al) {
+		case 0:	//Disable a20
+			MEM_A20_Enable(false);
+			reg_ah = 0;                   //call successful
+			CALLBACK_SCF(false);             //clear on success
+			break;
+		case 1:	//Enable a20
+			MEM_A20_Enable(true);
+			reg_ah = 0;                   //call successful
+			CALLBACK_SCF(false);             //clear on success
+			break;
+		case 2:	//Query a20
+			reg_al = MEM_A20_Enabled() ? 0x1 : 0x0;
+			reg_ah = 0;                   //call successful
+			CALLBACK_SCF(false);
+			break;
+		case 3:	//Get a20 support
+			reg_bx = 0x3;		//Bitmask, keyboard and 0x92
+			reg_ah = 0;         //call successful
+			CALLBACK_SCF(false);
+			break;
+		default:
+			goto unhandled;
+		}
+		break;
 	case 0xC0:	/* Get Configuration*/
 		{
 			if (biosConfigSeg==0) biosConfigSeg = DOS_GetMemory(1); //We have 16 bytes
@@ -1120,6 +1208,7 @@ static Bitu INT15_Handler(void) {
 		}
 		break;		
 	default:
+	unhandled:
 		LOG(LOG_BIOS,LOG_ERROR)("INT15:Unknown call %4X",reg_ax);
 		reg_ah=0x86;
 		CALLBACK_SCF(true);
@@ -1186,6 +1275,12 @@ static Bitu Reboot_Handler(void) {
 	//throw 1;
 	Restart(true);	
 	return CBRET_NONE;
+}
+void BIOS_SetEquipment(Bit16u equipment) {
+	mem_writew(BIOS_CONFIGURATION, equipment);
+	if (IS_EGAVGA_ARCH) equipment &= ~0x30; //EGA/VGA startup display mode differs in CMOS
+	CMOS_SetRegister(0x14, (Bit8u)(equipment & 0xff)); //Should be updated on changes
+	
 }
 
 void BIOS_ZeroExtendedSize(bool in) {
@@ -1520,9 +1615,7 @@ public:
 		if (machine==MCH_PCJR) config |= 0x100;
 		// Gameport
 		config |= 0x1000;
-		mem_writew(BIOS_CONFIGURATION,config);
-		if (IS_EGAVGA_ARCH) config &= ~0x30; //EGA/VGA startup display mode differs in CMOS // r4186
-		CMOS_SetRegister(0x14,(Bit8u)(config&0xff)); //Should be updated on changes
+		BIOS_SetEquipment(config);
 		/* Setup extended memory size */
 		IO_Write(0x70,0x30);
 		size_extended=IO_Read(0x71);
@@ -1575,9 +1668,7 @@ void BIOS_SetComPorts(Bit16u baseaddr[]) {
 	equipmentword = mem_readw(BIOS_CONFIGURATION);
 	equipmentword &= (~0x0E00);
 	equipmentword |= (portcount << 9);
-	mem_writew(BIOS_CONFIGURATION,equipmentword);
-	if (IS_EGAVGA_ARCH) equipmentword &= ~0x30; //EGA/VGA startup display mode differs in CMOS // r4186
-	CMOS_SetRegister(0x14,(Bit8u)(equipmentword&0xff)); //Should be updated on changes
+	BIOS_SetEquipment(equipmentword);
 }
 
 

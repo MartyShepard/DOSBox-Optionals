@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2015  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -19,76 +19,71 @@
 #ifndef DOSBOX_MMX_H
 #define DOSBOX_MMX_H
 
-typedef union {
+	typedef union {
 
 	Bit64u q;
 
 #ifndef WORDS_BIGENDIAN
 	struct {
-		Bit32u d0,d1;
+		Bit32u d0, d1;
 	} ud;
 
 	struct {
-		Bit32s d0,d1;
+		Bit32s d0, d1;
 	} sd;
 
 	struct {
-		Bit16u w0,w1,w2,w3;
+		Bit16u w0, w1, w2, w3;
 	} uw;
 
 	struct {
-		Bit16s w0,w1,w2,w3;
+		Bit16s w0, w1, w2, w3;
 	} sw;
 
 	struct {
-		Bit8u b0,b1,b2,b3,b4,b5,b6,b7;
+		Bit8u b0, b1, b2, b3, b4, b5, b6, b7;
 	} ub;
 
 	struct {
-		Bit8s b0,b1,b2,b3,b4,b5,b6,b7;
+		Bit8s b0, b1, b2, b3, b4, b5, b6, b7;
 	} sb;
 #else
 	struct {
-		Bit32u d1,d0;
+		Bit32u d1, d0;
 	} ud;
 
 	struct {
-		Bit32s d1,d0;
+		Bit32s d1, d0;
 	} sd;
 
 	struct {
-		Bit16u w3,w2,w1,w0;
+		Bit16u w3, w2, w1, w0;
 	} uw;
 
 	struct {
-		Bit16u w3,w2,w1,w0;
+		Bit16u w3, w2, w1, w0;
 	} sw;
 
 	struct {
-		Bit8u b7,b6,b5,b4,b3,b2,b1,b0;
+		Bit8u b7, b6, b5, b4, b3, b2, b1, b0;
 	} ub;
 
 	struct {
-		Bit8u b7,b6,b5,b4,b3,b2,b1,b0;
+		Bit8u b7, b6, b5, b4, b3, b2, b1, b0;
 	} sb;
 #endif
 
 } MMX_reg;
 
-extern MMX_reg reg_mmx[8];
-extern MMX_reg * lookupRMregMM[256];
+extern MMX_reg* reg_mmx[8];
+extern MMX_reg* lookupRMregMM[256];
 
 
-#define SaturateWordSToByteS(val) (((val) < -128) ? -128 : (((val) > 127) ? 127 : (val)))
-#define SaturateDwordSToWordS(val) (((val) < -32768) ? -32768 : (((val) > 32767) ? 32767 : (val)))
-#define SaturateWordSToByteU(val) (((val) < 0) ? 0 : (((val) > 255) ? 255 : (val)))
-#define SaturateDwordSToWordU(val) (((val) < 0) ? 0 : (((val) > 65535) ? 65535 : (val)))
-
-/* Bit8s  SaturateWordSToByteS(Bit16s value);
+Bit8s  SaturateWordSToByteS(Bit16s value);
 Bit16s SaturateDwordSToWordS(Bit32s value);
 Bit8u  SaturateWordSToByteU(Bit16s value);
-Bit16u SaturateDwordSToWordU(Bit32s value); */
+Bit16u SaturateDwordSToWordU(Bit32s value);
 
-void   setFPU(Bit16u tag);
+void   setFPUTagEmpty();
 
 #endif

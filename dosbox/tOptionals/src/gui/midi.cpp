@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,7 +22,11 @@
 #include <string>
 #include <algorithm>
 
-#include "SDL.h"
+#if defined(_MSC_VER)
+#include <SDL2\include\SDL.h>
+#else
+#include <SDL.h>
+#endif
 
 #include "dosbox.h"
 #include "midi.h"
@@ -196,10 +200,10 @@ public:
 		midi.status=0x00;
 		midi.cmd_pos=0;
 		midi.cmd_len=0;
-		if (!strcasecmp(dev,"default")) goto getdefault;
+		if (!_stricmp(dev,"default")) goto getdefault;
 		handler=handler_list;
 		while (handler) {
-			if (!strcasecmp(dev,handler->GetName())) {
+			if (!_stricmp(dev,handler->GetName())) {
 				if (!handler->Open(conf)) {
 					LOG_MSG("\nMIDI: Can't Open Device: %s With Config: %s.\n",dev,conf);
 					goto getdefault;

@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
 
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -33,11 +33,22 @@
 #include "dosbox.h"
 #include "mem.h"
 #include "mixer.h"
-#include "SDL.h"
-#include "SDL_thread.h"
+
+#if defined(_MSC_VER)
+	#include <SDL2\include\SDL.h>
+	#include <SDL2\include\SDL_thread.h>
+#else
+	#include <SDL.h>
+	#include <SDL_thread.h>
+#endif
 
 #include "../libs/decoders/SDL_sound.h"
-#include "src/libs/libchdr/chd.h"
+
+#if defined(_MSC_VER)
+	#include "..\libs\libchdr\chd.h"
+#else
+	#include "src/libs/libchdr/chd.h"
+#endif
 
 #define RAW_SECTOR_SIZE		2352
 #define COOKED_SECTOR_SIZE	2048
@@ -74,6 +85,7 @@ typedef struct SCtrl {
 
 extern int CDROM_GetMountType(char* path, int force);
 
+	
 class CDROM_Interface
 {
 public:
@@ -93,7 +105,7 @@ public:
 	virtual bool	PlayAudioSector		(unsigned long start,unsigned long len) = 0;
 	virtual bool	PauseAudio			(bool resume) = 0;
 	virtual bool	StopAudio			(void) = 0;
-	virtual void	ChannelControl		(TCtrl ctrl) = 0;
+	virtual void	ChannelControl		(TCtrl /*ctrl*/) { return; };
 	
 	virtual bool	ReadSectors			(PhysPt buffer, bool raw, unsigned long sector, unsigned long num) = 0;
 
@@ -117,7 +129,7 @@ public:
 	bool	PlayAudioSector		(unsigned long /*start*/,unsigned long /*len*/) { return true; };
 	bool	PauseAudio			(bool /*resume*/) { return true; };
 	bool	StopAudio			(void) { return true; };
-	void	ChannelControl		(TCtrl ctrl) { return; };
+	void	ChannelControl		(TCtrl /*ctrl*/) { return; };
 	bool	ReadSectors			(PhysPt /*buffer*/, bool /*raw*/, unsigned long /*sector*/, unsigned long /*num*/) { return true; };
 	/* This is needed for IDE hack, who's buffer does not exist in DOS physical memory */	
 	bool	ReadSectorsHost			(void* buffer, bool raw, unsigned long sector, unsigned long num);	
@@ -131,13 +143,13 @@ private:
 	protected:
 		TrackFile(Bit16u chunkSize) : chunkSize(chunkSize) {}
 	public:
-		virtual bool read(Bit8u *buffer, int seek, int count) = 0;
-		virtual bool   seek(Bit32u offset) = 0;
-		virtual Bit16u decode(Bit8u *buffer) = 0;
-		virtual Bit16u getEndian() = 0;
-		virtual Bit32u getRate() = 0;
-		virtual Bit8u  getChannels() = 0;
-		virtual int getLength() = 0;
+		virtual bool read(uint8_t*buffer, int64_t seek, int count) = 0;
+		virtual bool   seek(int64_t offset) = 0;
+		virtual uint16_t decode(uint8_t*buffer) = 0;
+		virtual uint16_t getEndian() = 0;
+		virtual uint32_t getRate() = 0;
+		virtual uint8_t  getChannels() = 0;
+		virtual int64_t getLength() = 0;
 		virtual ~TrackFile() { };
 		virtual void setAudioPosition(Bit32u pos) = 0;
 		const Bit16u   chunkSize = 0;
@@ -148,13 +160,13 @@ private:
 	public:
 		BinaryFile(const char *filename, bool &error);
 		~BinaryFile();
-		bool read(Bit8u *buffer, int seek, int count);
-		bool   seek(Bit32u offset);
-		Bit16u decode(Bit8u *buffer);
-		Bit16u getEndian();
-		Bit32u getRate() { return 44100; }
-		Bit8u  getChannels() { return 2; }
-		int getLength();
+		bool read(uint8_t*buffer, int64_t seek, int count);
+		bool   seek(int64_t offset);
+		uint16_t decode(uint8_t*buffer);
+		uint16_t getEndian();
+		uint32_t getRate() { return 44100; }
+		uint8_t  getChannels() { return 2; }
+		int64_t getLength();
 		void setAudioPosition(Bit32u pos) { audio_pos = pos; }
 	private:
 		BinaryFile();
@@ -166,13 +178,13 @@ private:
 	public:
 		AudioFile(const char *filename, bool &error);
 		~AudioFile();
-		bool   read(Bit8u *buffer, int seek, int count) { return false; }
-		bool   seek(Bit32u offset);
-		Bit16u decode(Bit8u *buffer);
+		bool   read(uint8_t*buffer, int64_t seek, int count) { return false; }
+		bool   seek(int64_t offset);
+		Bit16u decode(uint8_t*buffer);
 		Bit16u getEndian();
-		Bit32u getRate();
-		Bit8u  getChannels();
-		int getLength();
+		uint32_t getRate();
+		uint8_t  getChannels();
+		int64_t getLength();
 		void setAudioPosition(Bit32u pos) { (void)pos;/*unused*/ }
 	private:
 		AudioFile();
@@ -188,15 +200,14 @@ private:
 		CHDFile(const CHDFile&) = delete;
 		CHDFile& operator= (const CHDFile&) = delete;
 
-		bool            read(Bit8u *buffer, int seek, int count);
-		bool            seek(Bit32u offset);
-		Bit16u        decode(Bit8u *buffer);
-		Bit16u        getEndian();
-		Bit32u        getRate() { return 44100; }
-		Bit8u         getChannels() { return 2; }
-		int             getLength();
-		
-		void setAudioPosition(Bit32u pos) { audio_pos = pos; }
+		bool            read(uint8_t*buffer, int64_t seek, int count);
+		bool            seek(int64_t offset);
+		uint16_t        decode(uint8_t* buffer);
+		uint16_t        getEndian();
+		uint32_t        getRate() { return 44100; }
+		uint8_t         getChannels() { return 2; }
+		int64_t         getLength();
+		void setAudioPosition(uint32_t pos) { audio_pos = pos; }
 		
 		chd_file* getChd() { return this->chd; }
 	private:
@@ -221,10 +232,25 @@ public:
 		int start;
 		int length;
 		int skip;
-		int sectorSize;
-		bool mode2;
+		int sectorSize;	
+		bool mode2;		
 		TrackFile *file;
 	};
+	
+	struct TrackCHDCount {
+		int Tracks;
+		int MetaVersion;
+		chd_error Error;
+	}ChdInfoCount;
+
+	struct ImageAudioTrack {
+		int sectorsize;
+		int attr;
+		int offset;
+		int length;
+		bool mode2;
+		bool used;		
+	}ImageTrack;
 	
 	CDROM_Interface_Image		(Bit8u subUnit);
 	virtual ~CDROM_Interface_Image	(void);
@@ -281,6 +307,8 @@ static  struct imagePlayer {
 	// cue sheet processing
 	bool	LoadCueSheet(char *cuefile);
 	bool  LoadChdFile(char* chdfile);
+	bool  LoadChdFileNew(chd_file* chd, CHDFile* file);
+	int     CHD_PreLoadFile(char* chdfile);
 	bool	GetRealFileName(std::string& filename, std::string& pathname);
 	bool	GetCueKeyword(std::string &keyword, std::istream &in);
 	bool	GetCueFrame(int &frames, std::istream &in);

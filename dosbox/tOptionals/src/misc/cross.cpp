@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,10 +25,14 @@
 #include <stdlib.h>
 
 #ifdef WIN32
-#ifndef _WIN32_IE
-#define _WIN32_IE 0x0400
+	#ifndef _WIN32_IE
+		#define _WIN32_IE 0x0400
+	#endif
+	#include <shlobj.h>	
 #endif
-#include <shlobj.h>
+
+#if defined(_MSC_VER)
+#define mkdir(x) _mkdir(x)
 #endif
 
 #if defined HAVE_SYS_TYPES_H && defined HAVE_PWD_H
@@ -153,7 +157,7 @@ dir_information* open_directory(const char* dirname) {
 
 	dir.handle = INVALID_HANDLE_VALUE;
 
-	return (access(dirname,0) ? NULL : &dir);
+	return (_access(dirname,0) ? NULL : &dir);
 }
 
 bool read_directory_first(dir_information* dirp, char* entry_name, bool& is_directory) {

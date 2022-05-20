@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -24,6 +24,7 @@
 #include "dos_system.h"
 #include "support.h"
 #include "drives.h"
+#include "logging.h"
 
 
 #define FLAGS1	((iso) ? de.fileFlags : de.timeZone)
@@ -157,9 +158,9 @@ isoDrive::isoDrive(char driveLetter, const char *fileName, Bit8u mediaid, int &e
 	
 	safe_strncpy(this->fileName, fileName, CROSS_LEN);
 	error = UpdateMscdex(driveLetter, fileName, subUnit);
-	
+
 	if (!error) {
-		if (loadImage(fileName)) {
+		if (loadImage(/*fileName*/)) {
 			strcpy(info, "isoDrive ");
 			strcat(info, fileName);
 			this->driveLetter = driveLetter;
@@ -179,10 +180,19 @@ isoDrive::isoDrive(char driveLetter, const char *fileName, Bit8u mediaid, int &e
 		} else {
 			error = 6; //Corrupt image
 		}
+	}else
+	{
+		LOG(LOG_DOSMISC, LOG_NORMAL)("[%d] Error:%d (Not Loaded)\n%s\n", __LINE__, error, fileName);
 	}
 }
 
 isoDrive::~isoDrive() { }
+
+void isoDrive::setFileName(const char* fileName) {
+	safe_strncpy(this->fileName, fileName, CROSS_LEN);
+	strcpy(info, "isoDrive ");
+	strcat(info, fileName);
+}
 
 int isoDrive::UpdateMscdex(char driveLetter, const char* path, Bit8u& subUnit) {
 	if (MSCDEX_HasDrive(driveLetter)) {
@@ -522,7 +532,7 @@ int isoDrive :: readDirEntry(isoDirEntry *de, Bit8u *data) {
 	return de->length;
 }
 
-bool isoDrive :: loadImage(const char* fileName) { 
+bool isoDrive :: loadImage(/*const char* fileName*/) { 
 	
 
 	

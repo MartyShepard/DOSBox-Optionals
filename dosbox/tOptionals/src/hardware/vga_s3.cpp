@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -24,8 +24,9 @@
 #include "control.h"
 
 int nCurrent_VidSize_S3Trio;
+int OverDriveOC = 0;
 
-void SVGA_S3_WriteCRTC(Bitu reg,Bitu val,Bitu iolen) {
+void SVGA_S3_WriteCRTC(Bitu reg, Bitu val, Bitu /*iolen*/) {
 	switch (reg) {
 	case 0x31:	/* CR31 Memory Configuration */
 //TODO Base address
@@ -145,7 +146,7 @@ void SVGA_S3_WriteCRTC(Bitu reg,Bitu val,Bitu iolen) {
 		vga.s3.hgc.startaddr |= ((val & 0xf) << 8);
 		if ((((Bitu)vga.s3.hgc.startaddr)<<10)+((64*64*2)/8) > vga.vmemsize) {
 			vga.s3.hgc.startaddr &= 0xff;	// put it back to some sane area;
-											// if read back of this address is ever implemented this needs to change
+											 // if read back of this address is ever implemented this needs to change
 			LOG(LOG_VGAMISC,LOG_NORMAL)("VGA :S3:CRTC: HGC pattern address beyond video memory" );
 		}
 		break;
@@ -370,7 +371,7 @@ void SVGA_S3_WriteCRTC(Bitu reg,Bitu val,Bitu iolen) {
 	}
 }
 
-Bitu SVGA_S3_ReadCRTC( Bitu reg, Bitu iolen) {
+Bitu SVGA_S3_ReadCRTC(Bitu reg, Bitu /*iolen*/) {
 	switch (reg) {
 	case 0x24:	/* attribute controller index (read only) */
 	case 0x26:
@@ -459,7 +460,7 @@ Bitu SVGA_S3_ReadCRTC( Bitu reg, Bitu iolen) {
 	}
 }
 
-void SVGA_S3_WriteSEQ(Bitu reg,Bitu val,Bitu iolen) {
+void SVGA_S3_WriteSEQ(Bitu reg, Bitu val, Bitu /*iolen*/) {
 	if (reg>0x8 && vga.s3.pll.lock!=0x6) return;
 	switch (reg) {
 	case 0x08:
@@ -489,7 +490,7 @@ void SVGA_S3_WriteSEQ(Bitu reg,Bitu val,Bitu iolen) {
 	}
 }
 
-Bitu SVGA_S3_ReadSEQ(Bitu reg,Bitu iolen) {
+Bitu SVGA_S3_ReadSEQ(Bitu reg, Bitu /*iolen*/) {
 	/* S3 specific group */
 	if (reg>0x8 && vga.s3.pll.lock!=0x6) {
 		if (reg<0x1b) return 0;
@@ -499,11 +500,11 @@ Bitu SVGA_S3_ReadSEQ(Bitu reg,Bitu iolen) {
 	case 0x08:		/* PLL Unlock */
 		return vga.s3.pll.lock;
 	case 0x10:		/* Memory PLL Data Low */
-		return vga.s3.mclk.n || (vga.s3.mclk.r << 5);
+		return vga.s3.mclk.n | (vga.s3.mclk.r << 5);
 	case 0x11:		/* Memory PLL Data High */
 		return vga.s3.mclk.m;
 	case 0x12:		/* Video PLL Data Low */
-		return vga.s3.clk[3].n || (vga.s3.clk[3].r << 5);
+		return vga.s3.clk[3].n | (vga.s3.clk[3].r << 5);
 	case 0x13:		/* Video Data High */
 		return vga.s3.clk[3].m;
 	case 0x15:
@@ -520,8 +521,15 @@ Bitu SVGA_S3_GetClock(void) {
 		clock = 25175000;
 	else if (clock == 1)
 		clock = 28322000;
-	else 
-		clock=1000*S3_CLOCK(vga.s3.clk[clock].m,vga.s3.clk[clock].n,vga.s3.clk[clock].r);
+	else
+		switch (OverDriveOC)
+		{
+			case 1: {clock = 1000 * S3_CLOCK_x2(vga.s3.clk[clock].m, vga.s3.clk[clock].n, vga.s3.clk[clock].r); LOG_MSG("SVGA S3 kHz Clock: %d", S3_CLOCK_REF_x2); break; }
+			case 2: {clock = 1000 * S3_CLOCK_x4(vga.s3.clk[clock].m, vga.s3.clk[clock].n, vga.s3.clk[clock].r); LOG_MSG("SVGA S3 kHz Clock: %d", S3_CLOCK_REF_x4); break; }
+			case 3: {clock = 1000 * S3_CLOCK_x6(vga.s3.clk[clock].m, vga.s3.clk[clock].n, vga.s3.clk[clock].r); LOG_MSG("SVGA S3 kHz Clock: %d", S3_CLOCK_REF_x6); break; }
+			case 4:	{clock = 1000 * S3_CLOCK_x8(vga.s3.clk[clock].m, vga.s3.clk[clock].n, vga.s3.clk[clock].r); LOG_MSG("SVGA S3 kHz Clock: %d", S3_CLOCK_REF_x8); break; }
+			default:{clock = 1000 * S3_CLOCK(vga.s3.clk[clock].m, vga.s3.clk[clock].n, vga.s3.clk[clock].r); LOG_MSG("SVGA S3 kHz Clock: %d", S3_CLOCK_REF);  }
+		}
 	/* Check for dual transfer, master clock/2 */
 	if (vga.s3.pll.cmd & 0x10) clock/=2;
 	return clock;
@@ -536,6 +544,11 @@ bool SVGA_S3_AcceptsMode(Bitu mode) {
 }
 
 void SVGA_Setup_S3Trio(void) {	
+	
+	int MemoryVgaS3;
+
+	Section_prop* section = static_cast<Section_prop*>(control->GetSection("dosbox"));
+
 	svga.write_p3d5 = &SVGA_S3_WriteCRTC;
 	svga.read_p3d5 = &SVGA_S3_ReadCRTC;
 	svga.write_p3c5 = &SVGA_S3_WriteSEQ;
@@ -546,20 +559,18 @@ void SVGA_Setup_S3Trio(void) {
 	svga.set_video_mode = 0; /* implemented in core */
 	svga.determine_mode = 0; /* implemented in core */
 	svga.set_clock = 0; /* implemented in core */
+
+	OverDriveOC = section->Get_int("S3_Overdrive_Clock_kHz");
 	svga.get_clock = &SVGA_S3_GetClock;
 	svga.hardware_cursor_active = &SVGA_S3_HWCursorActive;
 	svga.accepts_mode = &SVGA_S3_AcceptsMode;
 
-
 	vga.vmemsize = 0;
-	Section_prop *section = static_cast<Section_prop *>(control->GetSection("dosbox"));	
 
-	
-	int MemoryVgaS3;
 	
 	MemoryVgaS3 = section->Get_int("memsvga3");
 	
-		if ( MemoryVgaS3 == 0 ){
+		if ( MemoryVgaS3 == 0 ){						// less than 1mb fast page mode
 			 vga.vmemsize  = 512*1024;
 			 vga.s3.reg_36 = 0xfa;
 		} else {
@@ -567,30 +578,26 @@ void SVGA_Setup_S3Trio(void) {
 			vga.vmemsize = ( MemoryVgaS3 * 1024 ) * 1024;
 			switch( MemoryVgaS3 ){
 			
-				case 1:	{vga.s3.reg_36 = 0xda; break;}			
-				case 2:	{vga.s3.reg_36 = 0x9a; break;}
-				case 3:	{vga.s3.reg_36 = 0x5a; break;}
-				case 4:	{vga.s3.reg_36 = 0x1a; break;}
-				case 5:	{vga.s3.reg_36 = 0x0a; break;}
-				case 8:	{vga.s3.reg_36 = 0x7a; break;}
+				case 1:	 {vga.s3.reg_36 = 0xda; break;}	  // 1mb fast page mode		
+				case 2:	 {vga.s3.reg_36 = 0x9a; break;}	  // 2mb fast page mode
+				case 3:	 {vga.s3.reg_36 = 0x5a; break;}   // 3mb fast page mode
+				case 4:	 {vga.s3.reg_36 = 0x1a; break;}   // 4mb fast page mode
+				case 5:	 {vga.s3.reg_36 = 0x0a; break;}   // 5mb fast page mode
+				case 8:	 {vga.s3.reg_36 = 0x7a; break;}   // 8mb fast page mode
+				case 16: {vga.s3.reg_36 = 0x7a; break;}   // Hack? Need Testing
+				case 32: {vga.s3.reg_36 = 0x7a; break;}   // Hack? Need Testing
+				case 64: {vga.s3.reg_36 = 0x7a; break;}   // Hack? Need Testing
+				case 128:{vga.s3.reg_36 = 0x7a; break;}   // Hack? Need Testing
+				case 256:{vga.s3.reg_36 = 0x7a; break;}   // Hack? Need Testing
 				default:
-					vga.s3.reg_36 = 0x7a;				
+					vga.vmemsize  = 512 * 1024;
+					vga.s3.reg_36 = 0xfa;
 			}
 		}	
 		
 	nCurrent_VidSize_S3Trio = vga.vmemsize/1024;		
-	LOG_MSG("VGA S3: Memory Size: (%dkb)\n",vga.vmemsize/1024 );	
-	
-	
-	// S3 ROM signature
-	PhysPt rom_base=PhysMake(0xc000,0);
-	phys_writeb(rom_base+0x003f,'S');
-	phys_writeb(rom_base+0x0040,'3');
-	phys_writeb(rom_base+0x0041,' ');
-	phys_writeb(rom_base+0x0042,'8');
-	phys_writeb(rom_base+0x0043,'6');
-	phys_writeb(rom_base+0x0044,'C');
-	phys_writeb(rom_base+0x0045,'7');
-	phys_writeb(rom_base+0x0046,'6');
-	phys_writeb(rom_base+0x0047,'4');
+	LOG_MSG("VGA S3: Memory Size: (%dkb)\n",vga.vmemsize/1024 );
+
+
+
 }

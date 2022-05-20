@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -270,6 +270,8 @@ static INLINE Bit16u DOS_PackDate(Bit16u year,Bit16u mon,Bit16u day) {
 #define DOSERR_REMOVE_CURRENT_DIRECTORY 16
 #define DOSERR_NOT_SAME_DEVICE 17
 #define DOSERR_NO_MORE_FILES 18
+#define DOSERR_WRITE_PROTECTED 19
+#define DOSERR_DRIVE_NOT_READY 21
 #define DOSERR_FILE_ALREADY_EXISTS 80
 
 

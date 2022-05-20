@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -307,7 +307,7 @@ Overlay_Drive::Overlay_Drive(const char * startdir,const char* overlay, Bit16u _
 	optimize_cache_v1 = true; //Try to not reread overlay files on deletes. Ideally drive_cache should be improved to handle deletes properly.
 	//Currently this flag does nothing, as the current behavior is to not reread due to caching everything.
 #if defined (WIN32)	
-	if (strcasecmp(startdir,overlay) == 0) {
+	if (_stricmp(startdir,overlay) == 0) {
 #else 
 	if (strcmp(startdir,overlay) == 0) {
 #endif
@@ -612,6 +612,10 @@ void Overlay_Drive::update_cache(bool read_directory_contents) {
 			char tdir[CROSS_LEN];
 			strcpy(tdir,(*i).c_str());
 			CROSS_DOSFILENAME(tdir);
+			/* Marty
+			*  Using Upcase for Directorys in Lower Case
+			*/
+			upcase(tdir);
 			bool dir_exists_in_base = localDrive::TestDir(tdir);
 #endif
 
@@ -998,7 +1002,7 @@ bool Overlay_Drive::is_deleted_file(const char* name) {
 
 void Overlay_Drive::add_DOSdir_to_cache(const char* name) {
 	if (!name || !*name ) return; //Skip empty file.
-	LOG_MSG("Adding name to overlay_only_dir_cache %s",name);
+	if (logoverlay) LOG_MSG("Adding name to overlay_only_dir_cache %s",name);
 	if (!is_dir_only_in_overlay(name)) {
 		DOSdirs_cache.push_back(name); 
 	}

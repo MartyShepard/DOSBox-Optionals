@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -120,13 +120,22 @@ void VGA_SetClock(Bitu which,Bitu target) {
 	for (n=1;n<=31;n++) {
 		m=(target * (n + 2) * (1 << r) + (S3_CLOCK_REF/2)) / S3_CLOCK_REF - 2;
 		if (0 <= m && m <= 127)	{
-			Bitu temp_target = S3_CLOCK(m,n,r);
+			Bitu temp_target;
+			switch (OverDriveOC)
+			{
+				case 1: {if (svgaCard == SVGA_S3Trio) temp_target = S3_CLOCK_x2(m, n, r); break; }
+				case 2: {if (svgaCard == SVGA_S3Trio) temp_target = S3_CLOCK_x4(m, n, r); break; }
+				case 3: {if (svgaCard == SVGA_S3Trio) temp_target = S3_CLOCK_x6(m, n, r); break; }
+				case 4: {if (svgaCard == SVGA_S3Trio) temp_target = S3_CLOCK_x4(m, n, r); break; }
+				default:{temp_target = S3_CLOCK(m, n, r); }
+			}
+			
 			Bits err = target - temp_target;
 			if (err < 0) err = -err;
 			if (err < best.err) {
 				best.err = err;
 				best.m = m;
-				best.n = n;
+				best.n = n;			
 			}
 		}
     }

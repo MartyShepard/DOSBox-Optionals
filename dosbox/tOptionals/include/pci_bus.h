@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -19,11 +19,11 @@
 #ifndef DOSBOX_PCI_H
 #define DOSBOX_PCI_H
 
-#define PCI_FUNCTIONALITY_ENABLED 1
+//#define PCI_FUNCTIONALITY_ENABLED 1
 
-#if defined PCI_FUNCTIONALITY_ENABLED
+//#if defined PCI_FUNCTIONALITY_ENABLED
 
-#define PCI_MAX_PCIDEVICES		10
+#define PCI_MAX_PCIDEVICES		32
 #define PCI_MAX_PCIFUNCTIONS	8
 
 
@@ -74,14 +74,13 @@ public:
 	virtual bool OverrideReadRegister(Bit8u regnum, Bit8u* rval, Bit8u* rval_mask)=0;
 	virtual Bits ParseWriteRegister(Bit8u regnum,Bit8u value)=0;
 	virtual bool InitializeRegisters(Bit8u registers[256])=0;
-
 };
 
 bool PCI_IsInitialized();
 
 RealPt PCI_GetPModeInterface(void);
 
-#endif
+//#endif
 
 void PCI_AddSVGAS3_Device(void);
 void PCI_RemoveSVGAS3_Device(void);

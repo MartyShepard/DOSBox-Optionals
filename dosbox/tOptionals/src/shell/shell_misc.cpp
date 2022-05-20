@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@
 #include "regs.h"
 #include "callback.h"
 #include "support.h"
-#include "..\gui\version.h"
+#include "..\gui\version_optionals.h"
 
 void DOS_Shell::ShowPrompt(void) {
 	Bit8u drive=DOS_GetDefaultDrive()+'A';
@@ -49,7 +49,7 @@ void DOS_Shell::ShowPrompt(void) {
 	}
 
 	while (*promptstr) {
-		if (!strcasecmp(promptstr,"$")) WriteOut("\0");
+		if (!_stricmp(promptstr,"$")) WriteOut("\0");
 		else if(*promptstr != '$') WriteOut("%c",*promptstr);
 		else switch (toupper(*++promptstr)) {
 			case 'A': WriteOut("&"); break;
@@ -509,7 +509,7 @@ bool DOS_Shell::Execute(const char * name, const char * args) {
 		}
 	}
 	
-	if (strcasecmp(extension, ".bat") == 0) 
+	if (_stricmp(extension, ".bat") == 0)
 	{	/* Run the .bat file */
 		/* delete old batch file if call is not active*/
 		bool temp_echo=echo; /*keep the current echostate (as delete bf might change it )*/
@@ -519,9 +519,9 @@ bool DOS_Shell::Execute(const char * name, const char * args) {
 	} 
 	else 
 	{	/* only .bat .exe .com extensions maybe be executed by the shell */
-		if(strcasecmp(extension, ".com") !=0) 
+		if(_stricmp(extension, ".com") !=0)
 		{
-			if(strcasecmp(extension, ".exe") !=0) return false;
+			if(_stricmp(extension, ".exe") !=0) return false;
 		}
 		/* Run the .exe or .com file from the shell */
 		/* Allocate some stack space for tables in physical memory */

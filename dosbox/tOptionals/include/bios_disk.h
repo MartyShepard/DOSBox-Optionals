@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -84,15 +84,30 @@ public:
 private:
 	
 	enum { NONE,READ,WRITE } last_action;
+	volatile int refcount = 0;
+public:
+	int Addref() {
+		return ++refcount;
+	}
+	int Release() {
+		int ret = --refcount;
+		if (ret < 0) {
+			fprintf(stderr, "WARNING: imageDisk Release() changed refcount to %d\n", ret);
+			abort();
+		}
+		if (ret == 0) delete this;
+		return ret;
+	}
 };
 
 void updateDPT(void);
 void incrementFDD(void);
 
-#define MAX_HDD_IMAGES 2
 
+#define MAX_HDD_IMAGES 23
 #define MAX_DISK_IMAGES (2 + MAX_HDD_IMAGES)
 
+extern bool imageDiskChange[MAX_DISK_IMAGES];
 extern imageDisk *imageDiskList[MAX_DISK_IMAGES];
 extern imageDisk *diskSwap[MAX_SWAPPABLE_DISKS];
 extern Bit32s swapPosition;

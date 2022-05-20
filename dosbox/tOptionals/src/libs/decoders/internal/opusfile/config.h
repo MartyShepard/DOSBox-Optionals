@@ -49,6 +49,9 @@
 /* Enable fixed-point calculation */
 /* #undef OP_FIXED_POINT */
 
+/* Enable use of clock_gettime function */
+/* #undef OP_HAVE_CLOCK_GETTIME */
+
 /* Enable use of lrintf function */
 #define OP_HAVE_LRINTF 1
 

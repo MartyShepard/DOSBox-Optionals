@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -146,8 +146,8 @@ static void dyn_fpu_esc0(){
 
 static void dyn_fpu_esc1(){
 	dyn_get_modrm();  
-//	if (decode.modrm.val >= 0xc0) {
-	if (decode.modrm.mod == 3) { 
+//	if (decode.modrm.val >= 0xc0) { 
+	if (decode.modrm.mod == 3) {
 		switch (decode.modrm.reg){
 		case 0x00: /* FLD STi */
 			gen_mov_word_to_reg(FC_OP1,(void*)(&TOP),true);
@@ -334,8 +334,8 @@ static void dyn_fpu_esc1(){
 
 static void dyn_fpu_esc2(){
 	dyn_get_modrm();  
-//	if (decode.modrm.val >= 0xc0) {
-	if (decode.modrm.mod == 3) { 
+//	if (decode.modrm.val >= 0xc0) { 
+	if (decode.modrm.mod == 3) {
 		switch(decode.modrm.reg){
 		case 0x05:
 			switch(decode.modrm.rm){
@@ -367,8 +367,8 @@ static void dyn_fpu_esc2(){
 
 static void dyn_fpu_esc3(){
 	dyn_get_modrm();  
-//	if (decode.modrm.val >= 0xc0) {
-	if (decode.modrm.mod == 3) { 
+//	if (decode.modrm.val >= 0xc0) { 
+	if (decode.modrm.mod == 3) {
 		switch (decode.modrm.reg) {
 		case 0x04:
 			switch (decode.modrm.rm) {
@@ -387,7 +387,7 @@ static void dyn_fpu_esc3(){
 //				LOG(LOG_FPU,LOG_ERROR)("80267 protected mode (un)set. Nothing done");
 				break;
 			default:
-				E_Exit("ESC 3:ILLEGAL OPCODE group %d subfunction %d",decode.modrm.reg,decode.modrm.rm);
+				E_Exit("ESC 3:ILLEGAL OPCODE group %d subfunction %d\n\n[Source=%s] [Line=%d]",decode.modrm.reg,decode.modrm.rm, __FILE__, __LINE__);
 			}
 			break;
 		default:
@@ -432,8 +432,8 @@ static void dyn_fpu_esc3(){
 
 static void dyn_fpu_esc4(){
 	dyn_get_modrm();  
-//	if (decode.modrm.val >= 0xc0) {
-	if (decode.modrm.mod == 3) { 
+//	if (decode.modrm.val >= 0xc0) { 
+	if (decode.modrm.mod == 3) {
 		switch(decode.modrm.reg){
 		case 0x00:	/* FADD STi,ST*/
 			dyn_fpu_top_swapped();
@@ -481,8 +481,8 @@ static void dyn_fpu_esc4(){
 
 static void dyn_fpu_esc5(){
 	dyn_get_modrm();  
-//	if (decode.modrm.val >= 0xc0) {
-	if (decode.modrm.mod == 3) { 
+//	if (decode.modrm.val >= 0xc0) { 
+	if (decode.modrm.mod == 3) {
 		dyn_fpu_top();
 		switch(decode.modrm.reg){
 		case 0x00: /* FFREE STi */
@@ -552,8 +552,8 @@ static void dyn_fpu_esc5(){
 
 static void dyn_fpu_esc6(){
 	dyn_get_modrm();  
-//	if (decode.modrm.val >= 0xc0) {
-	if (decode.modrm.mod == 3) { 
+//	if (decode.modrm.val >= 0xc0) { 
+	if (decode.modrm.mod == 3) {
 		switch(decode.modrm.reg){
 		case 0x00:	/*FADDP STi,ST*/
 			dyn_fpu_top_swapped();
@@ -609,8 +609,8 @@ static void dyn_fpu_esc6(){
 
 static void dyn_fpu_esc7(){
 	dyn_get_modrm();  
-//	if (decode.modrm.val >= 0xc0) {
-	if (decode.modrm.mod == 3) { 
+//	if (decode.modrm.val >= 0xc0) { 
+	if (decode.modrm.mod == 3) {
 		switch (decode.modrm.reg){
 		case 0x00: /* FFREEP STi */
 			dyn_fpu_top();

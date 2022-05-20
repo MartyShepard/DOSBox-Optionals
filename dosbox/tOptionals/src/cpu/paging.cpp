@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -239,6 +239,7 @@ static INLINE bool InitPage_CheckUseraccess(Bitu u1,Bitu u2) {
 	case CPU_ARCHTYPE_486NEWSLOW:
 	case CPU_ARCHTYPE_PENTIUMSLOW:
 	case CPU_ARCHTYPE_PPROSLOW:
+	case CPU_ARCHTYPE_PMMXSLOW:
 		return ((u1)==0) || ((u2)==0);
 	}
 }
@@ -345,6 +346,7 @@ public:
 					case CPU_ARCHTYPE_486NEWSLOW:
 					case CPU_ARCHTYPE_PENTIUMSLOW:
 					case CPU_ARCHTYPE_PPROSLOW:
+					case CPU_ARCHTYPE_PMMXSLOW:
 						priv_check=1;
 						break;
 					}
@@ -364,6 +366,7 @@ public:
 					case CPU_ARCHTYPE_486NEWSLOW:
 					case CPU_ARCHTYPE_PENTIUMSLOW:
 					case CPU_ARCHTYPE_PPROSLOW:
+					case CPU_ARCHTYPE_PMMXSLOW:
 						priv_check=2;
 						break;
 					}

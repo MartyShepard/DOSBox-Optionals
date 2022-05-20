@@ -16,9 +16,6 @@
 /* Disable all parts of the API that are using floats */
 /* #undef DISABLE_FLOAT_API */
 
-/* Enable valgrind extra checks */
-/* #undef ENABLE_VALGRIND */
-
 /* Symbol visibility prefix */
 #define EXPORT __attribute__((visibility("default")))
 
@@ -31,14 +28,8 @@
 /* Compile as floating-point */
 #define FLOATING_POINT /**/
 
-/* Define to 1 if you have the <alloca.h> header file. */
-/* #undef HAVE_ALLOCA_H */
-
 /* Define to 1 if you have the <dlfcn.h> header file. */
 /* #undef HAVE_DLFCN_H */
-
-/* Define to 1 if you have the <getopt.h> header file. */
-#define HAVE_GETOPT_H 1
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1
@@ -132,9 +123,6 @@
 
 /* Enable support for TI C55X DSP */
 /* #undef TI_C55X */
-
-/* Make use of alloca */
-/* #undef USE_ALLOCA */
 
 /* Use FFTW3 for FFT */
 /* #undef USE_GPL_FFTW3 */

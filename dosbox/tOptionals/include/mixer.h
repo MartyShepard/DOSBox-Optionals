@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -136,4 +136,5 @@ void PCSPEAKER_SetType(Bitu mode, bool pit_clock_gate_enabled, bool pit_output_e
 //void PCSPEAKER_SetType(bool pit_clock_gate_enabled, bool pit_output_enabled);
 void PCSPEAKER_SetPITControl(Bitu mode);
 
+void MIXER_UpdateVolCD(float delta, bool manual, const char* channame);
 #endif

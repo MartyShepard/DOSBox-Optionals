@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -24,6 +24,7 @@
 #include <string>
 #include <vector>
 #include <time.h>
+#include <windows.h>
 #include "programs.h"
 #include "support.h"
 #include "drives.h"
@@ -50,6 +51,7 @@
 #define INCL_DOSERRORS
 #include "os2.h"
 #endif
+#include <pic.h>
 
 #if defined(WIN32)
 #ifndef S_ISDIR
@@ -536,6 +538,663 @@ static void MOUNT_ProgramStart(Program * * make) {
 	*make=new MOUNT;
 }
 
+extern void GFX_CaptureMouse_Mousecap_on(void);
+/* Get the last remembered Path for Floppys and CD's Seperated */
+std::string FDDirectory;
+std::string CDDirectory;
+
+INLINE std::string ChacheLastDirectory(std::string sFilepath, bool isFDImage = true)
+{
+	if (strlen(sFilepath.c_str()) == 0)
+	{
+		if (isFDImage)
+		{
+			FDDirectory = sCurrentWorkingPath();
+			return FDDirectory;
+		}
+		else
+		{
+			CDDirectory = sCurrentWorkingPath();
+			return CDDirectory;
+		}
+	}
+	else
+	{
+
+		const size_t SlashIndex = sFilepath.rfind('\\');
+		if (std::string::npos != SlashIndex)
+		{
+			if (isFDImage)
+			{
+				FDDirectory = sFilepath.substr(0, SlashIndex);
+				return FDDirectory + "\\";
+			}
+			else
+			{
+				CDDirectory = sFilepath.substr(0, SlashIndex);
+				return CDDirectory + "\\";
+			}
+		}
+		else
+			return sFilepath;
+	}
+}
+INLINE bool MessageBoxCD_InUse(char drive, int CDRomMedien, std::string  WerkID, HWND hwnd)
+{
+	/* CD ist eingelegt; Maximale Medien 40 für ein Laufwerk */
+	if (Drives[drive - 'A'] && !strncmp(Drives[drive - 'A']->GetInfo(), "isoDrive ", 9))
+	{
+		std::string Used =  "Drive " + WerkID + ":\\\n\n" +
+							"You are in Virtual Mode. PreSupport state for Mount CD Images\n\n"
+							"CD Drive " + WerkID + ":" +	" is currently mounted with the image:\n\n" +
+							std::string(Drives[drive - 'A']->GetInfo() + 9) +
+							"\n\nDo you want to exchange an replace the CD now?";
+
+		int r = MessageBox(hwnd, Used.c_str(), "Virtual Mode: Change CD Media", MB_OKCANCEL | MB_ICONASTERISK);
+		if (r == 2)
+			return true;
+		else
+			return false;
+	}
+	return false;
+}
+INLINE bool MessageBoxFA_InUse(char drive, int CDRomMedien, std::string  WerkID, HWND hwnd)
+{
+	/* CD ist eingelegt; Maximale Medien 40 für ein Laufwerk */
+	if (Drives[drive - 'A'] && !strncmp(Drives[drive - 'A']->GetInfo(), "fatDrive ", 9))
+	{
+		std::string Used = "You are in Virtual Mode. PreSupport state for Mount Floppy Images\n\n"
+			"Drive " + WerkID + ":" + " is currently mounted with the image:\n\n" +
+			std::string(Drives[drive - 'A']->GetInfo() + 9) +
+			"\n\nDo you want to exchange an replace the CD now?";
+
+		int r = MessageBox(hwnd, Used.c_str(), "Virtual Mode: Change Floppy", MB_OKCANCEL | MB_ICONASTERISK);
+		if (r == 2)
+			return true;
+		else
+			return false;
+	}
+	return false;
+}
+INLINE bool MessageBoxFD_InUse(char drive, int CDRomMedien, HWND hwnd)
+{
+	std::string ID(1, drive);
+
+	std::string Used= "Image:\n\n" + std::string(Drives[drive - 'A']->GetInfo() + 9) + "\n\n" +
+					  "Exists in the List at Drive " + ID + ":" + " On Position " + std::to_string(CDRomMedien+1);
+
+		MessageBox(hwnd, Used.c_str(), "Change CD image", MB_OK | MB_ICONASTERISK);
+}
+INLINE bool MessageBoxFD_BWarn(HWND hwnd)
+{
+	std::string msg = "At time, Drive 'B:' can not be Accessed to Mount a Image In Virtual Mode";
+
+	MessageBox(hwnd, msg.c_str(), "Drive B: No Access", MB_OK | MB_ICONASTERISK);
+}
+INLINE bool MenuBrowse_Sub_DoubleCheck(char drive, char* ImageFile)
+{
+	std::string FilePath = "";
+	std::string FileName = "";
+	std::string LadeName = "";
+	std::string ImageFileName = ImageFile;
+
+	LOG_MSG("%d TEST", __LINE__);
+	int SwapMax = DriveManager::DiskCounts (drive - 'A');
+	LOG_MSG("%d TEST", __LINE__);
+	if (SwapMax == 0)
+		return false;
+
+	LOG_MSG("%d TEST", __LINE__);
+	LadeName = ImageFileName.substr(ImageFileName.find_last_of("/\\") + 1);
+
+	LOG_MSG("%d TEST", __LINE__);
+	if (SwapMax > 0)
+	{
+		LOG_MSG("%d TEST", __LINE__);
+		for (int x = 1; x < SwapMax; x++)
+		{
+			LOG_MSG("%d TEST Swap=%d", __LINE__,x);
+			DriveManager::CycleImage(drive - 'A', false, x);
+
+			LOG_MSG("%d TEST", __LINE__);
+			FilePath = std::string(Drives[drive - 'A']->GetInfo() + 9);
+			FileName = FilePath.substr(FilePath.find_last_of("/\\") + 1);
+
+			LOG_MSG("%d TEST", __LINE__);
+			#if defined(C_DEBUG)
+				LOG(LOG_IMAGE, LOG_NORMAL)("[%d] Add to List: '%s'\n"
+										   "     List Found : '%s'\n\n", __LINE__, LadeName.c_str(), FileName.c_str());
+			#endif
+
+			LOG_MSG("%d TEST", __LINE__);
+			if (strcmp(FileName.c_str(), LadeName.c_str()) == 0)
+			{
+				LOG_MSG("%d TEST", __LINE__);
+				DriveManager::NotifyShowLabel(drive - 'A', x, SwapMax);
+				/*
+				MessageBoxFD_InUse(drive, x, GetHWND());
+				*/
+				LOG_MSG("%d TEST", __LINE__);
+				GFX_CaptureMouse_Mousecap_on();				
+				return true;
+			}
+		}
+	}
+	LOG_MSG("%d TEST", __LINE__);
+	return false;
+}
+/*
+* TODO
+* Varibale unterscheidung zwischen Virtuellen und Realmode
+* Disketten Wechseln in Virtuellen Modus
+*/
+void MenuBrowseCDImage(char drive, int num) {
+
+	std::vector<std::string> paths;
+
+	int  CDRomDrives	= 0	;
+	int  CDRomMedien	= 0	;
+	int  CDDrvNr	    = 0;
+	char CDDrive			;
+	std::string WerkID	= "";
+
+	for (unsigned int idrive = 2; idrive < DOS_DRIVES; idrive++)
+	{
+		if (dynamic_cast<const isoDrive*>(Drives[idrive]) == NULL)
+		{
+			continue;
+		}
+
+		CDDrive = (char)'A' + idrive;
+		WerkID  = CDDrive;
+		CDDrvNr = idrive;
+
+		++CDRomDrives;
+
+		/* Wieviele CDRoms sind eingelegt */
+		CDRomMedien = (int)DriveManager::driveInfos[idrive].disks.size();
+		if (CDRomMedien > 1)
+		{			
+			LOG(LOG_DOSMISC, LOG_NORMAL)("[%d] - Eingelegte CDRom's: %d", __LINE__,CDRomMedien);
+
+		}
+	}
+
+	if (CDRomDrives == 0)
+	{	MessageBox(GetHWND(), "No CD drive is currently Mounted and Available. Please Start with a Mounted CD.", "Error - PreLoadCDSupport", MB_OK | MB_ICONASTERISK);		
+		GFX_CaptureMouse_Mousecap_on();
+		return;
+	}
+	if (control->SecureMode())
+	{	MessageBox(GetHWND() , MSG_Get("PROGRAM_CONFIG_SECURE_DISALLOW"), "Error", MB_OK | MB_ICONASTERISK);
+		GFX_CaptureMouse_Mousecap_on();
+		return;
+	}
+	/* Mehr als ein CDROM Laufwerk */
+	if ( (CDRomDrives > 1) && (num == 0) )
+	{
+		CDDrvNr = CDDrvNr - 1;
+		CDDrive = (char)'A' + CDDrvNr;
+		WerkID = CDDrive;
+
+	}
+
+	/* CD ist eingelegt */
+	if (isVirtualModus)
+	{
+		bool r = MessageBoxCD_InUse(CDDrive, CDRomMedien, WerkID, GetHWND());
+		if (r)
+		{
+			GFX_CaptureMouse_Mousecap_on(); return;
+		}
+	}
+
+
+	char  CurDir[512];
+	char* TmpDir = CurDir;
+	
+	char CDRomImage[MAX_PATH] = "";
+
+	std::string files = "";
+	std::string fname = "";
+	char const* Patterns = "Images: All\0*.bin;*.cue;*.chd;*.gog;*.iso\0"
+						   "Images: BIN\0*.bin\0"
+						   "Images: CHD\0*.Chd\0"
+						   "Images: CUE\0*.cue\0"
+						   "Images: GOG\0*.gog\0"
+						   "Images: ISO\0*.iso\0"
+						   "Images: *.*\0*.*\0";
+
+	getcwd(TmpDir, 512);
+	std::string openfilename(char const* f = "", HWND hwnd = GetHWND());
+	{
+		OPENFILENAME ofn;
+		
+
+		std::string tmp = ChacheLastDirectory(CDDirectory,false);
+		LPCSTR Current			= tmp.c_str();
+
+		ZeroMemory(&ofn, sizeof(ofn));
+			ofn.lStructSize = sizeof(OPENFILENAME);
+			ofn.hwndOwner	= GetHWND();
+			ofn.lpstrFilter = Patterns;
+			ofn.lpstrFile	= CDRomImage;
+			ofn.nMaxFile	= MAX_PATH;
+			ofn.Flags		= OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
+			ofn.lpstrDefExt = "";
+			ofn.lpstrInitialDir = Current;
+
+
+			if (!GetOpenFileName(&ofn))
+			{
+				/* No New Image*/
+				GFX_CaptureMouse_Mousecap_on();	return;
+			}
+			chdir(TmpDir);
+	}
+
+	
+	if (CDRomImage)
+	{
+		
+		CDDirectory = ChacheLastDirectory(CDRomImage,false);
+		int SwapMax = DriveManager::DiskCounts(CDDrive - 'A');
+		int Current = DriveManager::CurrentDisk(CDDrive - 'A');
+
+		if (SwapMax > 0)
+		{
+			for (int x = 0; x < SwapMax; x++)
+			{
+				/*
+				* Prüfe ob das Image sich in der Liste befindet
+				*/
+				DriveManager::CycleImage(CDDrive - 'A', false, x);
+				std::string FilePath = std::string(Drives[CDDrive - 'A']->GetInfo() + 9);
+
+				if (strcmp(FilePath.c_str(), CDRomImage) == 0)
+				{
+					/*
+					* Image ist schon in der Liste
+					*/
+					MessageBoxFD_InUse(CDDrive, x, GetHWND());
+					DriveManager::CycleImage(CDDrive - 'A', true, x);
+					/* Windows 9x Ide CDRom Acknow Change */
+					if (isVirtualModus)
+					{
+						Drives[drive - 'A']->EmptyCache();
+						Drives[drive - 'A']->MediaChange();
+					}
+					GFX_CaptureMouse_Mousecap_on();
+					return;
+				}
+			}
+			DriveManager::CycleImage(CDDrive - 'A', false, 0);
+		}
+
+		/*
+		* Image Liste und füge das neue Image an die erste Position
+		*/
+		paths.push_back((const char*)CDRomImage);
+		if (CDRomMedien > 1)
+			DriveManager::Get_CDROM_Paths(paths, CDDrvNr);/* Alle weiteren Images */
+			
+
+		DriveManager::ClearDisks(CDDrive - 'A');
+
+		/*
+		* ReInitialisiere die Image Liste und gehe durch die Vector Liste 'Paths'
+		*/
+		std::vector<DOS_Drive*> isoDisks;
+		std::vector<std::string>::size_type i;
+		std::vector<DOS_Drive*>::size_type ct;
+
+		for (i = 0; i < paths.size(); i++) {
+			int error = -1;
+			DOS_Drive* newDrive = new isoDrive(CDDrive, paths[i].c_str(), 248, error);
+			isoDisks.push_back(newDrive);
+			switch (error) {
+			case 0:	break;
+			case 1:	MessageBox(GetHWND(), MSG_Get("MSCDEX_ERROR_MULTIPLE_CDROMS"), "Error", MB_OK | MB_ICONASTERISK);break;
+			case 2:	MessageBox(GetHWND(), MSG_Get("MSCDEX_ERROR_NOT_SUPPORTED"), "Error", MB_OK | MB_ICONASTERISK);break;
+			case 3:	MessageBox(GetHWND(), MSG_Get("MSCDEX_ERROR_OPEN"), "Error", MB_OK | MB_ICONASTERISK);break;
+			case 4:	MessageBox(GetHWND(), MSG_Get("MSCDEX_TOO_MANY_DRIVES"), "Error", MB_OK | MB_ICONASTERISK);break;
+			case 5:	MessageBox(GetHWND(), MSG_Get("MSCDEX_LIMITED_SUPPORT"), "Error", MB_OK | MB_ICONASTERISK);break;
+			case 6:	MessageBox(GetHWND(), MSG_Get("MSCDEX_INVALID_FILEFORMAT"), "Error", MB_OK | MB_ICONASTERISK);break;
+			default:MessageBox(GetHWND(), MSG_Get("MSCDEX_UNKNOWN_ERROR"), "Error", MB_OK | MB_ICONASTERISK);break;
+			}
+			// error: clean up and leave
+			if (error) {
+				for (ct = 0; ct < isoDisks.size(); ct++) {
+					delete isoDisks[ct];
+				}
+				GFX_CaptureMouse_Mousecap_on();
+				return;
+			}
+		}
+
+		/*
+		* ReInitialisiere die Image Liste und gehe durch die Vector Liste 'isoDisks'
+		*/
+		for (ct = 0; ct < isoDisks.size(); ct++) {
+			DriveManager::AppendDisk(CDDrive - 'A', isoDisks[ct]);
+		}
+		DriveManager::CycleImage(CDDrive - 'A', false, 0);
+
+
+		Drives[CDDrive - 'A']->EmptyCache();	/* Windows 9x Ide CDRom Wecken  */
+		Drives[CDDrive - 'A']->MediaChange();	/* Windows 9x Ide CDRom Wecken  */
+
+		DriveManager::NotifyShowLabel(CDDrive - 'A', 0, SwapMax+1);
+
+		
+		GFX_CaptureMouse_Mousecap_on();
+	}	
+}
+void MenuBrowseFDImage_SubMount_Virt(char drive, char* FDRomImage, bool Reload = false)
+{
+	/* Mount in Virtual Mode */
+
+	std::vector<DOS_Drive*> imgDisks;
+	std::vector<std::string>  paths;
+	std::vector<std::string>::size_type i;
+	std::vector<DOS_Drive*> ::size_type ct;
+	
+	DOS_Drive* NewFloppy;
+	fatDrive* OldFloppy = dynamic_cast<fatDrive*>(Drives[drive - 'A']);
+
+	int SwapMax = DriveManager::DiskCounts(drive - 'A');
+	int Current = DriveManager::CurrentDisk(drive - 'A');
+
+	DOS_SetDefaultDrive(drive - 'A');
+
+	if (Reload == false) {
+		/*
+		if (SwapMax > 0)
+		{
+			DriveManager::Get_FLOPPY_Paths(paths, drive - 'A');
+		}
+		paths.push_back((const char*)FDRomImage);
+
+		if (SwapMax > 0)
+			DriveManager::ClearDisks(drive - 'A');
+
+		for (i = 0; i < paths.size(); i++)
+		{
+			NewFloppy = new fatDrive(paths[i].c_str(), 0, 0, 0, 0, 0);
+			imgDisks.push_back(NewFloppy);
+		}
+		*/		
+		NewFloppy = new fatDrive(FDRomImage, 0, 0, 0, 0, 0);
+				
+		for (ct = 0; ct < imgDisks.size(); ct++)
+			DriveManager::AppendDisk(drive - 'A', imgDisks[ct]);
+
+		OldFloppy = dynamic_cast<fatDrive*>(Drives[drive - 'A']);
+		Drives[drive - 'A'] = NewFloppy;
+	}
+
+	Drives[drive - 'A']->EmptyCache();
+	Drives[drive - 'A']->MediaChange();
+
+	fatDrive* FDFloppy = dynamic_cast<fatDrive*>(Drives[drive - 'A']);
+	if ((drive - 'A') < 2 && FDFloppy && FDFloppy->loadedDisk)
+	{
+		imageDiskList[drive - 'A'] = FDFloppy->loadedDisk;		
+
+		#if defined(C_DEBUG)
+			LOG(LOG_IMAGE, LOG_NORMAL)("[%d] New Disk Loaded in %c: [Drive=%u]\n", __LINE__, drive, drive - 'A');
+		#endif
+	}
+
+	/* Set the correct media byte in the table */
+	mem_writeb(Real2Phys(dos.tables.mediaid) + (drive - 'A') * 9, 240);
+
+	char name[DOS_NAMELENGTH_ASCII];
+	Bit32u size; Bit16u date; Bit16u time; Bit8u attr;
+	RealPt save_dta = dos.dta();
+	dos.dta(dos.tables.tempdta);
+	DOS_DTA dta(dos.dta());
+
+	if ((Reload == false) && (!isVirtualModus))
+	{
+		if (SwapMax == 0)
+			DriveManager::InitializeDrive(drive - 'A');
+		else
+			DriveManager::CycleImage(drive - 'A', false, SwapMax);
+	}
+
+	/* force obtaining the label and saving it in dirCache */
+	char root[7] = { drive,':','\\','*','.','*',0 };
+	bool ret = DOS_FindFirst(root, DOS_ATTR_VOLUME);
+	if (ret) {
+		dta.GetResult(name, size, date, time, attr);
+		//DOS_FindNext(); //Mark entry as invalid
+	}
+	else name[0] = 0;
+
+	/* Change 8.3 to 11.0 */
+	char* dot = strchr(name, '.');
+	if (dot && (dot - name == 8)) {
+		name[8]  = name[9];
+		name[9]  = name[10];
+		name[10] = name[11];
+		name[11] = 0;
+	}
+	
+	root[1] = 0; //This way, the format string can be reused.
+	dos.dta(save_dta);	
+
+	if (OldFloppy)
+	{
+
+		#if defined(C_DEBUG)
+			LOG(LOG_IMAGE, LOG_NORMAL)("[%d] Unmount:\n - '%s'", __LINE__, OldFloppy->GetInfo());
+		#endif
+
+		OldFloppy->UnMount();
+		#if defined(C_DEBUG)
+			LOG(LOG_IMAGE, LOG_NORMAL)("[%d] Unmount Successful\n", __LINE__);
+		#endif
+	}
+	
+
+	if (Reload == false) {
+
+		SwapMax = DriveManager::DiskCounts(drive - 'A');
+		Current = DriveManager::CurrentDisk(drive - 'A');	
+	}
+	DriveManager::NotifyShowLabel(drive - 'A', Current, SwapMax);
+
+
+	#if defined(C_DEBUG)
+		LOG(LOG_IMAGE, LOG_NORMAL)("[%d] Virt Current Disk=%d / Maximum Disks=%d\n\n", __LINE__, Current, SwapMax);
+	#endif
+
+}
+void MenuBrowseFDImage_SubMount_Real(char drive, char* FDRomImage)
+{
+	std::vector<DOS_Drive*> imgDisks;
+	std::vector<std::string>::size_type i;
+	std::vector<DOS_Drive*>::size_type ct;
+
+	int SwapMax = DriveManager::DiskCounts(drive - 'A');
+	int Current = DriveManager::CurrentDisk(drive - 'A');
+
+	DOS_Drive* NewFloppy = new fatDrive(FDRomImage, 0, 0, 0, 0, 0);
+	imgDisks.push_back(NewFloppy);
+
+	for (ct = 0; ct < imgDisks.size(); ct++)
+		DriveManager::AppendDisk(drive - 'A', imgDisks[ct]);
+
+	/* Set the correct media byte in the table */
+	mem_writeb(Real2Phys(dos.tables.mediaid) + (drive - 'A') * 9, 240);
+
+	LOG_MSG("%d TEST", __LINE__);
+	char name[DOS_NAMELENGTH_ASCII];
+	Bit32u size; Bit16u date; Bit16u time; Bit8u attr;
+	RealPt save_dta = dos.dta();
+	dos.dta(dos.tables.tempdta);
+	DOS_DTA dta(dos.dta());
+
+	if (SwapMax == 0)
+		DriveManager::InitializeDrive(drive - 'A');
+	else
+		DriveManager::CycleImage(drive - 'A', true, SwapMax);
+
+	/* force obtaining the label and saving it in dirCache */
+	char root[7] = { drive,':','\\','*','.','*',0 };
+	bool ret = DOS_FindFirst(root, DOS_ATTR_VOLUME);
+	if (ret) {
+		dta.GetResult(name, size, date, time, attr);
+		//DOS_FindNext(); //Mark entry as invalid
+	}
+	else name[0] = 0;
+
+	/* Change 8.3 to 11.0 */
+	char* dot = strchr(name, '.');
+	if (dot && (dot - name == 8)) {
+		name[8] = name[9];
+		name[9] = name[10];
+		name[10] = name[11];
+		name[11] = 0;
+	}
+
+	root[1] = 0; //This way, the format string can be reused.
+	dos.dta(save_dta);
+
+	SwapMax = DriveManager::DiskCounts(drive - 'A');
+	Current = DriveManager::CurrentDisk(drive - 'A');
+	DriveManager::NotifyShowLabel(drive - 'A', Current, SwapMax);
+
+	#if defined(C_DEBUG)
+		LOG(LOG_IMAGE, LOG_NORMAL)("[%d] Real Current Disk=%d / Maximum Disks=%d\n\n", __LINE__, Current, SwapMax);
+	#endif
+
+}
+void MenuBrowseFDImage(char drive, int num) {
+
+	int  FDRomDrives = 0;
+	int  FDRomMedien = 0;
+	int  FDDrvNr = 0;
+	char FDDrive;
+	std::string WerkID = "";
+
+	for (unsigned int idrive = 0; idrive < 2; idrive++)
+	{
+		if (dynamic_cast<const fatDrive*>(Drives[idrive]) == NULL)
+		{
+			continue;
+		}
+
+		FDDrive = (char)'A' + idrive;
+		WerkID = FDDrive;
+		FDDrvNr = idrive;
+
+		++FDRomDrives;
+	}
+
+	if ( (FDRomDrives == 0) && (num == 1) )
+	{
+		MessageBox(GetHWND(), "No Floppy Drive is currently Available.", "Error - Hoop, Hoop", MB_OK | MB_ICONASTERISK);
+		GFX_CaptureMouse_Mousecap_on();
+		return;
+	}
+
+	if (control->SecureMode())
+	{
+		MessageBox(GetHWND(), MSG_Get("PROGRAM_CONFIG_SECURE_DISALLOW"), "Error", MB_OK | MB_ICONASTERISK);
+		GFX_CaptureMouse_Mousecap_on();
+		return;
+	}
+
+	if ( (isVirtualModus) && (num == 1) )
+	{
+		if (dynamic_cast<const fatDrive*>(Drives[1]) == NULL)
+		{
+			MessageBoxFD_BWarn(GetHWND());
+			GFX_CaptureMouse_Mousecap_on(); return;
+		}
+	}
+
+	/* CD ist eingelegt */
+	if ((isVirtualModus) && (FDRomDrives >= 1))
+	{
+		bool r = MessageBoxCD_InUse(FDDrive, FDRomDrives, WerkID, GetHWND());
+		if (r)
+		{
+			GFX_CaptureMouse_Mousecap_on(); return;
+		}
+	}
+
+	char  CurDir[512];
+	char* TmpDir = CurDir;
+
+	char FDRomImage[MAX_PATH] = "";
+
+	std::string files	  = "";
+	std::string fname	  = "";
+
+	char const* Patterns =	"Floppy: All\0*.ima;*.img;*.imz\0"
+							"Floppy: IMA\0*.ima\0"
+							"Floppy: IMG\0*.img\0"
+							"Floppy: IMZ\0*.imz\0"
+							"Floppy: *.*\0*.*\0";
+
+	getcwd(TmpDir, 512);
+
+	std::string openfilename(char const* f = "", HWND hwnd = GetHWND());
+	{
+		OPENFILENAME ofn;
+
+
+		std::string tmp = ChacheLastDirectory(FDDirectory);
+		LPCSTR Current = tmp.c_str();
+
+		ZeroMemory(&ofn, sizeof(ofn));
+		ofn.lStructSize		= sizeof(OPENFILENAME);
+		ofn.hwndOwner		= GetHWND();
+		ofn.lpstrFilter		= Patterns;
+		ofn.lpstrFile		= FDRomImage;
+		ofn.nMaxFile		= MAX_PATH;
+		ofn.Flags			= OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
+		ofn.lpstrDefExt		= "";
+		ofn.lpstrInitialDir = Current;
+
+		if (!GetOpenFileName(&ofn))
+		{
+			GFX_CaptureMouse_Mousecap_on(); return;/* No Image*/
+		}
+
+		chdir(TmpDir);
+	}
+
+	if (FDRomImage)
+	{
+		FDDirectory = ChacheLastDirectory(FDRomImage);
+
+		if (MenuBrowse_Sub_DoubleCheck(drive, FDRomImage) == false)
+		{
+			if (isVirtualModus)
+			{
+				MenuBrowseFDImage_SubMount_Virt(drive, FDRomImage);
+			}
+			else
+			{
+				MenuBrowseFDImage_SubMount_Real(drive, FDRomImage);
+			}
+
+			GFX_CaptureMouse_Mousecap_on();
+		}
+		else
+		{
+			if (isVirtualModus)
+			{
+				MenuBrowseFDImage_SubMount_Virt(drive, FDRomImage, true);
+			}
+		}
+	}
+}
+
 class MEM : public Program {
 public:
 	void Run(void) {
@@ -792,13 +1451,10 @@ public:
 						}
 					}
 				}
-				
-
 			}
 			i++;
 		}
 
-			
 		swapPosition = 0;
 
 		swapInDisks();		
@@ -935,7 +1591,6 @@ public:
 					diskSwap[dct]=NULL;
 				}
 
-
 				if (cart_cmd=="") {
 					Bit32u old_int18=mem_readd(0x60);
 					/* run cartridge setup */
@@ -987,6 +1642,8 @@ public:
 			reg_eax = 0;
 			reg_edx = 0; //Head 0 drive 0
 			reg_ebx= 0x7c00; //Real code probably uses bx to load the image
+							
+			isVirtualModus = true;/* Boot -> We are in Virtual Mode*/
 		}
 	}
 };
@@ -1369,10 +2026,27 @@ restart_int:
 		std::string filename;
 		std::string path = "";
 		std::string dpath;
-	
+		std::string fatsys;
+		std::string smbr;
+		std::string MBRecord;
+		std::string fatcop;
+		std::string fatspc;
+
 
 		Bitu c, h, s, sectors;
 		Bit64u size = 0;
+
+		int FATMODEL = -1;
+		int MBRType  =  0;
+		int DosVers  = -1;
+
+		unsigned int Volume_Sectors   = 0;
+		unsigned int Reserved_Sectors = 1; /* 1 for the boot sector + BPB. FAT32 will require more */
+		unsigned int SectorsPAcluster = 0; /* Sectors Per Clusters*/
+		unsigned int FATMODEL_Copies  = 2; /* number of copies of the FAT. always 2. TODO: Allow the user to specify */
+
+		unsigned int FATMODEL_Limit;
+		unsigned int FATMODEL_LimitMin;
 
 		if(cmd->FindExist("-?")) {
 			printHelp();
@@ -1532,22 +2206,30 @@ restart_int:
 				size *= 1024*1024LL; // size in megabytes
 				// low limit: 3 megs, high limit: 2 gigs
 				// Int13 limit would be 8 gigs
-				if((size < 3*1024*1024LL) || (size > 0x1FFFFFFFFLL)) {
+				if ((size < 3 * 1024 * 1024LL) || (size > 0x1FFFFFFFFFFLL)/*2TB*/) {
 					// wrong size
 					printHelp();
 					return;
 				}
-				sectors = (Bitu)(size / 512);
+				sectors = (unsigned int)(size / 512);
 
 				// Now that we finally have the proper size, figure out good CHS values
-				h=2;
-				while(h*1023*63 < sectors) h <<= 1;
-				if(h>255) h=255;
-				s=8;
-				while(h*s*1023 < sectors) s *= 2;
-				if(s>63) s=63;
-				c=sectors/(h*s);
-				if(c>1023) c=1023;
+				if (size > 0xFFFFFFFFLL/*4GB*/) {
+					/* beyond that point it's easier to just map like LBA and be done with it */
+					h = 255;
+					s = 63;
+					c = sectors / (h * s);
+				}
+				else {
+					h = 2;
+					while (h * 1023 * 63 < sectors) h <<= 1;
+					if (h > 255) h = 255;
+					s = 8;
+					while (h * s * 1023 < sectors) s *= 2;
+					if (s > 63) s = 63;
+					c = sectors / (h * s);
+					if (c > 1023) c = 1023;
+				}
 			}
 		} else {
 			// user passed a wrong -t argument
@@ -1568,11 +2250,27 @@ restart_int:
 			bootsect_pos = -1;
 		}
 
+		/* beyond this point clamp c */
+		if (c > 1023) c = 1023;
+
 		bool ForceOverwrite = false;		
 		if ( cmd->FindExist("-force",true ) ) {		
 			ForceOverwrite = true;
 		}
 		
+		/* FAT filesystem, user choice */
+		if (cmd->FindString("-mbr", smbr, true))
+		{
+			if (smbr == "freedos")
+			{
+				MBRType = 0;
+
+			}else if (smbr == "msdos622")
+			{
+				MBRType = 1;			
+			}
+		}
+
 		/*	temp_line is the given filename		*/
 		if ( !( cmd->FindCommand(1, temp_line) ) ) {
 			/*
@@ -1593,10 +2291,49 @@ restart_int:
 			fclose(f);
 		}
 
-		WriteOut( MSG_Get("PROGRAM_IMGMAKE_PRINT_CHS"),c,h,s);
-		WriteOut( MSG_Get("PROGRAM_IMGMAKE_CREATED"  ),temp_line.c_str());
-		
-		LOG_MSG(MSG_Get("PROGRAM_IMGMAKE_PRINT_CHS"),c,h,s);
+		/* FAT filesystem, user choice */
+		if (cmd->FindString("-fat", fatsys, true)) {
+			FATMODEL = atoi(fatsys.c_str());
+			if (!(FATMODEL == 12 || FATMODEL == 16 || FATMODEL == 32))
+			{
+				WriteOut(MSG_Get("PROGRAM_IMGMAKE_NOT_VALID_FAT"));
+				return;
+			}
+			if (FATMODEL == 32)
+			{
+				if (dos.version.major <= 5)
+				{
+					/*force Dos Version 7 FAT32 */
+					DosVers = dos.version.major;
+					dos.version.major = 7;
+				}
+			}
+
+		}
+
+		/* FAT copies, user choice */
+		if (cmd->FindString("-fatcopies", fatcop, true)) {
+			FATMODEL_Copies = atoi(fatcop.c_str());
+			if (FATMODEL_Copies < 1u || FATMODEL_Copies > 4u)
+			{
+				WriteOut(MSG_Get("PROGRAM_IMGMAKE_NOT_VALID_FATC"));
+				return;
+			}
+		}
+
+		/* Sectors per cluster, user choice */
+		if (cmd->FindString("-spc", fatspc, true)) {
+			SectorsPAcluster = atoi(fatspc.c_str());
+			if (SectorsPAcluster < 1u || SectorsPAcluster > 128u)
+			{
+				WriteOut(MSG_Get("PROGRAM_IMGMAKE_NOT_VALID_SPC"));
+				return;
+			}
+			if ((SectorsPAcluster & (SectorsPAcluster - 1u)) != 0u) {
+				WriteOut(MSG_Get("PROGRAM_IMGMAKE_SPC_POWER_TWO"));
+				return;
+			}
+		}
 
 		// do it again for fixed chs values
 		sectors = (Bitu)(size / 512);
@@ -1617,13 +2354,80 @@ restart_int:
 			return;
 		}
 
+
 		// Format the image if not unrequested (and image size<2GB)
 		if(bootsect_pos > -1) {
+
+			/* decide partition placement */
+			if (mediadesc == 0xF8) {
+				bootsect_pos = (Bits)s;
+				Volume_Sectors = sectors - (unsigned int)bootsect_pos;
+			}
+			else {
+				bootsect_pos = 0;
+				Volume_Sectors = sectors;
+			}
+
+			/* auto-decide FAT system */
+			if (FATMODEL < 0) {
+				bool dosver_fat32 = (dos.version.major >= 8) || (dos.version.major == 7 && dos.version.minor >= 10);
+
+				if (Volume_Sectors >= 4194304 && !dosver_fat32) /* 2GB or larger */
+				{
+					FATMODEL = 32;
+				}
+				else if (Volume_Sectors >= 1048576 && dosver_fat32) /* 512MB or larger */
+				{
+					FATMODEL = 32;
+				}
+				else if (Volume_Sectors >= 24576) /* 12MB or larger */
+				{
+					FATMODEL = 16;
+				}
+				else
+				{
+					FATMODEL = 12;
+				}
+			}
+
+			/* highest cluster number + 1 */
+			switch (FATMODEL) {
+			case 32:
+				FATMODEL_Limit		= 0x0FFFFFF6;
+				FATMODEL_LimitMin	= 0xFFF6;
+				break;
+			case 16:
+				FATMODEL_Limit		= 0xFFF6;
+				FATMODEL_LimitMin	= 0xFF6;
+				break;
+			case 12:
+				FATMODEL_Limit		= 0xFF6;
+				FATMODEL_LimitMin	= 0;
+				break;
+			default:
+				abort();
+			}
+
+			/* FAT32 increases reserved area to at least 7. Microsoft likes to use 32 */
+			if (FATMODEL >= 32)
+				Reserved_Sectors = 32;
+
 			Bit8u sbuf[512];
 			if(mediadesc == 0xF8) {
 				// is a harddisk: write MBR
-				memcpy(sbuf,freedos_mbr,512);
-				//memcpy(sbuf,MBR_MSDOS622_DE,512);
+				switch (MBRType)
+				{
+					case 1:
+					{
+						memcpy(sbuf, MBR_MSDOS622_DE, 512); MBRecord = "MS-DOS 622";
+						break;
+					}
+					case 0: /*fallthough*/
+					default:
+					{
+						memcpy(sbuf, freedos_mbr, 512);  MBRecord = "FreeDOS";
+					}
+				}
 				// active partition
 				sbuf[0x1be]=0x80;
 				// start head - head 0 has the partition table, head 1 first partition
@@ -1633,7 +2437,25 @@ restart_int:
 				// start cylinder bits 0-7
 				sbuf[0x1c1]=0;
 				// OS indicator: DOS what else ;)
-				sbuf[0x1c2]=0x06;
+				/*sbuf[0x1c2]=0x06;*/
+				if (FATMODEL < 32 && (bootsect_pos + Volume_Sectors) < 65536) { /* 32MB or smaller */
+					if (FATMODEL >= 16)
+						sbuf[0x1c2] = 0x04; /* FAT16 within the first 32MB */
+					else
+						sbuf[0x1c2] = 0x01; /* FAT12 within the first 32MB */
+				}
+				else if ((bootsect_pos + Volume_Sectors) < 8388608) { /* 4GB or smaller */
+					if (FATMODEL >= 32)
+						sbuf[0x1c2] = 0x0B; /* FAT32 C/H/S */
+					else
+						sbuf[0x1c2] = 0x06; /* FAT12/FAT16 C/H/S */
+				}
+				else {
+					if (FATMODEL >= 32)
+						sbuf[0x1c2] = 0x0C; /* FAT32 LBA */
+					else
+						sbuf[0x1c2] = 0x0E; /* FAT12/FAT16 LBA */
+				}
 				// end head (0-based)
 				sbuf[0x1c3]= h-1;
 				// end sector with bits 8-9 of end cylinder (0-based) in bits 6-7
@@ -1654,41 +2476,170 @@ restart_int:
 			// set boot sector values
 			memset(sbuf,0,512);
 			// TODO boot code jump
-			sbuf[0]=0xEB; sbuf[1]=0x3c; sbuf[2]=0x90;
+			/*sbuf[0]=0xEB; sbuf[1]=0x3c; sbuf[2]=0x90;*/
+			if (FATMODEL >= 32) {
+				sbuf[0] = 0xEB; sbuf[1] = 0x58; sbuf[2] = 0x90; // Windows 98 values
+			}
+			else {
+				sbuf[0] = 0xEB; sbuf[1] = 0x3c; sbuf[2] = 0x90;
+			}
 			// OEM
-			sprintf((char*)&sbuf[0x03],"MSDOS5.0");
-			// bytes per sector: always 512
-			host_writew(&sbuf[0x0b],512);
-			// sectors per cluster: 1,2,4,8,16,...
+			if (FATMODEL >= 32) {
+				sprintf((char*)&sbuf[0x03], "MSWIN4.1");
+			}
+			else {
+				sprintf((char*)&sbuf[0x03], "MSDOS5.0");
+			}
+			host_writew(&sbuf[0x0b],512);							/* bytes per sector: always 512 */
+			/* sectors per cluster: 1,2,4,8,16,... */
+
+		    /* 
+				NOTES: SCANDISK.EXE will hang if you ask it to check a FAT12 filesystem
+				with 128 sectors/cluster.
+			*/
+			if (SectorsPAcluster == 0)
+			{
+				SectorsPAcluster = 1;
+				/* one sector per cluster on anything larger than 200KB
+				 * is a bit wasteful (large FAT tables).
+				 * Improve capacity by starting from a larger value.
+				 */
+
+				if (Volume_Sectors >= 400)
+				{
+					unsigned int tmp_fatlimit;
+					/* Windows 98 likes multiples of 4KB, which is actually reasonable
+					 * considering that it keeps FAT32 efficient. Also, Windows 98 SETUP
+					 * will crash if sectors/cluster 
+					 * Ref: [https://github.com/joncampbell123/dosbox-x/issues/1553#issuecomment-651880604]
+					 * and [http://www.helpwithwindows.com/windows98/fat32.html]
+					 */
+					if (FATMODEL >= 32)
+					{
+						if (Volume_Sectors >= 67108864/*32GB*/)
+							SectorsPAcluster = 64;	 /* 32KB (64*512) */
+						else if (Volume_Sectors >= 33554432/*16GB*/)
+							SectorsPAcluster = 32;   /* 16KB (32*512) */
+						else if (Volume_Sectors >= 16777216/*8GB*/)
+							SectorsPAcluster = 16;   /* 8KB (16*512)  */
+						else
+							SectorsPAcluster = 8;    /* 4KB (8*512)   */
+					}
+					else
+					{
+						/* 1 sector per cluster is very inefficent */
+						if (Volume_Sectors >= 6144000/*3000MB*/)
+							SectorsPAcluster = 8;
+						else if (Volume_Sectors >= 1048576/*512MB*/)
+							SectorsPAcluster = 4;
+						else if (Volume_Sectors >= 131072/*64MB*/)
+							SectorsPAcluster = 2;
+					}
+
+					/* no more than 5% of the disk */
+					switch (FATMODEL) {
+					case 12:    tmp_fatlimit = ((((Volume_Sectors/ 20u) * (512u / FATMODEL_Copies)) / 3u) * 2u) + 2u; break;
+					case 16:    tmp_fatlimit = (((Volume_Sectors / 20u) * (512u / FATMODEL_Copies)) / 2u) + 2u; break;
+					case 32:    tmp_fatlimit = (((Volume_Sectors / 20u) * (512u / FATMODEL_Copies)) / 4u) + 2u; break;
+					default:    abort();
+					}
+					while ((Volume_Sectors / SectorsPAcluster) >= (tmp_fatlimit - 2u) && SectorsPAcluster < 0x80u) SectorsPAcluster <<= 1;
+				}
+			}
+
+			while ((Volume_Sectors / SectorsPAcluster) >= (FATMODEL_Limit - 2u) && SectorsPAcluster < 0x80u) SectorsPAcluster <<= 1;
+			
+			sbuf[0x0d] = (uint8_t)SectorsPAcluster;
+			/*
 			if(mediadesc == 0xF8) {
 				Bitu cval = 1;
 				while((sectors/cval) >= 65525) cval <<= 1;
 				sbuf[0x0d]=cval;
 			} else sbuf[0x0d]=sectors/0x1000 + 1; // FAT12 can hold 0x1000 entries TODO
+			*/
+
 			// TODO small floppys have 2 sectors per cluster?
 			// reserverd sectors: 1 ( the boot sector)
-			host_writew(&sbuf[0x0e],1);
+			host_writew(&sbuf[0x0e],Reserved_Sectors/*1*/);
 			// Number of FATs - always 2
-			sbuf[0x10] = 2;
+			sbuf[0x10] = FATMODEL_Copies/*2*/;
 			// Root entries - how are these made up? - TODO
 			host_writew(&sbuf[0x11],root_ent);
 			// sectors (under 32MB) - will OSes be sore if all HD's use large size?
-			if(mediadesc != 0xF8) host_writew(&sbuf[0x13],c*h*s);
+			/*if(mediadesc != 0xF8) host_writew(&sbuf[0x13],c*h*s);*/
+			// Root entries if not FAT32
+			if (FATMODEL < 32) host_writew(&sbuf[0x11], root_ent);
+			// sectors (under 32MB) if not FAT32 and less than 65536
+			if (FATMODEL < 32 && Volume_Sectors < 65536ul) host_writew(&sbuf[0x13], Volume_Sectors);
+			// sectors (32MB or larger or FAT32)
+			if (FATMODEL >= 32 || Volume_Sectors >= 65536ul) host_writed(&sbuf[0x20], Volume_Sectors);
+			// media descriptor
 			// media descriptor
 			sbuf[0x15]=mediadesc;
 			// sectors per FAT
 			// needed entries: (sectors per cluster)
 			Bitu sect_per_fat=0;
-			Bitu clusters = (sectors-1)/sbuf[0x0d]; // TODO subtract root dir too maybe
+			/*Bitu clusters = (sectors-1)/sbuf[0x0d]; // TODO subtract root dir too maybe*/
+			Bitu clusters = Volume_Sectors / SectorsPAcluster; // initial estimate
+
+			if (FATMODEL >= 32)          sect_per_fat = ((clusters * 4u) + 511u) / 512u;
+			else if (FATMODEL >= 16)     sect_per_fat = ((clusters * 2u) + 511u) / 512u;
+			else                    sect_per_fat = ((((clusters + 1u) / 2u) * 3u) + 511u) / 512u;
+
+			if (FATMODEL < 32 && sect_per_fat >= 65536u)			
+			{
+				WriteOut(MSG_Get("PROGRAM_IMGMAKE_FS_NOT_VALID"));
+				fclose(f);
+				unlink(temp_line.c_str());
+				return;
+			}
+
+
+			/*/
 			if(mediadesc == 0xF8) sect_per_fat = (clusters*2)/512+1;
 			else sect_per_fat = ((clusters*3)/2)/512+1;
 			host_writew(&sbuf[0x16],sect_per_fat);
+			*/
+
+			Bitu data_area = Volume_Sectors - Reserved_Sectors - (sect_per_fat * FATMODEL_Copies);
+			if (FATMODEL < 32) data_area -= ((root_ent * 32u) + 511u) / 512u;
+			clusters = data_area / SectorsPAcluster;
+			if (FATMODEL < 32) host_writew(&sbuf[0x16], (uint16_t)sect_per_fat);
+
+			/* Too many or to few clusters can foul up FAT12/FAT16/FAT32 detection and cause corruption! */
+			if ((clusters + 2u) < FATMODEL_LimitMin)
+			{
+				WriteOut(MSG_Get("PROGRAM_IMGMAKE_WARN_FEW_CLUSTERS"));
+				//fclose(f);
+				//unlink(temp_line.c_str());
+				//return;
+			}
+			if ((clusters + 2u) > FATMODEL_Limit) {
+				clusters = FATMODEL_Limit - 2u;
+				WriteOut(MSG_Get("PROGRAM_IMGMAKE_WARN_HIGH_CLUSTERS"));
+				/* Well, if the user wants an oversized partition, hack the total sectors fields to make it work */
+				unsigned int adj_vol_sectors =
+					(unsigned int)(Reserved_Sectors + (sect_per_fat * FATMODEL_Copies) +
+						(((root_ent * 32u) + 511u) / 512u) + (clusters * SectorsPAcluster));
+
+				// sectors (under 32MB) if not FAT32 and less than 65536
+				if (adj_vol_sectors < 65536ul) host_writew(&sbuf[0x13], adj_vol_sectors);
+				// sectors (32MB or larger or FAT32)
+				if (adj_vol_sectors >= 65536ul) host_writed(&sbuf[0x20], adj_vol_sectors);
+			}
+
+			WriteOut(MSG_Get("PROGRAM_IMGMAKE_PRINT_CHS"), c, h, s, SectorsPAcluster, MBRecord.c_str(), FATMODEL);
+			WriteOut(MSG_Get("PROGRAM_IMGMAKE_CREATED"), temp_line.c_str());
+
+			LOG_MSG(MSG_Get("PROGRAM_IMGMAKE_PRINT_CHS"), c, h, s, SectorsPAcluster, MBRecord.c_str(), FATMODEL);
+
 			// sectors per track
 			host_writew(&sbuf[0x18],s);
 			// heads
 			host_writew(&sbuf[0x1a],h);
 			// hidden sectors
 			host_writed(&sbuf[0x1c],bootsect_pos);
+			/*
 			// sectors (large disk) - this is the same as partition length in MBR
 			if(mediadesc == 0xF8) host_writed(&sbuf[0x20],sectors-s);
 			// BIOS drive
@@ -1704,25 +2655,117 @@ restart_int:
 			// file system type
 			if(mediadesc == 0xF8) sprintf((char*)&sbuf[0x36],"FAT16   ");
 			else sprintf((char*)&sbuf[0x36],"FAT12   ");
+			*/
+			/* after 0x24, FAT12/FAT16 and FAT32 diverge in structure */
+			if (FATMODEL >= 32) {
+				host_writed(&sbuf[0x24], (uint32_t)sect_per_fat);
+				sbuf[0x28] = 0x00; // FAT is mirrored at runtime because that is what DOSBox-X's FAT driver does
+				host_writew(&sbuf[0x2A], 0x0000); // FAT32 version 0.0
+				host_writed(&sbuf[0x2C], 2); // root directory starting cluster
+				host_writew(&sbuf[0x30], 1); // sector number in reserved area of FSINFO structure
+				host_writew(&sbuf[0x32], 6); // sector number in reserved area of backup boot sector
+				// BIOS drive
+				if (mediadesc == 0xF8) sbuf[0x40] = 0x80;
+				else sbuf[0x40] = 0x00;
+				// ext. boot signature
+				sbuf[0x42] = 0x29;
+				// volume serial number
+				// let's use the BIOS time (cheap, huh?)
+				host_writed(&sbuf[0x43], mem_readd(BIOS_TIMER));
+				// Volume label
+				/*sprintf((char*)&sbuf[0x47], "NO NAME    ");*/
+				sprintf((char*)&sbuf[0x47], "KEIN NAME  ");
+				// file system type
+				sprintf((char*)&sbuf[0x52], "FAT32   ");
+			}
+			else { /* FAT12/FAT16 */
+				// BIOS drive
+				if (mediadesc == 0xF8) sbuf[0x24] = 0x80;
+				else sbuf[0x24] = 0x00;
+				// ext. boot signature
+				sbuf[0x26] = 0x29;
+				// volume serial number
+				// let's use the BIOS time (cheap, huh?)
+				host_writed(&sbuf[0x27], mem_readd(BIOS_TIMER));
+				// Volume label
+				/*sprintf((char*)&sbuf[0x2b], "NO NAME    ");*/
+				sprintf((char*)&sbuf[0x2b], "KEIN NAME  ");
+				// file system type
+				if (FATMODEL >= 16)  sprintf((char*)&sbuf[0x36], "FAT16   ");
+				else            sprintf((char*)&sbuf[0x36], "FAT12   ");
+			}
 			// boot sector signature
 			host_writew(&sbuf[0x1fe],0xAA55);
 
 			// write the boot sector
 			fseeko64(f,bootsect_pos*512,SEEK_SET);
 			fwrite(&sbuf,512,1,f);
+
+			// FAT32: Write backup copy too.
+			//        The BPB we wrote says sector 6 from start of volume
+			if (FATMODEL >= 32) {
+				fseeko64(f, (bootsect_pos + 6u) * 512, SEEK_SET);
+				fwrite(&sbuf, 512, 1, f);
+			}
+
+			// FAT32: Write FSInfo sector too at sector 1 from start of volume.
+			//        Windows 98 behavior shows that the FSInfo is duplicated
+			//        along with the boot sector.
+			if (FATMODEL >= 32) {
+				memset(sbuf, 0, 512);
+				host_writed(&sbuf[0x000], 0x41615252); /* "RRaA" */
+				host_writed(&sbuf[0x1e4], 0x61417272); /* "rrAa" */
+				host_writed(&sbuf[0x1e8], (uint32_t)(clusters - 1)); /* Last known free cluster count */
+				host_writed(&sbuf[0x1ec], 3);          /* Next free cluster. We used 2 for the root dir, so 3 is next */
+				host_writed(&sbuf[0x1fc], 0xAA550000); /* signature */
+				fseeko64(f, (bootsect_pos + 1u) * 512, SEEK_SET);
+				fwrite(&sbuf, 512, 1, f);
+				fseeko64(f, (bootsect_pos + 6u + 1u) * 512, SEEK_SET);
+				fwrite(&sbuf, 512, 1, f);
+			}
+
 			// write FATs
 			memset(sbuf,0,512);
-			if(mediadesc == 0xF8) host_writed(&sbuf[0],0xFFFFFFF8);
-			else host_writed(&sbuf[0],0xFFFFF0);
-			// 1st FAT
-			fseeko64(f,(bootsect_pos+1)*512,SEEK_SET);
-			fwrite(&sbuf,512,1,f);
-			// 2nd FAT
-			fseeko64(f,(bootsect_pos+1+sect_per_fat)*512,SEEK_SET);
-			fwrite(&sbuf,512,1,f);
+			if (FATMODEL >= 32) {
+				host_writed(&sbuf[0], 0x0FFFFF00 | mediadesc);
+				host_writed(&sbuf[4], 0x0FFFFFFF);
+
+				/* The code above marks cluster 2 as the start of the root directory. */
+				host_writed(&sbuf[8], 0x0FFFFFFF);
+			}
+			else if (FATMODEL >= 16)
+				host_writed(&sbuf[0], 0xFFFFFF00 | mediadesc);
+			else
+				host_writed(&sbuf[0], 0xFFFF00 | mediadesc);
+
+			/*
+			if (mediadesc == 0xF8) host_writed(&sbuf[0], 0xFFFFFFF8);
+			else host_writed(&sbuf[0], 0xFFFFF0);
+			*/
+
+			for (unsigned int fat = 0; fat < FATMODEL_Copies; fat++) {
+				fseeko64(f, (off_t)(((unsigned long long)bootsect_pos + Reserved_Sectors + (unsigned long long)sect_per_fat * (unsigned long long)fat) * 512ull), SEEK_SET);
+				fwrite(&sbuf, 512, 1, f);
+				// 1st FAT
+				/*
+				fseeko64(f, (bootsect_pos + 1) * 512, SEEK_SET);
+				fwrite(&sbuf, 512, 1, f);
+				*/
+				// 2nd FAT
+				/*
+				fseeko64(f, (bootsect_pos + 1 + sect_per_fat) * 512, SEEK_SET);
+				fwrite(&sbuf, 512, 1, f);
+				*/
+			}
+			/* warning */
+			if ((SectorsPAcluster * 512ul) >= 65536ul)
+				WriteOut("WARNING: Cluster sizes >= 64KB are not compatible with MS-DOS and SCANDISK\n");
 		}
+
+
+
 		// write VHD footer if requested, largely copied from RAW2VHD program, no license was included
-		if((mediadesc = 0xF8) && (temp_line.find(".vhd"))) {
+		if ((mediadesc == 0xF8) && (temp_line.find(".vhd")) != std::string::npos) {
 			int i;
 			Bit8u footer[512];
 			// basic information
@@ -1783,11 +2826,21 @@ restart_int:
 			fprintf(f,"imgmount c %s -size 512,%u,%u,%u\r\n",temp_line.c_str(),s,h,c);
 			fclose(f);
 		}
+
+		if (DosVers != -1)
+		{
+			dos.version.major = DosVers;
+		}
+
+
 		return;
 	}
-	void printHelp() { // maybe hint parameter?
+	void printHelp()
+	{ // maybe hint parameter?
 		WriteOut(MSG_Get("PROGRAM_IMGMOUNT_SYNTAX"));
 	}
+	
+
 };
 
 static void IMGMAKE_ProgramStart(Program * * make) {
@@ -2072,10 +3125,14 @@ void IDE_InfoConnect(std::string type, int ide_index, bool ide_slave, bool autoc
 	std::string sIDEHDType ="--";	
 			
 	switch ( ide_index ) {
-		case 0 : { sIDEIndex ="Primary"   ;break; }
-		case 1 : { sIDEIndex ="Seconadry" ;break; } 
-		case 2 : { sIDEIndex ="Tertiary"  ;break; }
-		case 3 : { sIDEIndex ="Quaternary";break; }			
+		case 0 : { sIDEIndex ="1:Primary"		; break; }
+		case 1 : { sIDEIndex ="2:Seconadry"		; break; } 
+		case 2 : { sIDEIndex ="3:Tertiary"		; break; }
+		case 3 : { sIDEIndex ="4:Quaternary"	; break; }
+		case 4 : { sIDEIndex ="5:Quinternary"	; break; }
+		case 5 : { sIDEIndex ="6:Sexternary"	; break; }
+		case 6 : { sIDEIndex ="7:Septernary"	; break; }
+		case 7 : { sIDEIndex ="8:Octernary"		; break; }
 		default: sIDEIndex   ="";	
 	}
 			
@@ -2083,13 +3140,16 @@ void IDE_InfoConnect(std::string type, int ide_index, bool ide_slave, bool autoc
 	if ( ide_slave == true  ) { sIDEChannel ="Slave "; }		
 			
 	if ( autoconnect == true){
-		sIDEAutoCon = "[Auto Mode]";
+		sIDEAutoCon = "[Mode: Automatic]";
 	}
 	if ( autoconnect == false){
-		sIDEAutoCon = "[Jumper Mode]";
+		sIDEAutoCon = "[Mode: via Jumper]";
 	}			
 			
-	LOG_MSG( "\nIDE Atapi: Connect %s %s To %s %s", type.c_str(), sIDEIndex.c_str() ,sIDEChannel.c_str(), sIDEAutoCon.c_str());			
+	LOG_MSG( "\nIDE Plug'n'Play ------------------------------------\n"
+			 "\tType        : %s\n"
+			 "\tCable       : %s\n"
+			 "\tConnected as: %s [%s]\n", type.c_str(), sIDEIndex.c_str() ,sIDEChannel.c_str(), sIDEAutoCon.c_str());			
 }
 /* //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
 class IMGMOUNT : public Program {
@@ -2120,9 +3180,10 @@ public:
 		}
 
 		/************************************************************************************* IDE Emulation */
-		bool ide_slave 	      = false;
-		signed char ide_index = -1;
-		std::string ideattach ="auto";
+		bool ide_slave 			= false;
+		bool ide_mastr			= false;
+		signed char ide_index	= -1;
+		std::string ideattach	="auto";
 		/************************************************************************************* IDE Emulation */
 		unsigned long el_torito_floppy_base=~0UL;
 		unsigned char el_torito_floppy_type=0xFF;		
@@ -2382,29 +3443,49 @@ public:
 												which IDE controller and slot to attach the hard
 												disk/CD-ROM to
 			*/
-			cmd->FindString("-ide",ideattach,true);
-															
-			if (ideattach == "auto") {
-				
-				if (type == "floppy") {
+			if (cmd->FindString("-ide", ideattach, true))
+			{
+
+				#if defined(C_DEBUG)
+					LOG(LOG_IMAGE, LOG_NORMAL)("[%d] IDE Commandline: %s", __LINE__, ideattach.c_str());
+				#endif
+
+				if (ideattach == "auto") {
+
+					if (type == "floppy") {
+					}
+					else {
+						IDE_Auto(ide_index, ide_slave);
+						IDE_InfoConnect(type, ide_index, ide_slave, true);
+					}
+
 				}
-				else {
-					IDE_Auto(ide_index,ide_slave);	
-					IDE_InfoConnect(type, ide_index, ide_slave, true);
-				}				
-				
-			}			
-			else if (ideattach != "none" && isdigit(ideattach[0]) && ideattach[0] > '0') {
-				/* 
-					takes the form [controller]<m/s> such as: 1m for primary master
-				*/				
-				ide_index = ideattach[0] - '1';
-				if (ideattach.length() >= 2){
-																				
-					ide_slave = (ideattach[1] == 's');
-				} 				
-				IDE_InfoConnect(type, ide_index, ide_slave, false);				
-			}			
+				else if (ideattach != "none" && isdigit(ideattach[0]) && ideattach[0] > '0')
+				{
+					#if defined(C_DEBUG)
+						LOG(LOG_IMAGE, LOG_NORMAL)("[%d] IDE Commandline: %s [Digit=%c]", __LINE__, ideattach.c_str(), ideattach[0]);
+					#endif
+					/*
+						takes the form [controller]<m/s> such as: 1m for primary master
+					*/
+					ide_index = ideattach[0] - '1';
+					#if defined(C_DEBUG)
+						LOG(LOG_IMAGE, LOG_NORMAL)("[%d] IDE Commandline: %s [Index=%c]", __LINE__, ideattach.c_str(), ideattach[0]);
+					#endif
+					if (ideattach.length() >= 2)
+					{
+						ide_mastr = (ideattach[1] == 'm');
+						ide_slave = (ideattach[1] == 's');
+						if (ide_mastr == true)
+							ide_slave = false;
+
+						#if defined(C_DEBUG)
+							LOG(LOG_IMAGE, LOG_NORMAL)("[%d] IDE Commandline: %s [Index=%c][Slave=%s]", __LINE__, ideattach.c_str(), ideattach[1], ide_slave?"true":"false");
+						#endif
+					}
+					IDE_InfoConnect(type, ide_index, ide_slave, false);
+				}
+			}
 			/************************************************************************************* IDE Emulation */			
 			
 			if (type=="floppy") {
@@ -2419,18 +3500,19 @@ public:
 				mediaid		= 0xF8;		
 				fstype 		= "iso";
 			} 
-			
-			
+						
 			cmd->FindString("-size",str_size,true);		
 			
-			if ( (type=="hdd") && (str_size.size() == 0) ) {
-				
-				imgsizedetect = true;
-				
-			} else {
-						
-				char number[21] = { 0 };const char * scan = str_size.c_str();
-				Bitu index = 0;Bitu count = 0;
+			if ( (type=="hdd") && (str_size.size() == 0) )
+			{				
+				imgsizedetect = true;				
+			}
+			else
+			{				
+				char number[21] = { 0 };
+				const char * scan = str_size.c_str();
+				Bitu index = 0;
+				Bitu count = 0;
 				/* 
 					Parse the str_size string
 				*/
@@ -2445,7 +3527,8 @@ public:
 					} else number[index++] = *scan;										
 					scan++;
 				}
-				
+
+
 				if (count < 4) {
 					number[index] = 0; 					/* always goes correct as index is max 20 at this point.*/
 					sizes[count]  = atoi(number);
@@ -2456,7 +3539,6 @@ public:
 				/* 
 					get the drive letter
 				*/
-				
 				if (!cmd->FindCommand(1,temp_line) || (temp_line.size() > 2) || ((temp_line.size()>1) && (temp_line[1]!=':'))) {
 					WriteOut_NoParsing(MSG_Get("PROGRAM_IMGMOUNT_SPECIFY_DRIVE"));
 					return;
@@ -2467,7 +3549,8 @@ public:
 					return;
 				}
 				drive = static_cast<char>(i_drive);
-			} else if (fstype=="none") {
+			} else if (fstype=="none")
+			{
 				cmd->FindCommand(1,temp_line);
 				if ((temp_line.size() > 1) || (!isdigit(temp_line[0]))) {
 					WriteOut_NoParsing(MSG_Get("PROGRAM_IMGMOUNT_SPECIFY2"));
@@ -2491,14 +3574,14 @@ public:
 			*/
 			int ImageCNT = 0;
 			
-			while(cmd->FindCommand((unsigned int)(paths.size() + 2), temp_line) && temp_line.size()) {
-				
-				
+			while(cmd->FindCommand((unsigned int)(paths.size() + 2), temp_line) && temp_line.size()) {								
 				struct stat test; ImageCNT += 1;
-				if (stat(temp_line.c_str(),&test)) {
+				if (stat(temp_line.c_str(),&test))
+				{
 					//See if it works if the ~ are written out
 					std::string homedir(temp_line);
 					Cross::ResolveHomedir(homedir);
+					
 					if(!stat(homedir.c_str(),&test)) {
 						temp_line = homedir;
 					} else {
@@ -2553,19 +3636,20 @@ public:
 					temp_line = paths[0];
 			}
 		
-			if (type == "autohdd"){
+			if (type == "autohdd")
+			{
 				type = "hdd";
 					
-				LOG_MSG("Detect VHD:");									
+				LOG_MSG("\tDetect HD:");									
 				FILE * diskfile = fopen64(temp_line.c_str(), "rb+");
 				if (!diskfile) {
 
 					WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_IMAGE"));
 					WriteOut        ("Image: %s",sGetFileName(temp_line).c_str());
-					WriteOut        ("Image is Open and used from another Program?");					
+					WriteOut        ("No access to image. Is it opened and used from another Program?");
 					
-					LOG_MSG         ("Autodetect: No Access to HDD %s",temp_line.c_str());
-					LOG_MSG         ("Autodetect: Image is Open and used from another Program?\n");					
+					LOG_MSG         ("Error: No Access to HDD %s",temp_line.c_str());
+					LOG_MSG         ("Error: Image is Open and used from another Program?\n");					
 					E_Exit			("No Access to Image and can't open\n%s",temp_line.c_str());
 				}
 									
@@ -2597,21 +3681,21 @@ public:
 						sizes[2] = 255;
 						sizes[3] = fcsize/sizes[2]/sizes[1];
 					}
-					LOG_MSG("Autodetect: Harddrive Image %s", temp_line.c_str());
-					LOG_MSG("Autodetect: Harddrive Size     [%d Megabytes]", (sizes[1]*sizes[2]*sizes[3]*sizes[0]/1024)/1024);					
-					LOG_MSG("Autodetect: Harddrive Geometry [%u,%u,%u,%u]", sizes[0], sizes[1], sizes[2], sizes[3]);
-					
+					LOG_MSG("\tHarddrive Image %s", temp_line.c_str());
+					LOG_MSG("\tHarddrive Size     [%d Megabytes]", (sizes[1]*sizes[2]*sizes[3]*sizes[0]/1024)/1024);					
+					LOG_MSG("\tHarddrive Geometry [%u,%u,%u,%u ]", sizes[0], sizes[1], sizes[2], sizes[3]);
+					LOG_MSG("\tHarddrive %c: Mounted",drive);	
 					if( sizes[3] > 1023){
-						LOG_MSG("WARNING: cylinders>1023, INT13 will not work unless extensions are used");
+						LOG_MSG("\tWARNING:\n\tCylinders > 1023. INT13 will not work unless extensions are used");
 					}									
 				}
 				else
 				{										
 					imgsizedetect = true;
-					LOG_MSG("Autodetect: No VHD Image .. Using Default\n");	
+					LOG_MSG("\tAutodetect: No VHD Image .. Using Default\n");	
 				}				
 				fseeko64(diskfile, 0L, SEEK_SET);														
-				if (fread(buf,sizeof(Bit8u),512,diskfile)<512) {
+				if (fread(buf,sizeof(Bit8u),512,diskfile)<512){
 					fclose(diskfile);
 					WriteOut(MSG_Get("PROGRAM_IMGMOUNT_INVALID_IMAGE"));
 					return;
@@ -2621,15 +3705,13 @@ public:
 				
 			if(fstype=="fat")
 			{
-				
 				if (el_torito != "")
 				{					
 					WriteOut(MSG_Get("PROGRAM_BOOT_ELCD_NO_FSFAT"));			/* <- NTS: Someday!! */
 					return;
-				}				
-				
-				if (imgsizedetect) {
-
+				}								
+				if (imgsizedetect)
+				{
 					/* DOSBox-MB IMGMAKE patch. ========================================================================= */					
 					bool yet_detected = false;
 					FILE * diskfile = fopen64(temp_line.c_str(), "rb+");
@@ -2674,9 +3756,9 @@ public:
 							sizes[3] = fcsize/sizes[2]/sizes[1];
 						}
 
-						LOG_MSG("VHD image detected: %u,%u,%u,%u",
+						LOG_MSG("\tVHD Image Detected: %u,%u,%u,%u",
 						    sizes[0], sizes[1], sizes[2], sizes[3]);
-						if(sizes[3]>1023) LOG_MSG("WARNING: cylinders>1023, INT13 will not work unless extensions are used");
+						if(sizes[3]>1023) LOG_MSG("\tWARNING:\n\tCylinders > 1023. INT13 will not work unless extensions are used");
 						yet_detected = true;
 					}
 
@@ -2760,10 +3842,10 @@ public:
 						return;
 					}
 					sizes[0]=512;	sizes[1]=63;	sizes[2]=16;	sizes[3]=sectors;
-					LOG_MSG("AutoDetect: Harddrive Image %s", temp_line.c_str());
-					LOG_MSG("Autodetect: Harddrive Size     [Autosized]", (sizes[1]*sizes[2]*sizes[3]*sizes[0]/1024)/1024);					
-					LOG_MSG("Autodetect: Harddrive Geometry [Autosized]", sizes[0], sizes[1], sizes[2], sizes[3]);
-					
+					LOG_MSG("\tHarddrive Image %s", temp_line.c_str());
+					LOG_MSG("\tHarddrive Size     [Autosized]", (sizes[1]*sizes[2]*sizes[3]*sizes[0]/1024)/1024);					
+					LOG_MSG("\tHarddrive Geometry [Autosized]", sizes[0], sizes[1], sizes[2], sizes[3]);
+					LOG_MSG("\tHarddrive %c: Mounted",drive);	
 					//LOG_MSG("autosized image file: %d:%d:%d:%d",sizes[0],sizes[1],sizes[2],sizes[3]);
 				}
 
@@ -2796,7 +3878,7 @@ public:
 
 				// Set the correct media byte in the table 
 				mem_writeb(Real2Phys(dos.tables.mediaid) + (drive - 'A') * 9, mediaid);
-				
+
 				/* Command uses dta so set it to our internal dta */
 				RealPt save_dta = dos.dta();
 				dos.dta(dos.tables.tempdta);
@@ -2833,25 +3915,31 @@ public:
 				}
 				
 				// Multiple Imagemount ======================================================== END
-				if (paths.size() == 1) {
+				if (paths.size() == 1)
+				{
 					newdrive = imgDisks[0];
-					switch (drive - 'A') {
+					switch (drive - 'A')
+					{
 					case 0:
 					case 1:
-						if(!((fatDrive *)newdrive)->loadedDisk->hardDrive) {
-							if(imageDiskList[drive - 'A'] != NULL) delete imageDiskList[drive - 'A'];
-							imageDiskList[drive - 'A'] = ((fatDrive *)newdrive)->loadedDisk;
+						if (!((fatDrive*)newdrive)->loadedDisk->hardDrive)
+						{
+							if (imageDiskList[drive - 'A'] != NULL) delete imageDiskList[drive - 'A'];
+							imageDiskList[drive - 'A'] = ((fatDrive*)newdrive)->loadedDisk;
 							// If instructed, attach to IDE controller as ATA hard disk
-							if (ide_index >= 0) IDE_Hard_Disk_Attach(ide_index,ide_slave,2);						
+							if (ide_index >= 0) IDE_Hard_Disk_Attach(ide_index, ide_slave, drive - 'A');
+							updateDPT();
 						}
 						break;
 					case 2:
 					case 3:
-						if(((fatDrive *)newdrive)->loadedDisk->hardDrive) {
+						if(((fatDrive *)newdrive)->loadedDisk->hardDrive)
+						{
+							LOG(LOG_IMAGE, LOG_NORMAL)("[%d] loadedDisk->hardDrive", __LINE__);
 							if(imageDiskList[drive - 'A'] != NULL) delete imageDiskList[drive - 'A'];
 							imageDiskList[drive - 'A'] = ((fatDrive *)newdrive)->loadedDisk;
 							// If instructed, attach to IDE controller as ATA hard disk
-							if (ide_index >= 0) IDE_Hard_Disk_Attach(ide_index,ide_slave,3);							
+							if (ide_index >= 0) IDE_Hard_Disk_Attach(ide_index,ide_slave, drive - 'A');
 							updateDPT();
 						}
 					break;
@@ -2874,8 +3962,7 @@ public:
 				std::vector<DOS_Drive*> isoDisks;
 				std::vector<std::string>::size_type i;
 				std::vector<DOS_Drive*>::size_type ct;
-				
-				
+
 				for (i = 0; i < paths.size(); i++) {
 					int error = -1;
 					DOS_Drive* newDrive = new isoDrive(drive, paths[i].c_str(), mediaid, error);
@@ -2925,21 +4012,23 @@ public:
 				}
 			
 				// Print status message (success)
-				WriteOut("\n");				
-				WriteOut(MSG_Get("MSCDEX_SUCCESS"));			
-				if (ddn > 0){						
-					WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_MULTI5"),drive);																
-					WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_MULTI2"),drive);							 
-					
+				WriteOut("\n");
+				WriteOut(MSG_Get("MSCDEX_SUCCESS"));
+				if (ddn > 0) {
+					WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_MULTI5"), drive);
+					WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_MULTI2"), drive);
+
 					for (i = 0; i < paths.size(); i++) {
-						WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_MULTI3"), sGetFileName( paths[i] ).c_str());	
-					}					
+						WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_MULTI3"), sGetFileName(paths[i]).c_str());
+					}
 					WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_MULTI4"));
-					
-				}else{
-					WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_2"), drive, sGetFileName(tmp).c_str());
-					
+
 				}
+				else {
+					WriteOut(MSG_Get("PROGRAM_MOUNT_STATUS_2"), drive, sGetFileName(tmp).c_str());
+
+				}
+
 
 			} else if (el_torito != "") {
 				newImage = new imageDiskElToritoFloppy(el_torito_cd_drive,el_torito_floppy_base,el_torito_floppy_type);
@@ -3358,18 +4447,20 @@ void DOS_SetupPrograms(void) {
 	MSG_Add("PROGRAM_IMGMOUNT_MOUNT_NUMBER","Drive number %d mounted as %s\n");
 	MSG_Add("PROGRAM_IMGMOUNT_NON_LOCAL_DRIVE", "The image must be on a host or local drive.\n");
 	MSG_Add("PROGRAM_IMGMOUNT_MULTIPLE_NON_CUEISO_FILES", "Using multiple files is only supported for cue/iso images.\n");
-	
+
+
 /* DOSBox-MB IMGMAKE patch. ========================================================================= */	
 	MSG_Add("PROGRAM_IMGMOUNT_SYNTAX",
 		    "\033[2J\033[32;1mCreates Floppy or Harddisk Images. Syntax:\033[0m\n"
 		    "IMGMAKE [-t][-size][-chs][-nofs][-source][-r retries][-bat/-txt][-force][file]\n"
-		    "File       : Image file that is to be created  on the Host. [-t Image type].\n\n"
+		    "        [-fat(12/16/32)] [-spc (Sectors Per Cluster] [-mbr (msdos622/freedos)]\n"
+		    "File       : Image file that is to be created  on the Host. [-t Image type].\n"
 		    "\033[33;1mFloppy Disk templates\033[0m\n"
 		    " fd_160: 160KB  fd_180: 180KB  fd_200 : 200KB  fd_320 : 320KB   fd_360 : 360KB\n"
 			" fd_400: 400KB  fd_720: 720KB  fd_1200: 1.2MB  fd_1440: 1.44MB  fd_2880: 2.88MB\n"
 		    "\033[33;1mHarddisk templates:\033[0m\n"
 		    " hd_st225: 20MB    hd_st251: 40MB    hd_250 : 250MB   hd_520 : 520MB\n"
-		    " hd_2gig :  2GB    hd_4gig : 4GB     hd_8gig: 8GB    (8GB is Maximum)\n\n"
+		    " hd_2gig :  2GB    hd_4gig : 4GB     hd_8gig: 8GB    (8GB is Maximum)\n"
 		    "\033[33;1mCustom Harddisk Images: hd (requires -size or -chs)\033[0m\n"		   
 		    " -size    : The size of a custom harddisk image in MB.\n"
 		    " -chs     : Disk geometry in cylinders (1-1023), Heads( 1-255), Sectors (1-63).\n"
@@ -3385,10 +4476,8 @@ void DOS_SetupPrograms(void) {
 		    "  \033[33mimgmake c:\\image.img -source a\033[0m           - read image from physical drive A"		
 		);
 #ifdef WIN32
-	MSG_Add("PROGRAM_IMGMAKE_FLREAD",
-		"Disk geometry: %d Cylinders, %d Heads, %d Sectors, %d Kilobytes\n\n");
-	MSG_Add("PROGRAM_IMGMAKE_FLREAD2",
-		"\xdb =good, \xb1 =good after retries, ! =CRC error, x =sector not found, ? =unknown\n\n");
+	MSG_Add("PROGRAM_IMGMAKE_FLREAD", "Disk geometry: %d Cylinders, %d Heads, %d Sectors, %d Kilobytes\n\n");
+	MSG_Add("PROGRAM_IMGMAKE_FLREAD2","\xdb =good, \xb1 =good after retries, ! =CRC error, x =sector not found, ? =unknown\n\n");
 #endif
 	MSG_Add("PROGRAM_IMGMAKE_FILE_EXISTS","\033[31;1mError creating the file:\033[0m\n"
 										  "\033[37;1m\"%s\"\033[0m\n"
@@ -3402,10 +4491,21 @@ void DOS_SetupPrograms(void) {
 	MSG_Add("PROGRAM_IMGMAKE_PRINT_CHS",	"\033[32;1mCreate an Image:\033[0m\n"
 											"         \033[33;1m[C]ylinders: \033[36;1m%u\033[0m\n"
 											"         \033[33;1m[H]eads    : \033[36;1m%u\033[0m\n"
-											"         \033[33;1m[S]ectors  : \033[36;1m%u\033[0m\n"
+											"         \033[33;1m[S]ectors  : \033[36;1m%u\033[0m\n\n"
+											"         \033[33;1m  Cluster  : \033[36;1m%u\033[0m\n"
+											"         \033[33;1m  Record   : \033[36;1m%s\033[0m\n"
+											"         \033[33;1mFat Model  : \033[36;1m%u\033[0m\n"
 			);
 	MSG_Add("PROGRAM_IMGMAKE_CANT_READ_FLOPPY","\nUnable to read floppy.");
 	MSG_Add("PROGRAM_IMGMAKE_CREATED","\033[32;1mImage Created in:\n\033[37;1m\"%s\"\033[0m\n");	
+	MSG_Add("PROGRAM_IMGMAKE_NOT_VALID_FAT" ,"\n\033[31;1mInvalid\033[0m -fat option. Must be [\033[31;1m12\033[0m], [\033[31;1m16\033[0m], or [\033[31;1m32\033[0m]\n");
+	MSG_Add("PROGRAM_IMGMAKE_NOT_VALID_FATC","\n\033[31;1mInvalid\033[0m -fatcopies option (Range is 1 to 4)\n");
+	MSG_Add("PROGRAM_IMGMAKE_NOT_VALID_SPC" ,"\n\033[31;1mInvalid\033[0m -spc option, out of range (Range is 1 to 128)\n");
+	MSG_Add("PROGRAM_IMGMAKE_SPC_POWER_TWO" ,"\n\033[31;1mInvalid\033[0m -spc option, must be a power of 2\n");
+	MSG_Add("PROGRAM_IMGMAKE_FS_NOT_VALID",  "\n\033[31;1mError\033[0m\nGenerated filesystem has more than 64KB sectors per FAT and is not FAT32\n");
+	MSG_Add("PROGRAM_IMGMAKE_WARN_FEW_CLUSTERS", "\n\033[31;1mWarning\033[0m\nGenerated filesystem has too few clusters (given the parameters)\n");
+	MSG_Add("PROGRAM_IMGMAKE_WARN_HIGH_CLUSTERS", "\n\033[31;1mWarning\033[0m\nCluster count is too high given the volume size. Reporting a smaller sector count.\n");
+
 /* DOSBox-MB IMGMAKE patch. ========================================================================= */
 	
 

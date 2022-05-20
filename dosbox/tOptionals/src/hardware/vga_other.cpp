@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,6 +27,9 @@
 #include "pic.h"
 #include "render.h"
 #include "mapper.h"
+
+/* Reelmagic */
+#include "vga_reelmagic_override.h"
 
 static void write_crtc_index_other(Bitu /*port*/,Bitu val,Bitu /*iolen*/) {
 	vga.other.index=(Bit8u)val;
@@ -108,7 +111,7 @@ static void write_crtc_data_other(Bitu /*port*/,Bitu val,Bitu /*iolen*/) {
 		vga.other.lightpen |= (Bit8u)val;
 		break;
 	default:
-		LOG(LOG_VGAMISC,LOG_NORMAL)("MC6845:Write %X to illegal index %x",val,vga.other.index);
+		LOG(LOG_VGAMISC, LOG_NORMAL)("MC6845:Write %" sBitfs(X) " to illegal index %x", val, vga.other.index);
 	}
 }
 static Bitu read_crtc_data_other(Bitu /*port*/,Bitu /*iolen*/) {
@@ -155,7 +158,7 @@ static Bitu read_crtc_data_other(Bitu /*port*/,Bitu /*iolen*/) {
 	return (Bitu)(~0);
 }
 
-static void write_lightpen(Bitu port,Bitu val,Bitu) {
+static void write_lightpen(Bitu port, Bitu /*val*/, Bitu) {
 	switch (port) {
 	case 0x3db:	// Clear lightpen latch
 		vga.other.lightpen_triggered = false;
@@ -462,7 +465,7 @@ static void write_cga(Bitu port,Bitu val,Bitu /*iolen*/) {
 	{
 	case 0x3d8:
 		vga.tandy.mode_control=(Bit8u)val;
-		vga.attr.disabled = (val&0x8)? 0: 1; 
+		vga.attr.disabled = (val & 0x8) ? 0 : 1;
 		if (vga.tandy.mode_control & 0x2) {		// graphics mode
 		
 			if (vga.tandy.mode_control & 0x10) {// highres mode
@@ -549,7 +552,7 @@ static void tandy_update_palette() {
 				if (vga.tandy.color_select & 0x10) color_set |= 8; // intensity
 				if (vga.tandy.color_select & 0x20) color_set |= 1; // Cyan Mag. White
 				if (vga.tandy.mode_control & 0x04) {			// Cyan Red White
-					color_set |= 1; 
+					color_set |= 1;
 					r_mask &= ~1;
 				}
 				VGA_SetCGA4Table(
@@ -763,7 +766,7 @@ static void write_pcjr(Bitu port,Bitu val,Bitu /*iolen*/) {
 		
 		// Bit 3-5: Processor page CPU_PG
 		// Selects the 16kB area of system RAM that is mapped to
-		// the B8000h IBM PC video memory window. Since A14-A16 of the 
+		// the B8000h IBM PC video memory window. Since A14-A16 of the
 		// processor are unconditionally replaced with these bits when
 		// B8000h is accessed, the 16kB area is mapped to the 32kB
 		// range twice in a row. (Scuba Venture writes across the boundary)
@@ -810,19 +813,19 @@ void StartMonoCGAPal(void) {
 	const char* sCGAMonoPal=section->Get_string("colormode_cga_mono");	
 	mono_cga_bright = section->Get_int("cobrimode_cga_mono");
 
-	if (!strcasecmp(sCGAMonoPal,"green"))
+	if (!_stricmp(sCGAMonoPal,"green"))
 	{
 		mono_cga_pal=0;
 		
-	}else if (!strcasecmp(sCGAMonoPal,"amber"))
+	}else if (!_stricmp(sCGAMonoPal,"amber"))
 	{
 		mono_cga_pal=1;
 		
-	}else if (!strcasecmp(sCGAMonoPal,"grey"))
+	}else if (!_stricmp(sCGAMonoPal,"grey"))
 	{
 		mono_cga_pal=2;
 		
-	}else if (!strcasecmp(sCGAMonoPal,"paperwhite"))
+	}else if (!_stricmp(sCGAMonoPal,"paperwhite"))
 	{
 		mono_cga_pal=3;
 	}
@@ -857,19 +860,19 @@ void StartHerc_Palette(void) {
 	Section_prop *section = static_cast<Section_prop *>(control->GetSection("dosbox"));
 	const char* sHerculesColor=section->Get_string("colormode_hercules");	
 
-	if (!strcasecmp(sHerculesColor,"green"))
+	if (!_stricmp(sHerculesColor,"green"))
 	{
 		herc_pal=0;
 		
-	}else if (!strcasecmp(sHerculesColor,"amber"))
+	}else if (!_stricmp(sHerculesColor,"amber"))
 	{
 		herc_pal=1;
 		
-	}else if (!strcasecmp(sHerculesColor,"paperwhite"))
+	}else if (!_stricmp(sHerculesColor,"paperwhite"))
 	{
 		herc_pal=2;
 		
-	}else if (!strcasecmp(sHerculesColor,"grey"))
+	}else if (!_stricmp(sHerculesColor,"grey"))
 	{
 		herc_pal=3;
 	}
@@ -881,7 +884,7 @@ void StartHerc_Palette(void) {
 	VGA_DAC_CombineColor(1,7);
 }
 	
-void Herc_Palette(void) {	
+void Herc_Palette(void) {
 	switch (herc_pal) {
 	case 0:	// Green
 		VGA_DAC_SetEntry(0x7,0x00,0x26,0x00);
@@ -913,7 +916,7 @@ static void HercBlend(bool pressed) {
 static void write_hercules(Bitu port,Bitu val,Bitu /*iolen*/) {
 	switch (port) {
 	case 0x3b8: {
-		// the protected bits can always be cleared but only be set if the 
+		// the protected bits can always be cleared but only be set if the
 		// protection bits are set
 		if (vga.herc.mode_control&0x2) {
 			// already set

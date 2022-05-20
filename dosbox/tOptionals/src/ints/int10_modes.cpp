@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,7 +16,11 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#include "SDL.h"
+#if defined(_MSC_VER)
+#include "SDL2/include/SDL.h"
+#else
+#include "SDL2/SDL.h"
+#endif
 #include <string.h>
 
 #include "dosbox.h"
@@ -26,7 +30,7 @@
 #include "vga.h"
 #include "control.h"
 #include "setup.h"
-#include "..\gui\version.h"
+#include "..\gui\version_optionals.h"
 	
 #define _EGA_HALF_CLOCK		0x0001
 #define _EGA_LINE_DOUBLE	0x0002
@@ -380,6 +384,7 @@ VideoModeBlock ModeTableA_S3_Fixes[]={
 { 0x013  ,M_VGA    ,320 ,200 ,40 ,25 ,8 ,8  ,1 ,0xA0000 ,0x2000 ,100 ,449 ,40 ,400 ,0   },  // Not Used
 { 0x211  ,M_LIN16  ,320 ,480 ,80 ,30 ,8 ,16 ,1 ,0xA0000 ,0x10000,100 ,525 ,80 ,480 ,0	},	// <- 3 Skulls of the Toltecs Gold (Windows) 
 { 0x110  ,M_LIN15  ,640 ,480 ,80 ,25 ,8 ,16 ,1 ,0xA0000 ,0x10000,100 ,525 ,160,480 ,0	},  // Alien Trilogy
+{ 0x012  ,M_LIN8   ,320 ,200 ,40 ,25 ,8 ,8  ,1 ,0xA0000 ,0x10000,100 ,449 ,80 ,400 ,_VGA_PIXEL_DOUBLE | _EGA_LINE_DOUBLE },
 };
 
 VideoModeBlock ModeList_VGA_Text_200lines[]={
@@ -682,6 +687,17 @@ static bool SetCurMode(VideoModeBlock modeblock[],Bit16u mode) {
 					}									
 				}
 			
+				if (int10.bModePatch0x012) {
+
+					if ((ModeList_VGA[i].mode == 0x012) && (ModeList_VGA[i].type == M_EGA)) {
+						modeblock = ModeTableA_S3_Fixes; i = 5;
+						if (int10.bExtraVGA_Debug) {
+							LOG_MSG("Patch Dyna Blaster ");
+							LOG_MSG("=====================================================================\n");
+						}
+					}
+				}
+
 				if ( ( int10.bVesaPatch32bit ) || (int10.vesa_no24bpp) ){
 					
 					if ( ( ModeList_VGA[i].mode==0x10F ) && ( ModeList_VGA[i].type==M_LIN24 ) ){	
@@ -811,7 +827,10 @@ static void FinishSetMode(bool clearmem) {
 			memset(vga.fastmem, 0, vga.vmemsize<<1);
 			break;
 		default:
-			LOG_MSG("INT10 MODES: Enumeration value(%u) not handled in switch " __FILE__ ":%d", CurMode->type, __LINE__);
+			if (int10.bExtraVGA_Debug)
+			{
+				LOG_MSG("INT10 MODES: Enumeration value(%u) not handled in switch " __FILE__ ":%d", CurMode->type, __LINE__);
+			}
 			break;			
 		}
 	}
@@ -821,32 +840,35 @@ static void FinishSetMode(bool clearmem) {
 	real_writew(BIOSMEM_SEG,BIOSMEM_NB_COLS,(Bit16u)CurMode->twidth);
 	real_writew(BIOSMEM_SEG,BIOSMEM_PAGE_SIZE,(Bit16u)CurMode->plength);
 	real_writew(BIOSMEM_SEG,BIOSMEM_CRTC_ADDRESS,((CurMode->mode==7 )|| (CurMode->mode==0x0f)) ? 0x3b4 : 0x3d4);
-	real_writeb(BIOSMEM_SEG,BIOSMEM_NB_ROWS,(Bit8u)(CurMode->theight-1));
-	real_writew(BIOSMEM_SEG,BIOSMEM_CHAR_HEIGHT,(Bit16u)CurMode->cheight);
-	real_writeb(BIOSMEM_SEG,BIOSMEM_VIDEO_CTL,(0x60|(clearmem?0:0x80)));
-	real_writeb(BIOSMEM_SEG,BIOSMEM_SWITCHES,0x09);
-
-	// this is an index into the dcc table:
-	if (IS_VGA_ARCH) real_writeb(BIOSMEM_SEG,BIOSMEM_DCC_INDEX,0x0b);
+	
+		if (IS_EGAVGA_ARCH) {
+			real_writeb(BIOSMEM_SEG, BIOSMEM_NB_ROWS, (Bit8u)(CurMode->theight - 1));
+			real_writew(BIOSMEM_SEG, BIOSMEM_CHAR_HEIGHT, (Bit16u)CurMode->cheight);
+			real_writeb(BIOSMEM_SEG, BIOSMEM_VIDEO_CTL, (0x60 | (clearmem ? 0 : 0x80)));
+			real_writeb(BIOSMEM_SEG, BIOSMEM_SWITCHES, 0x09);
+				// this is an index into the dcc table:
+			if (IS_VGA_ARCH) real_writeb(BIOSMEM_SEG, BIOSMEM_DCC_INDEX, 0x0b);
+		
+					/* Set font pointer */
+			if (CurMode->mode <= 3 || CurMode->mode == 7)
+			 RealSetVec(0x43, int10.rom.font_8_first);
+			else {
+				switch (CurMode->cheight) {
+					case 8:RealSetVec(0x43, int10.rom.font_8_first); break;
+					case 14:RealSetVec(0x43, int10.rom.font_14); break;
+					case 16:RealSetVec(0x43, int10.rom.font_16); break;
+				}
+			}
+		}
 
 	// Set cursor shape
 	if (CurMode->type==M_TEXT) {
-		INT10_SetCursorShape(0x06,07);
+		INT10_SetCursorShape(0x06, 0x07);
 	}
 	// Set cursor pos for page 0..7
 	for (Bit8u ct=0;ct<8;ct++) INT10_SetCursorPos(0,0,ct);
 	// Set active page 0
 	INT10_SetActivePage(0);
-	/* Set some interrupt vectors */
-	if (CurMode->mode<=3 || CurMode->mode==7)
-		RealSetVec(0x43,int10.rom.font_8_first);
-	else {
-		switch (CurMode->cheight) {
-		case 8:RealSetVec(0x43,int10.rom.font_8_first);break;
-		case 14:RealSetVec(0x43,int10.rom.font_14);break;
-		case 16:RealSetVec(0x43,int10.rom.font_16);break;
-		}
-	}
 }
 
 /* DOSBox-X */
@@ -1060,73 +1082,101 @@ bool INT10_SetVideoMode_OTHER(Bit16u mode,bool clearmem) {
 	return true;
 }
 
-
 bool INT10_SetVideoMode(Bit16u mode) {
-	bool clearmem=true;Bitu i;
-	if (mode>=0x100) {
+	if (CurMode && CurMode->mode == 7 && isVirtualModus)
+	{
+		LOG(LOG_INT10, LOG_NORMAL)("[%d] CurMode->mode == 7", __LINE__);
+		VideoModeBlock* modelist = svgaCard == SVGA_TsengET4K || svgaCard == SVGA_TsengET3K ? ModeList_VGA : (svgaCard == SVGA_ParadisePVGA1A ? ModeList_VGA_Paradise : (IS_VGA_ARCH ? ModeList_VGA : ModeList_EGA));
+		for (Bitu i = 0; modelist[i].mode != 0xffff; i++)
+		{
+			if (modelist[i].mode == mode)
+			{
+				if (modelist[i].type != M_TEXT)
+				{
+					SetCurMode(modelist, 3);
+					FinishSetMode(true);
+					LOG(LOG_INT10, LOG_NORMAL)("FinishSetMode: Video Mode %X", mode);
+				}
+				break;
+			}
+		}
+	}
+
+	bool clearmem = true; Bitu i;
+	if (mode >= 0x100) {
 		if ((mode & 0x4000) && int10.vesa_nolfb) return false;
-		if (mode & 0x8000) clearmem=false;
-		mode&=0xfff;
+		if (mode & 0x8000) clearmem = false;
+		mode &= 0xfff;
 	}
-	if ((mode<0x100) && (mode & 0x80)) {
-		clearmem=false;
-		mode-=0x80;
+	if ((mode < 0x100) && (mode & 0x80)) {
+		clearmem = false;
+		mode -= 0x80;
 	}
-	int10.vesa_setmode=0xffff;
-	LOG(LOG_INT10,LOG_NORMAL)("SetVideoMode: Set Video Mode %X",mode);
-	if (!IS_EGAVGA_ARCH) return INT10_SetVideoMode_OTHER(mode,clearmem);
+
+	int10.vesa_setmode = 0xffff;
+	LOG(LOG_INT10, LOG_NORMAL)("SetVideoMode: Set Video Mode %X", mode);
+	if (!IS_EGAVGA_ARCH) return INT10_SetVideoMode_OTHER(mode, clearmem);
 
 	/* First read mode setup settings from bios area */
 //	Bit8u video_ctl=real_readb(BIOSMEM_SEG,BIOSMEM_VIDEO_CTL);
 //	Bit8u vga_switches=real_readb(BIOSMEM_SEG,BIOSMEM_SWITCHES);
-	Bit8u modeset_ctl=real_readb(BIOSMEM_SEG,BIOSMEM_MODESET_CTL);
+	Bit8u modeset_ctl = real_readb(BIOSMEM_SEG, BIOSMEM_MODESET_CTL);
 
 	if (IS_VGA_ARCH) {
 		if (svga.accepts_mode) {
 			if (!svga.accepts_mode(mode)) return false;
 		}
 
-		switch(svgaCard) {
+		switch (svgaCard) {
 		case SVGA_TsengET4K:
 		case SVGA_TsengET3K:
-			if (!SetCurMode(ModeList_VGA_Tseng,mode)){
-				LOG(LOG_INT10,LOG_ERROR)("VGA:Trying to set illegal mode %X",mode);
+			if (!SetCurMode(ModeList_VGA_Tseng, mode)) {
+				LOG(LOG_INT10, LOG_ERROR)("VGA:Trying to set illegal mode %X", mode);
 				return false;
 			}
 			break;
 		case SVGA_ParadisePVGA1A:
-			if (!SetCurMode(ModeList_VGA_Paradise,mode)){
-				LOG(LOG_INT10,LOG_ERROR)("VGA:Trying to set illegal mode %X",mode);
+			if (!SetCurMode(ModeList_VGA_Paradise, mode)) {
+				LOG(LOG_INT10, LOG_ERROR)("VGA:Trying to set illegal mode %X", mode);
 				return false;
 			}
 			break;
 		default:
-			if (!SetCurMode(ModeList_VGA,mode)){
-				LOG(LOG_INT10,LOG_ERROR)("VGA:Trying to set illegal mode %X",mode);
+			if (!SetCurMode(ModeList_VGA, mode)) {
+				LOG(LOG_INT10, LOG_ERROR)("VGA:Trying to set illegal mode %X", mode);
 				return false;
 			}
 		}
-		if (CurMode->type==M_TEXT) SetTextLines();
-	} else {
-		if (!SetCurMode(ModeList_EGA,mode)){
-			LOG(LOG_INT10,LOG_ERROR)("EGA:Trying to set illegal mode %X",mode);
+		if (CurMode->type == M_TEXT) SetTextLines();
+	}
+	else {
+		if (!SetCurMode(ModeList_EGA, mode)) {
+			LOG(LOG_INT10, LOG_ERROR)("EGA:Trying to set illegal mode %X", mode);
 			return false;
 		}
 	}
 
 	/* Setup the VGA to the correct mode */
+	// turn off video
+	IO_Write(0x3c4, 0); IO_Write(0x3c5, 1); // reset
+	IO_Write(0x3c4, 1); IO_Write(0x3c5, 0x20); // screen off
+	LOG(LOG_INT10, LOG_NORMAL)("[%d] Setup the VGA to the correct mode [Reset & Screen Off]", __LINE__);
 
 	Bit16u crtc_base;
-	bool mono_mode=(mode == 7) || (mode==0xf);  
-	if (mono_mode) crtc_base=0x3b4;
-	else crtc_base=0x3d4;
+	bool mono_mode = (mode == 7) || (mode == 0xf);
+	if (mono_mode) crtc_base = 0x3b4;
+	else crtc_base = 0x3d4;
 
-	if (IS_VGA_ARCH && (svgaCard == SVGA_S3Trio)) {
-		// Disable MMIO here so we can read / write memory
-		IO_Write(crtc_base,0x53);
-		IO_Write(crtc_base+1,0x0);
+	if (!isVirtualModus)
+	{
+		if (IS_VGA_ARCH && (svgaCard == SVGA_S3Trio))
+		{
+			// Disable MMIO here so we can read / write memory
+			IO_Write(crtc_base, 0x53);
+			IO_Write(crtc_base + 1, 0x0);
+		}
 	}
-
+	
 	/* Setup MISC Output Register */
 	Bit8u misc_output=0x2 | (mono_mode ? 0x0 : 0x1);
 
@@ -1153,10 +1203,34 @@ bool INT10_SetVideoMode(Bit16u mode) {
 	}
 	IO_Write(0x3c2,misc_output);		//Setup for 3b4 or 3d4
 	
+	if (isVirtualModus)
+	{
+		if (IS_VGA_ARCH && (svgaCard == SVGA_S3Trio)) {
+			// unlock the S3 registers
+			IO_Write(crtc_base, 0x38); IO_Write(crtc_base + 1u, 0x48);	//Register lock 1
+			IO_Write(crtc_base, 0x39); IO_Write(crtc_base + 1u, 0xa5);	//Register lock 2
+			IO_Write(0x3c4, 0x8); IO_Write(0x3c5, 0x06);
+			// Disable MMIO here so we can read / write memory
+			IO_Write(crtc_base, 0x53); IO_Write(crtc_base + 1u, 0x0);
+			LOG(LOG_INT10, LOG_NORMAL)("[%d] Unlock the S3 registers", __LINE__);
+		}
+	}
+
 	/* Program Sequencer */
 	Bit8u seq_data[SEQ_REGS];
 	memset(seq_data,0,SEQ_REGS);
-	seq_data[1]|=0x01;	//8 dot fonts by default
+
+	
+	if (isVirtualModus)
+	{
+		seq_data[0] = 0x3;	/*Dosbox-X*/// not reset
+		seq_data[1] = 0x21;	/*Dosbox-X*/// screen still disabled, will be enabled at end of setmode
+		seq_data[4] = 0x04;	/*Dosbox-X*/// odd/even disable
+		LOG(LOG_INT10, LOG_NORMAL)("[%d] Program Sequencer ", __LINE__);
+
+	}else
+		seq_data[1] |= 0x01;	//8 dot fonts by default
+
 	if (CurMode->special & _EGA_HALF_CLOCK) seq_data[1]|=0x08; //Check for half clock
 	if ((machine==MCH_EGA) && (CurMode->special & _EGA_HALF_CLOCK)) seq_data[1]|=0x02;
 	seq_data[4]|=0x02;	//More than 64kb
@@ -1570,7 +1644,10 @@ bool INT10_SetVideoMode(Bit16u mode) {
 			}
 			Bitu clock=CurMode->vtotal*8*CurMode->htotal*refresh;
 			VGA_SetClock(3,clock/1000);	
-			LOG_MSG("VGA: Refresh Settings for %#04x: [ %dx%d ] is: %d (Clock: %d/1000) ",CurMode->mode,CurMode->swidth,CurMode->sheight,refresh,clock);			
+			if (int10.bExtraVGA_Debug)
+			{
+				LOG_MSG("VGA: Refresh Settings for %#04x: [ %dx%d ] is: %d (Clock: %d/1000) ", CurMode->mode, CurMode->swidth, CurMode->sheight, refresh, clock);
+			}
 			/* Custom S3 VGA ////////////////////////////////////////////////////////////////*/			
 		}		
 		Bit8u misc_control_2;		
@@ -1902,6 +1979,7 @@ dac_text16:
 
 		/* DOSBOX-X*/
 		/*S3 bugfix: INT 10h now uses I/O writes to clear & remove the hardware */
+
 		IO_Write(crtc_base,0x45);
 		IO_Write(crtc_base+1,0x00);
 		
@@ -1944,6 +2022,8 @@ dac_text16:
 				break;
 		};
 		
+		unsigned char s3_mode = 0x00;
+
 		switch (CurMode->type) {
 		case M_LIN4: // <- Theres a discrepance with real hardware on this
 		case M_LIN8:
@@ -1957,9 +2037,41 @@ dac_text16:
 			reg_31 = 5;
 			break;
 		}
+
+		if (isVirtualModus) {
+			/* SVGA text modes need the 256k+ access bit */
+			if (CurMode->mode >= 0x100 && !int10.vesa_nolfb)
+			{
+				LOG(LOG_INT10, LOG_NORMAL)("[%d] S3 CurMode->mode[%d](0x%x)", __LINE__,CurMode->mode, CurMode->mode);
+				reg_31 |= 8; /* enable 256k+ access */
+				s3_mode |= 0x10; /* enable LFB */
+			}
+		}
 		IO_Write(crtc_base,0x3a);IO_Write(crtc_base+1,reg_3a);
 		IO_Write(crtc_base,0x31);IO_Write(crtc_base+1,reg_31);	//Enable banked memory and 256k+ access
-		IO_Write(crtc_base,0x58);IO_Write(crtc_base+1,0x3);		//Enable 8 mb of linear addressing
+
+		if (!isVirtualModus) {
+			IO_Write(crtc_base, 0x58); IO_Write(crtc_base + 1, 0x3);		//Enable 8 mb of linear addressing
+		}
+		else
+		{
+			IO_Write(crtc_base, 0x58);
+			if (vga.vmemsize >= (4 * 1024 * 1024))
+			{
+				IO_Write(crtc_base + 1u, 0x3 | s3_mode);		// 4+ MB window
+				LOG(LOG_INT10, LOG_NORMAL)("[%d] IO_Write Port:%u - Value=%d [VGA Memory=%d]", __LINE__, crtc_base + 1u, 0x3 | s3_mode, vga.vmemsize);
+			}
+			else if (vga.vmemsize >= (2 * 1024 * 1024))
+			{
+				IO_Write(crtc_base + 1u, 0x2 | s3_mode);		// 2 MB window
+				LOG(LOG_INT10, LOG_NORMAL)("[%d] IO_Write Port:%u - Value=%d [VGA Memory=%d]", __LINE__, crtc_base + 1u, 0x3 | s3_mode, vga.vmemsize);
+			}
+			else
+			{
+				IO_Write(crtc_base + 1u, 0x1 | s3_mode);		// 1 MB window
+				LOG(LOG_INT10, LOG_NORMAL)("[%d] IO_Write Port:%u - Value=%d [VGA Memory=%d]", __LINE__, crtc_base + 1u, 0x3 | s3_mode, vga.vmemsize);
+			}
+		}
 
 		IO_Write(crtc_base,0x38);IO_Write(crtc_base+1,0x48);	//Register lock 1
 		IO_Write(crtc_base,0x39);IO_Write(crtc_base+1,0xa5);	//Register lock 2
@@ -1985,6 +2097,14 @@ dac_text16:
 	/* Load text mode font */
 	if (CurMode->type==M_TEXT) {
 		INT10_ReloadFont();
+	}
+
+	if (isVirtualModus)
+	{
+		// Enable screen memory access
+		IO_Write(0x3c4, 1);
+		IO_Write(0x3c5, seq_data[1] & ~0x20);
+		LOG(LOG_INT10, LOG_NORMAL)("[%d] Setmode End & Enable screen memory access",__LINE__);
 	}
 	/* Dosbox */
 	if (en_int33) INT10_SetCurMode();

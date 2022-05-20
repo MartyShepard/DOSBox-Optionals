@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -186,7 +186,7 @@ static Bit32u read_kcl_file(const char* kcl_file_name, const char* layout_id, bo
 				lng_codes[lcpos++]=(char)rbuf[0];
 			}
 			lng_codes[lcpos]=0;
-			if (strcasecmp(lng_codes, layout_id)==0) {
+			if (_stricmp(lng_codes, layout_id)==0) {
 				// language ID found in file, return file position
 				fclose(tempfile);
 				return cur_pos;
@@ -194,7 +194,7 @@ static Bit32u read_kcl_file(const char* kcl_file_name, const char* layout_id, bo
 			if (first_id_only) break;
 			if (lcnum) {
 				sprintf(&lng_codes[lcpos],"%d",lcnum);
-				if (strcasecmp(lng_codes, layout_id)==0) {
+				if (_stricmp(lng_codes, layout_id)==0) {
 					// language ID found in file, return file position
 					return cur_pos;
 				}
@@ -237,14 +237,14 @@ static Bit32u read_kcl_data(Bit8u * kcl_data, Bit32u kcl_data_size, const char* 
 				lng_codes[lcpos++]=lc;
 			}
 			lng_codes[lcpos]=0;
-			if (strcasecmp(lng_codes, layout_id)==0) {
+			if (_stricmp(lng_codes, layout_id)==0) {
 				// language ID found, return position
 				return cur_pos;
 			}
 			if (first_id_only) break;
 			if (lcnum) {
 				sprintf(&lng_codes[lcpos],"%d",lcnum);
-				if (strcasecmp(lng_codes, layout_id)==0) {
+				if (_stricmp(lng_codes, layout_id)==0) {
 					// language ID found, return position
 					return cur_pos;
 				}

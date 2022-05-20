@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -243,7 +243,8 @@ int CMscdex::AddDrive(Bit16u _drive, char* physicalPath, Bit8u& subUnit)
 {
 	subUnit = 0;
 	if ((Bitu)GetNumDrives()+1>=MSCDEX_MAX_DRIVES) return 4;
-	if (GetNumDrives()) {
+	if (GetNumDrives())
+	{
 		// Error check, driveletter have to be in a row
 		if (dinfo[0].drive-1!=_drive && dinfo[numDrives-1].drive+1!=_drive) 
 			return 1;

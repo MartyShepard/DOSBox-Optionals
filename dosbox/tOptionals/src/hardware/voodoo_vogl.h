@@ -20,10 +20,19 @@
 #ifndef DOSBOX_VOODOO_VOGL_H
 #define DOSBOX_VOODOO_VOGL_H
 
-#include "SDL.h"
+#if defined(_MSC_VER)
+#include "SDL2/include/SDL.h"
+#include "SDL2/include/SDL_opengl.h"
+#include "SDL2/include/SDL_opengl_glext.h"
+#include "SDL2/GL/glcorearb.h"
+#include "SDL2/GL/glu.h"
+#else
+#include "SDL2/SDL.h"
 #include "SDL2\SDL_opengl.h"
 #include "SDL2\SDL_opengl_glext.h"
 #include "SDL2\GL\glcorearb.h"
+#include "SDL2\GL\glu.h"
+#endif
 
 
 /* opengl extensions */
@@ -61,13 +70,13 @@ extern PFNGLVERTEXATTRIB1FARBPROC glVertexAttrib1fARB;
 extern PFNGLPOINTPARAMETERFVPROC glPointParameterfv;
 
 
-#define VOGL_ATLEAST_V20			0x00000001
-#define VOGL_ATLEAST_V21			0x00000002
-#define VOGL_ATLEAST_V30			0x00000004
-#define VOGL_HAS_SHADERS			0x00000010
-#define VOGL_HAS_STENCIL_BUFFER		0x00000100
-#define VOGL_HAS_ALPHA_PLANE		0x00000200
-
+constexpr auto VOGL_ATLEAST_V20 = 0x00000001;
+constexpr auto VOGL_ATLEAST_V21 = 0x00000002;
+constexpr auto VOGL_ATLEAST_V30 = 0x00000004;
+constexpr auto VOGL_ATLEAST_V40 = 0x00000006;/*test*/
+constexpr auto VOGL_HAS_SHADERS = 0x00000010;
+constexpr auto VOGL_HAS_STENCIL_BUFFER = 0x00000100;
+constexpr auto VOGL_HAS_ALPHA_PLANE = 0x00000200;
 
 static const GLuint ogl_sfactor[16] = {
 	GL_ZERO,
@@ -117,6 +126,9 @@ void VOGL_FlagFeature(Bit32u feat);
 
 void VOGL_BeginMode(INT32 new_mode);
 void VOGL_ClearBeginMode(void);
+
+void VOGL_BeginState(INT32 new_mode);
+void VOGL_ClearBeginState(void);
 
 void VOGL_SetDepthMode(Bit32s mode, Bit32s func);
 void VOGL_SetAlphaMode(Bit32s enabled_mode,GLuint src_rgb_fac,GLuint dst_rgb_fac,

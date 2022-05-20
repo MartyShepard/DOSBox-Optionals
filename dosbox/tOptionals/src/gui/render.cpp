@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -32,6 +32,12 @@
 #include "support.h"
 
 #include "render_scalers.h"
+
+/*[PATCH 3 / 4] RENDER_StartLineHandler can use SSE2*/
+#if defined(__SSE__)
+	#include <xmmintrin.h>
+#endif
+/*[PATCH 3 / 4] RENDER_StartLineHandler can use SSE2*/
 
 Render_t render;
 ScalerLineHandler_t RENDER_DrawLine;
@@ -94,6 +100,7 @@ void RENDER_SetPal(Bit8u entry,Bit8u red,Bit8u green,Bit8u blue) {
 static void RENDER_EmptyLineHandler(const void * src) {
 }
 
+/*
 static void RENDER_StartLineHandler(const void * s) {
 	if (s) {
 		const Bitu *src = (Bitu*)s;
@@ -117,6 +124,51 @@ static void RENDER_StartLineHandler(const void * s) {
 	render.scale.inLine++;
 	render.scale.outLine++;
 }
+*/
+/*[PATCH 3 / 4] RENDER_StartLineHandler can use SSE2*/
+bool sse2_available = true;
+static void RENDER_StartLineHandler(const void* s) {
+	if (s) {
+		const Bitu* src = (Bitu*)s;
+		Bitu* cache = (Bitu*)(render.scale.cacheRead);
+		Bits count = render.src.start;
+		#if defined(__SSE__)		
+		if (sse2_available) {
+			static const Bitu simd_inc = 16 / SIZEOF_INT_P;
+			while (count >= simd_inc) {
+				__m128i v = _mm_loadu_si128((const __m128i*)src);
+				__m128i c = _mm_loadu_si128((const __m128i*)cache);
+				__m128i cmp = _mm_cmpeq_epi32(v, c);
+				if (GCC_UNLIKELY(_mm_movemask_epi8(cmp) != 0xFFFF))
+					goto cacheMiss;
+				count -= simd_inc; src += simd_inc; cache += simd_inc;
+			}
+	
+		}
+		#endif
+		while (count) {
+			if (GCC_UNLIKELY(src[0] != cache[0]))
+				goto cacheMiss;
+			count--; src++; cache++;
+		}
+	}
+cacheHit:
+	render.scale.cacheRead += render.scale.cachePitch;
+	Scaler_ChangedLines[0] += Scaler_Aspect[render.scale.inLine];
+	render.scale.inLine++;
+	render.scale.outLine++;
+	return;
+	cacheMiss:
+	if (!GFX_StartUpdate(render.scale.outWrite, render.scale.outPitch)) {
+		RENDER_DrawLine = RENDER_EmptyLineHandler;
+		return;		
+	}
+	render.scale.outWrite += render.scale.outPitch * Scaler_ChangedLines[0];
+	RENDER_DrawLine = render.scale.lineHandler;
+	RENDER_DrawLine(s);
+}
+/*[PATCH 3 / 4] RENDER_StartLineHandler can use SSE2 END*/
+
 
 static void RENDER_FinishLineHandler(const void * s) {
 	if (s) {

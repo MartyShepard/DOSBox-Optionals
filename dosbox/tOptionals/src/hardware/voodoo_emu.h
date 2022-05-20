@@ -24,7 +24,11 @@
 
 #include "dosbox.h"
 
-#include "SDL.h"
+#if defined(_MSC_VER)
+#include "SDL2/include/SDL.h"
+#else
+#include "SDL2/SDL.h"
+#endif
 
 #include "voodoo_types.h"
 #include "voodoo_data.h"
@@ -59,6 +63,68 @@ extern void CPU_Core_Dyn_X86_RestoreDHFPUState(void);
 
 extern ExtVoodooMaschine extVoodoo;
 
+struct READ_BUFFER_BLOCK {
+	struct {
+		struct {
+			INT32   Y; 		// cached_line_front_y
+			INT32   W; 		// cached_line_front_width
+			INT32   L; 		// cached_line_front_length
+			INT32   P; 		// cached_line_front_pixels
+			int   CountA;
+			int   CountB;
+			int	  r;
+			int	  g;
+			int	  b;
+			int	  a;
+			UINT32* Buffer; // cached_line_front_data
+		}Frnt;
+		struct {
+			INT32   Y; 		// cached_line_back_y
+			INT32   W; 		// cached_line_back_width
+			INT32   L; 		// cached_line_back_length
+			INT32   P; 		// cached_line_back_pixels
+			int  CountA;
+			int  CountB;
+			int	  r;
+			int	  g;
+			int	  b;
+			int	  a;
+			UINT32* Buffer; // cached_line_back_data
+		}Back;
+	}Line;
+};
+static READ_BUFFER_BLOCK Cache;
+
+typedef struct vidmode_s
+{
+	const char* description;
+	int width, height;
+	int mode;
+	int htotal;
+	int hvis;
+	int hbp;
+	int vtotal;
+	int vvis;
+	int vbp;
+
+} vidmode_t;
+
+
+struct OpenGL_VertexData
+{
+	INT32 iterR;
+	INT32 iterG;
+	INT32 iterB;
+	INT32 iterA;
+	INT32 iterZ;
+	INT64 iterW;
+	INT32 VertX; /*dx*/
+	INT32 VertY; /*dy*/
+	INT32 d;	 /*??*/
+};
+static OpenGL_VertexData VertexData;
+typedef unsigned int GLenum;
+
 struct SDL_Block_Voodoo {
 	SDL_Window   *surface;
 	SDL_Window   *Dosbox_Surface;
@@ -73,10 +139,13 @@ struct SDL_Block_Voodoo {
 		const char* sgl_wrap_t;
 
 		int	  GL_filtering;		
-		int	  GL_ShadeModel;		
+		int	  GL_ShadeModel;
+		/*
 		int   n_ClipLowYHigh;
-		int   glZoomFaktor_W;
-		int   glZoomFaktor_H;	
+		*/	
+		int   glZoomFaktor_W; /*Temporary Allowed*/
+		int   glZoomFaktor_H; /*Temporary Allowed*/
+
 		int   gl_Major_Version;
 		int   gl_Minor_Version;	
 		int   gl_wrap_s;		
@@ -86,17 +155,22 @@ struct SDL_Block_Voodoo {
 		int   LogCntX;	
 
 		bool  compatibleFlag;
-		bool  glScissor_flag;
+
+		bool  glScissor_flag; /*Temporary True*/
+		
 		bool  glP_Smoth_flag;
 		bool  glL_Smoth_flag;
 		bool  glBlendFc_flag;
 		bool  gl_GLFog__flag;				
 		bool  glGMipMap_flag;
 		bool  glPersCor_flag;
-		bool  glG_Smoth_flag;	
+		bool  glG_Smoth_flag;
+		/*
 		bool  a_ClipLowYHigh;
+		*/
 		bool  gl_QuadsDraw;
 		bool  voodoo_aspect;
+		bool  voodoo_aspect_Save;
 		bool  sh_FbzcpCca_Sw2;		
 		bool  bLFBFixBack;
 		bool  bLFBFixFrnt;
@@ -105,10 +179,24 @@ struct SDL_Block_Voodoo {
 		float Anisotropic_Level;		
 		float gl_ortho_zNear;
 		float gl_ortho_zFar;
+		/*
 		float CoordsY;
 		float CoordsX;	
-	
+		*/
 		void *framebuf;
+
+		bool ChacheDelete;
+		bool Use3DFXCycles;
+		GLenum RGB_Type;
+		GLenum RGB_Format;
+		const char* sRGBType;
+		const char* sRGBFormat;
+
+		int Bright;
+		int ScanMode;
+
+		int a_ClipLowYHigh; /*Obsolete*/
+		int n_ClipLowYHigh; /*Obsolete*/
 	}opengl;
 	
 	Uint32 ScreenType;
@@ -120,6 +208,7 @@ struct SDL_Block_Voodoo {
 	bool OpenGLDesktopFullScreen;
 	bool fullscreen;
 	bool full_fixed;
+	bool isFullscreen;
 			
 	struct {
 		bool fullscreen_desktop;		
@@ -143,7 +232,19 @@ struct SDL_Block_Voodoo {
 		const char* texture;
 	}dosbox;	
 	
-	Uint32 dosboxScreenId;	
+	Uint32 dosboxScreenId;
+	struct {
+		bool bDrawPixelLFB0;
+		bool bDrawPixelLFB1;
+		bool bDrawPixelLFB2;
+		int  iDrawPixelLFB0;
+		int  iDrawPixelLFB1;
+		int  iDrawPixelLFB2;
+	}count;
+	struct {
+		Uint32 AlphaMode;
+		Uint32 r_fbzMode;
+	}extra;
 };
 static SDL_Block_Voodoo sdlVoodoo;
 

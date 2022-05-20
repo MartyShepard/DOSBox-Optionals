@@ -345,7 +345,7 @@ public:
 				
 		Section_prop * section=static_cast<Section_prop *>(configuration);
 		
-		PS1AudioCard=false;
+		PS1AudioCard= useSoundPS1 = false;
 
 
 		if ((strcmp(section->Get_string("ps1audio"),"true")!=0) &&
@@ -353,8 +353,10 @@ public:
 			(strcmp(section->Get_string("ps1audio"),"auto")!=0))
 				return;
 
-		PS1AudioCard=true;
+		PS1AudioCard = useSoundPS1 = true;
 		nCurrent_Ps1SND = "IBM PS/1 Audio Card (SN76496)";
+		PS1AudioCard	= useSoundPS1 = true;
+
 		LOG_MSG("PS/1: Sound Emulation Enabled");
 
 		// Ports 0x0200-0x0205 (let normal code handle the joystick at 0x0201).

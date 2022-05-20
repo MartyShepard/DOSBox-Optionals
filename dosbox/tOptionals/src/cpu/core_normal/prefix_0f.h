@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -367,6 +367,7 @@
 				SETFLAGBIT(CF,(*earw & mask));
 			} else {
 				GetEAa;eaa+=(((Bit16s)*rmrw)>>4)*2;
+				if (!TEST_PREFIX_ADDR) FixEA16;
 				Bit16u old=LoadMw(eaa);
 				SETFLAGBIT(CF,(old & mask));
 			}
@@ -393,6 +394,7 @@
 				*earw|=mask;
 			} else {
 				GetEAa;eaa+=(((Bit16s)*rmrw)>>4)*2;
+				if (!TEST_PREFIX_ADDR) FixEA16;
 				Bit16u old=LoadMw(eaa);
 				SETFLAGBIT(CF,(old & mask));
 				SaveMw(eaa,old | mask);
@@ -484,6 +486,7 @@
 				*earw&= ~mask;
 			} else {
 				GetEAa;eaa+=(((Bit16s)*rmrw)>>4)*2;
+				if (!TEST_PREFIX_ADDR) FixEA16;
 				Bit16u old=LoadMw(eaa);
 				SETFLAGBIT(CF,(old & mask));
 				SaveMw(eaa,old & ~mask);
@@ -543,7 +546,7 @@
 					*earw^=mask;
 					break;
 				default:
-					E_Exit("CPU:0F:BA:Illegal subfunction %X",rm & 0x38);
+					E_Exit("CPU:0F:BA:Illegal subfunction %X\n\n[Source=%s] [Line=%d]",rm & 0x38, __FILE__, __LINE__);
 				}
 			} else {
 				GetEAa;Bit16u old=LoadMw(eaa);
@@ -562,7 +565,7 @@
 					SaveMw(eaa,old ^ mask);
 					break;
 				default:
-					E_Exit("CPU:0F:BA:Illegal subfunction %X",rm & 0x38);
+					E_Exit("CPU:0F:BA:Illegal subfunction %X\n\n[Source=%s] [Line=%d]",rm & 0x38, __FILE__, __LINE__);
 				}
 			}
 			break;
@@ -577,6 +580,7 @@
 				*earw^=mask;
 			} else {
 				GetEAa;eaa+=(((Bit16s)*rmrw)>>4)*2;
+				if (!TEST_PREFIX_ADDR) FixEA16;
 				Bit16u old=LoadMw(eaa);
 				SETFLAGBIT(CF,(old & mask));
 				SaveMw(eaa,old ^ mask);
@@ -665,3 +669,8 @@
 		if (CPU_ArchitectureType<CPU_ARCHTYPE_486OLDSLOW) goto illegal_opcode;
 		BSWAPW(reg_di);break;
 		
+//#if C_MMX
+#define CASE_0F_MMX(x) CASE_0F_W(x)
+	#include "prefix_0f_mmx.h"
+#undef CASE_0F_MMX
+//#endif

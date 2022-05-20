@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -135,7 +135,7 @@ public:
 		// A standalone Gameblaster has a magic chip on it which is
 		// sometimes used for detection.
 		const char * sbtype=section->Get_string("sbtype");
-		if (!strcasecmp(sbtype,"gb")) {
+		if (!_stricmp(sbtype,"gb")) {
 			DetWriteHandler.Install( cmsBase + 4, write_cms_detect, IO_MB, 12 );
 			DetReadHandler.Install(cmsBase,read_cms_detect,IO_MB,16);
 		}

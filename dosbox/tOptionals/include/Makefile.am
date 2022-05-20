@@ -20,6 +20,7 @@ keyboard.h \
 logging.h \
 mapper.h \
 mem.h \
+mmx.h \
 midi.h \
 mixer.h \
 mouse.h \

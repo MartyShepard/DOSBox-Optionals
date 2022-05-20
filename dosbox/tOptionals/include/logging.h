@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -43,9 +43,23 @@ enum LOG_TYPES {
 	LOG_GUI,
 	LOG_MISC,
 	LOG_MSCDEX,
+	LOG_IMAGE,
+	LOG_CHD,
 	LOG_IO,
 	LOG_PCI,
-	LOG_VOODOO,			
+	LOG_PNP,
+	LOG_IDE,
+	LOG_REELMAGIC,
+	LOG_VOODOO,
+	LOG_RENDER,
+	LOG_FXEMU,
+	LOG_FXOGL,
+	LOG_FXLFB,
+	LOG_FXTEX,
+	LOG_FXDAT,
+	LOG_FXSHADER,
+	LOG_FXINTERFACE,
+	LOG_FXTEXFORMAT,
 	LOG_MAX
 };
 

@@ -70,9 +70,11 @@ iterated W    = 18.32 [48 bits]
 
 **************************************************************************/
 
+
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
+//#include <thread.h>
 
 #include "dosbox.h"
 #include "cross.h"
@@ -83,6 +85,7 @@ iterated W    = 18.32 [48 bits]
 #include "voodoo_opengl.h"
 
 #include "voodoo_def.h"
+#include <thread>
 
 
 voodoo_state *v;
@@ -101,8 +104,6 @@ static UINT8 dither2_lookup[256*16*2];
 
 /* fast reciprocal+log2 lookup */
 UINT32 voodoo_reciplog[(2 << RECIPLOG_LOOKUP_BITS) + 2];
-
-
 
 /*************************************
  *
@@ -126,7 +127,7 @@ static raster_info *add_rasterizer(voodoo_state *v, const raster_info *cinfo);
 static raster_info *find_rasterizer(voodoo_state *v, int texcount);
 
 /* generic rasterizers */
-static void raster_fastfill(void *dest, INT32 scanline, const poly_extent *extent, const void *extradata);
+static void raster_fastfill(void* dest, INT32 scanline, const poly_extent* extent, const void* extradata);
 
 #if defined(C_DEBUG)
 	int  nExtractedARGB = 0;
@@ -136,152 +137,177 @@ static void raster_fastfill(void *dest, INT32 scanline, const poly_extent *exten
 	*/
 #endif
 
+	/* ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
+	/*
+	 * Up/Down ScaleFactor to Calculate the 3DFX Screen against the actual Window/Fullscren Dosbox Screen Dimension
+	 */
+	static INLINE float ScaleFastFillY(GLsizei h, GLint y) {
+		for (int cy = ((y - 1) * ((double)h / (double)v->fbi.height) + (h / v->fbi.height)); cy <= (y * ((double)h / (double)v->fbi.height)); cy++)
+		{
+			return cy;
+		}
+		return 0;
+	}
+	static INLINE float ScaleFactorY(GLsizei h, GLint y) {
+		for (int cy = ((y - 1) * ((double)h / (double)v->fbi.height)); cy <= (y * ((double)h / (double)v->fbi.height)) - ((double)h / (double)v->fbi.height); cy++)
+		{
+			return cy;
+		}
+		return 0;
+	}
+	static INLINE float ScaleFactorX(GLsizei w, GLint x) {
+		for (int cx = ((x - 1) * ((double)w / (double)v->fbi.width) + ((double)w / (double)v->fbi.width)); cx <= (x * ((double)w / (double)v->fbi.width)); cx++)
+		{
+			return cx;
+			break;
+		}
+		return 0;
+	}
+
 /***************************************************************************
     RASTERIZER MANAGEMENT
 ***************************************************************************/
 
-void raster_generic(UINT32 TMUS, UINT32 TEXMODE0, UINT32 TEXMODE1, void *destbase,
-					INT32 y, const poly_extent *extent,	const void *extradata)
+void raster_generic(UINT32 TMUS, UINT32 TEXMODE0, UINT32 TEXMODE1, void* destbase,INT32 y, const poly_extent* extent, const void* extradata)
 {
-	const poly_extra_data *extra = (const poly_extra_data *)extradata;
-	voodoo_state *v = extra->state;
-	stats_block *stats = &v->thread_stats[0];
-	DECLARE_DITHER_POINTERS;
-	INT32 startx = extent->startx;
-	INT32 stopx = extent->stopx;
-	INT32 iterr, iterg, iterb, itera;
-	INT32 iterz;
-	INT64 iterw, iterw0 = 0, iterw1 = 0;
-	INT64 iters0 = 0, iters1 = 0;
-	INT64 itert0 = 0, itert1 = 0;
-	UINT16 *depth;
-	UINT16 *dest;
-	INT32 dx, dy;
-	INT32 scry;
-	INT32 x;
+		const poly_extra_data* extra = (const poly_extra_data*)extradata;
+		voodoo_state* v = extra->state;
+		stats_block* stats = &v->thread_stats[0];
+		DECLARE_DITHER_POINTERS;
+		INT32 startx = extent->startx;
+		INT32 stopx = extent->stopx;
+		INT32 iterr, iterg, iterb, itera;
+		INT32 iterz;
+		INT64 iterw, iterw0 = 0, iterw1 = 0;
+		INT64 iters0 = 0, iters1 = 0;
+		INT64 itert0 = 0, itert1 = 0;
+		UINT16* depth;
+		UINT16* dest;
+		INT32 dx, dy;
+		INT32 scry;
+		INT32 x;
 
-	/* determine the screen Y */
-	scry = y;
-	if (FBZMODE_Y_ORIGIN(v->reg[fbzMode].u))
-		scry = (INT32)(((int)v->fbi.yorigin - y));// & 0x3ff);
+		/* determine the screen Y */
+		scry = y;
+		if (FBZMODE_Y_ORIGIN(v->reg[fbzMode].u))
+			scry = (v->fbi.yorigin - y) /*& 0x3ff*/;
 
-	/* compute the dithering pointers */
-	if (FBZMODE_ENABLE_DITHERING(v->reg[fbzMode].u))
-	{
-		dither4 = &dither_matrix_4x4[(y & 3) * 4];
-		if (FBZMODE_DITHER_TYPE(v->reg[fbzMode].u) == 0)
+		#ifdef C_DEBUG
+		//	LOG(LOG_FXEMU, LOG_NORMAL)("[%d] Rasterizer Management [Y : ScrY = %d]", __LINE__, y);
+		#endif
+		/* compute the dithering pointers */
+		if (FBZMODE_ENABLE_DITHERING(v->reg[fbzMode].u))
 		{
-			dither = dither4;
-			dither_lookup = &dither4_lookup[(y & 3) << 11];
-		}
-		else
-		{
-			dither = &dither_matrix_2x2[(y & 3) * 4];
-			dither_lookup = &dither2_lookup[(y & 3) << 11];
-		}
-	}
-
-	/* apply clipping */
-	if (FBZMODE_ENABLE_CLIPPING(v->reg[fbzMode].u))
-	{
-		INT32 tempclip;
-
-		/* Y clipping buys us the whole scanline */
-		if (scry < (INT32)((v->reg[clipLowYHighY].u >> 16) & 0x3ff) ||
-			scry >= (INT32)(v->reg[clipLowYHighY].u & 0x3ff))
-		{
-			stats->pixels_in += stopx - startx;
-			stats->clip_fail += stopx - startx;
-			return;
-		}
-
-		/* X clipping */
-		tempclip = (v->reg[clipLeftRight].u >> 16) & 0x3ff;
-		if (startx < tempclip)
-		{
-			stats->pixels_in += tempclip - startx;
-			startx = tempclip;
-		}
-		tempclip = v->reg[clipLeftRight].u & 0x3ff;
-		if (stopx >= tempclip)
-		{
-			stats->pixels_in += stopx - tempclip;
-			stopx = tempclip - 1;
-		}
-	}
-
-	/* get pointers to the target buffer and depth buffer */
-	dest = (UINT16 *)destbase + (unsigned int)scry * (unsigned long)v->fbi.rowpixels;
-	depth = (v->fbi.auxoffs != (UINT32)(~0)) ? ((UINT16 *)(v->fbi.ram + (unsigned int)v->fbi.auxoffs) + (unsigned long)scry * (unsigned long)v->fbi.rowpixels) : NULL;
-
-	/* compute the starting parameters */
-	dx = startx - (extra->ax >> 4);
-	dy = y - (extra->ay >> 4);
-	iterr = extra->startr + dy * extra->drdy + dx * extra->drdx;
-	iterg = extra->startg + dy * extra->dgdy + dx * extra->dgdx;
-	iterb = extra->startb + dy * extra->dbdy + dx * extra->dbdx;
-	itera = extra->starta + dy * extra->dady + dx * extra->dadx;
-	iterz = extra->startz + dy * extra->dzdy + dx * extra->dzdx;
-	iterw = extra->startw + dy * extra->dwdy + dx * extra->dwdx;
-	if (TMUS >= 1)
-	{
-		iterw0 = extra->startw0 + dy * extra->dw0dy + dx * extra->dw0dx;
-		iters0 = extra->starts0 + dy * extra->ds0dy + dx * extra->ds0dx;
-		itert0 = extra->startt0 + dy * extra->dt0dy + dx * extra->dt0dx;
-	}
-	if (TMUS >= 2)
-	{
-		iterw1 = extra->startw1 + dy * extra->dw1dy + dx * extra->dw1dx;
-		iters1 = extra->starts1 + dy * extra->ds1dy + dx * extra->ds1dx;
-		itert1 = extra->startt1 + dy * extra->dt1dy + dx * extra->dt1dx;
-	}
-
-	/* loop in X */
-	for (x = startx; x < stopx; x++)
-	{
-		rgb_union iterargb;
-		rgb_union texel = { 0 };
-		rgb_union color;
-        /* unused variable? */
-        (void)color;
-
-		/* pixel pipeline part 1 handles depth testing and stippling */
-		PIXEL_PIPELINE_BEGIN(v, x, y, v->reg[fbzColorPath].u, v->reg[fbzMode].u, iterz, iterw);
-
-		/* depth testing */
-		DEPTH_TEST(v, stats, x, v->reg[fbzMode].u);
-		/* run the texture pipeline on TMU1 to produce a value in texel */
-		/* note that they set LOD min to 8 to "disable" a TMU */
-
-		if (TMUS >= 2 && v->tmu[1].lodmin < (8 << 8))
-			TEXTURE_PIPELINE(&v->tmu[1], x, dither4, TEXMODE1, texel,
-								v->tmu[1].lookup, extra->lodbase1,
-								iters1, itert1, iterw1, texel);
-
-		/* run the texture pipeline on TMU0 to produce a final */
-		/* result in texel */
-		/* note that they set LOD min to 8 to "disable" a TMU */
-		if (TMUS >= 1 && v->tmu[0].lodmin < (8 << 8)) {
-			if (!v->send_config) {
-				TEXTURE_PIPELINE(&v->tmu[0], x, dither4, TEXMODE0, texel,
-								v->tmu[0].lookup, extra->lodbase0,
-								iters0, itert0, iterw0, texel);
-			} else {	/* send config data to the frame buffer */
-				texel.u=v->tmu_config;
+			dither4 = &dither_matrix_4x4[(y & 3) * 4];
+			if (FBZMODE_DITHER_TYPE(v->reg[fbzMode].u) == 0)
+			{
+				dither = dither4;
+				dither_lookup = &dither4_lookup[(y & 3) << 11];
+			}
+			else
+			{
+				dither = &dither_matrix_2x2[(y & 3) * 4];
+				dither_lookup = &dither2_lookup[(y & 3) << 11];
 			}
 		}
 
-		/* colorpath pipeline selects source colors and does blending */
-		CLAMPED_ARGB(iterr, iterg, iterb, itera, v->reg[fbzColorPath].u, iterargb);
-
-
-		INT32 blendr, blendg, blendb, blenda;
-		rgb_union c_other;
-		rgb_union c_local;
-
-		/* compute c_other */
-		switch (FBZCP_CC_RGBSELECT(v->reg[fbzColorPath].u))
+		/* apply clipping */
+		if (FBZMODE_ENABLE_CLIPPING(v->reg[fbzMode].u))
 		{
+			INT32 tempclip;
+
+			/* Y clipping buys us the whole scanline */
+			if (scry < (INT32)((v->reg[clipLowYHighY].u >> 16) & 0x3ff) ||
+				scry >= (INT32)(v->reg[clipLowYHighY].u & 0x3ff))
+			{
+				stats->pixels_in += stopx - startx;
+				stats->clip_fail += stopx - startx;
+				return;
+			}
+
+			/* X clipping */
+			tempclip = (v->reg[clipLeftRight].u >> 16) & 0x3ff;
+			if (startx < tempclip)
+			{
+				stats->pixels_in += tempclip - startx;
+				startx = tempclip;
+			}
+			tempclip = v->reg[clipLeftRight].u & 0x3ff;
+			if (stopx >= tempclip)
+			{
+				stats->pixels_in += stopx - tempclip;
+				stopx = tempclip - 1;
+			}
+		}
+
+		/* get pointers to the target buffer and depth buffer */
+		dest = (UINT16*)destbase + scry * v->fbi.rowpixels;
+		depth = (v->fbi.auxoffs != (UINT32)(~0)) ? ((UINT16*)(v->fbi.ram + v->fbi.auxoffs) + scry * v->fbi.rowpixels) : NULL;
+
+		/* compute the starting parameters */
+		dx = startx - (extra->ax >> 4);
+		dy = y - (extra->ay >> 4);
+		iterr = extra->startr + dy * extra->drdy + dx * extra->drdx;
+		iterg = extra->startg + dy * extra->dgdy + dx * extra->dgdx;
+		iterb = extra->startb + dy * extra->dbdy + dx * extra->dbdx;
+		itera = extra->starta + dy * extra->dady + dx * extra->dadx;
+		iterz = extra->startz + dy * extra->dzdy + dx * extra->dzdx;
+		iterw = extra->startw + dy * extra->dwdy + dx * extra->dwdx;
+		if (TMUS >= 1)
+		{
+			iterw0 = extra->startw0 + dy * extra->dw0dy + dx * extra->dw0dx;
+			iters0 = extra->starts0 + dy * extra->ds0dy + dx * extra->ds0dx;
+			itert0 = extra->startt0 + dy * extra->dt0dy + dx * extra->dt0dx;
+		}
+		if (TMUS >= 2)
+		{
+			iterw1 = extra->startw1 + dy * extra->dw1dy + dx * extra->dw1dx;
+			iters1 = extra->starts1 + dy * extra->ds1dy + dx * extra->ds1dx;
+			itert1 = extra->startt1 + dy * extra->dt1dy + dx * extra->dt1dx;
+		}
+
+		/* loop in X */
+		for (x = startx; x < stopx; x++)
+		{
+			rgb_union iterargb = { 0 };
+			rgb_union texel = { 0 };
+
+			/* pixel pipeline part 1 handles depth testing and stippling */
+			PIXEL_PIPELINE_BEGIN(v, x, y, v->reg[fbzColorPath].u, v->reg[fbzMode].u, iterz, iterw);
+
+			/* run the texture pipeline on TMU1 to produce a value in texel */
+			/* note that they set LOD min to 8 to "disable" a TMU */
+
+			if (TMUS >= 2 && v->tmu[1].lodmin < (8 << 8))
+				TEXTURE_PIPELINE(&v->tmu[1], x, dither4, TEXMODE1, texel,
+					v->tmu[1].lookup, extra->lodbase1,
+					iters1, itert1, iterw1, texel);
+
+			/* run the texture pipeline on TMU0 to produce a final */
+			/* result in texel */
+			/* note that they set LOD min to 8 to "disable" a TMU */
+			if (TMUS >= 1 && v->tmu[0].lodmin < (8 << 8)) {
+				if (!v->send_config) {
+					TEXTURE_PIPELINE(&v->tmu[0], x, dither4, TEXMODE0, texel,
+						v->tmu[0].lookup, extra->lodbase0,
+						iters0, itert0, iterw0, texel);
+				}
+				else {	/* send config data to the frame buffer */
+					texel.u = v->tmu_config;
+				}
+			}
+
+			/* colorpath pipeline selects source colors and does blending */
+			CLAMPED_ARGB(iterr, iterg, iterb, itera, v->reg[fbzColorPath].u, iterargb);
+
+
+			INT32 blendr, blendg, blendb, blenda;
+			rgb_union c_other;
+			rgb_union c_local;
+
+			/* compute c_other */
+			switch (FBZCP_CC_RGBSELECT(v->reg[fbzColorPath].u))
+			{
 			case 0:		/* iterated RGB */
 				c_other.u = iterargb.u;
 				break;
@@ -294,14 +320,14 @@ void raster_generic(UINT32 TMUS, UINT32 TEXMODE0, UINT32 TEXMODE1, void *destbas
 			default:	/* reserved */
 				c_other.u = 0;
 				break;
-		}
+			}
 
-		/* handle chroma key */
-		APPLY_CHROMAKEY(v, stats, v->reg[fbzMode].u, c_other);
+			/* handle chroma key */
+			APPLY_CHROMAKEY(v, stats, v->reg[fbzMode].u, c_other);
 
-		/* compute a_other */
-		switch (FBZCP_CC_ASELECT(v->reg[fbzColorPath].u))
-		{
+			/* compute a_other */
+			switch (FBZCP_CC_ASELECT(v->reg[fbzColorPath].u))
+			{
 			case 0:		/* iterated alpha */
 				c_other.rgb.a = iterargb.rgb.a;
 				break;
@@ -314,14 +340,33 @@ void raster_generic(UINT32 TMUS, UINT32 TEXMODE0, UINT32 TEXMODE1, void *destbas
 			default:	/* reserved */
 				c_other.rgb.a = 0;
 				break;
-		}
+			}
 
-		/* handle alpha mask */
-		APPLY_ALPHAMASK(v, stats, v->reg[fbzMode].u, c_other.rgb.a);
+			/* handle alpha mask */
+			APPLY_ALPHAMASK(v, stats, v->reg[fbzMode].u, c_other.rgb.a);
 
-		/* compute a_local */
-		switch (FBZCP_CCA_LOCALSELECT(v->reg[fbzColorPath].u))
-		{
+			/* handle alpha test */
+			APPLY_ALPHATEST(v, stats, v->reg[alphaMode].u, c_other.rgb.a);
+
+			/* compute c_local */
+			if (FBZCP_CC_LOCALSELECT_OVERRIDE(v->reg[fbzColorPath].u) == 0)
+			{
+				if (FBZCP_CC_LOCALSELECT(v->reg[fbzColorPath].u) == 0)	/* iterated RGB */
+					c_local.u = iterargb.u;
+				else											/* color0 RGB */
+					c_local.u = v->reg[color0].u;
+			}
+			else
+			{
+				if (!(texel.rgb.a & 0x80))					/* iterated RGB */
+					c_local.u = iterargb.u;
+				else											/* color0 RGB */
+					c_local.u = v->reg[color0].u;
+			}
+
+			/* compute a_local */
+			switch (FBZCP_CCA_LOCALSELECT(v->reg[fbzColorPath].u))
+			{
 			default:
 			case 0:		/* iterated alpha */
 				c_local.rgb.a = iterargb.rgb.a;
@@ -343,99 +388,39 @@ void raster_generic(UINT32 TMUS, UINT32 TEXMODE0, UINT32 TEXMODE1, void *destbas
 				c_local.rgb.a = (UINT8)temp;
 				break;
 			}
-		}
+			}
 
-		/* select zero or a_other */
-		if (FBZCP_CCA_ZERO_OTHER(v->reg[fbzColorPath].u) == 0)
-			a = c_other.rgb.a;
-		else
-			a = 0;
+			/* select zero or c_other */
+			if (FBZCP_CC_ZERO_OTHER(v->reg[fbzColorPath].u) == 0)
+			{
+				r = c_other.rgb.r;
+				g = c_other.rgb.g;
+				b = c_other.rgb.b;
+			}
+			else
+				r = g = b = 0;
 
-		/* subtract a_local */
-		if (FBZCP_CCA_SUB_CLOCAL(v->reg[fbzColorPath].u))
-			a -= c_local.rgb.a;
+			/* select zero or a_other */
+			if (FBZCP_CCA_ZERO_OTHER(v->reg[fbzColorPath].u) == 0)
+				a = c_other.rgb.a;
+			else
+				a = 0;
 
-		/* blend alpha */
-		switch (FBZCP_CCA_MSELECT(v->reg[fbzColorPath].u))
-		{
-			default:	/* reserved */
-			case 0:		/* 0 */
-				blenda = 0;
-				break;
-			case 1:		/* a_local */
-				blenda = c_local.rgb.a;
-				break;
-			case 2:		/* a_other */
-				blenda = c_other.rgb.a;
-				break;
-		
-			case 3: /* a_local */ 
-				blenda = c_local.rgb.a; 
-				break; 
-			case 4:		/* texture alpha */
-				blenda = texel.rgb.a;
-				break;
-		}
+			/* subtract c_local */
+			if (FBZCP_CC_SUB_CLOCAL(v->reg[fbzColorPath].u))
+			{
+				r -= c_local.rgb.r;
+				g -= c_local.rgb.g;
+				b -= c_local.rgb.b;
+			}
 
+			/* subtract a_local */
+			if (FBZCP_CCA_SUB_CLOCAL(v->reg[fbzColorPath].u))
+				a -= c_local.rgb.a;
 
-		/* reverse the alpha blend */
-		if (!FBZCP_CCA_REVERSE_BLEND(v->reg[fbzColorPath].u))
-			blenda ^= 0xff;
-
-		/* do the blend */
-		a = (a * (blenda + 1)) >> 8;
-
-		/* add clocal or alocal to alpha */
-		if (FBZCP_CCA_ADD_ACLOCAL(v->reg[fbzColorPath].u))
-			a += c_local.rgb.a;
-
-		/* clamp */
-		CLAMP(a, 0x00, 0xff);
-
-		/* invert */
-		if (FBZCP_CCA_INVERT_OUTPUT(v->reg[fbzColorPath].u))
-			a ^= 0xff;
-
-		/* handle alpha test */
-		APPLY_ALPHATEST(v, stats, v->reg[alphaMode].u, a);
-		
-		/* compute c_local */
-		if (FBZCP_CC_LOCALSELECT_OVERRIDE(v->reg[fbzColorPath].u) == 0)
-		{
-			if (FBZCP_CC_LOCALSELECT(v->reg[fbzColorPath].u) == 0) /* iterated RGB */
-				c_local.u = iterargb.u;
-			else /* color0 RGB */
-				c_local.u = v->reg[color0].u;
-		}
-		else
-		{
-			if (!(texel.rgb.a & 0x80)) /* iterated RGB */
-				c_local.u = iterargb.u;
-			else /* color0 RGB */
-				c_local.u = v->reg[color0].u;
-		} 
-		
-		/* select zero or c_other */
-		if (FBZCP_CC_ZERO_OTHER(v->reg[fbzColorPath].u) == 0)
-		{
-			r = c_other.rgb.r;
-			g = c_other.rgb.g;
-			b = c_other.rgb.b;
-		}
-		else
-			r = g = b = 0;
-
-		/* subtract c_local */
-		if (FBZCP_CC_SUB_CLOCAL(v->reg[fbzColorPath].u))
-		{
-			r -= c_local.rgb.r;
-			g -= c_local.rgb.g;
-			b -= c_local.rgb.b;
-		}
-
-		/* blend RGB */
-		switch (FBZCP_CC_MSELECT(v->reg[fbzColorPath].u))
-		{
+			/* blend RGB */
+			switch (FBZCP_CC_MSELECT(v->reg[fbzColorPath].u))
+			{
 			default:	/* reserved */
 			case 0:		/* 0 */
 				blendr = blendg = blendb = 0;
@@ -459,24 +444,50 @@ void raster_generic(UINT32 TMUS, UINT32 TEXMODE0, UINT32 TEXMODE1, void *destbas
 				blendg = texel.rgb.g;
 				blendb = texel.rgb.b;
 				break;
-		}
+			}
 
-		/* reverse the RGB blend */
-		if (!FBZCP_CC_REVERSE_BLEND(v->reg[fbzColorPath].u))
-		{
-			blendr ^= 0xff;
-			blendg ^= 0xff;
-			blendb ^= 0xff;
-		}
+			/* blend alpha */
+			switch (FBZCP_CCA_MSELECT(v->reg[fbzColorPath].u))
+			{
+			default:	/* reserved */
+			case 0:		/* 0 */
+				blenda = 0;
+				break;
+			case 1:		/* a_local */
+				blenda = c_local.rgb.a;
+				break;
+			case 2:		/* a_other */
+				blenda = c_other.rgb.a;
+				break;
+			case 3:		/* a_local */
+				blenda = c_local.rgb.a;
+				break;
+			case 4:		/* texture alpha */
+				blenda = texel.rgb.a;
+				break;
+			}
 
-		/* do the blend */
-		r = (r * (blendr + 1)) >> 8;
-		g = (g * (blendg + 1)) >> 8;
-		b = (b * (blendb + 1)) >> 8;
+			/* reverse the RGB blend */
+			if (!FBZCP_CC_REVERSE_BLEND(v->reg[fbzColorPath].u))
+			{
+				blendr ^= 0xff;
+				blendg ^= 0xff;
+				blendb ^= 0xff;
+			}
 
-		/* add clocal or alocal to RGB */
-		switch (FBZCP_CC_ADD_ACLOCAL(v->reg[fbzColorPath].u))
-		{
+			/* reverse the alpha blend */
+			if (!FBZCP_CCA_REVERSE_BLEND(v->reg[fbzColorPath].u))
+				blenda ^= 0xff;
+
+			/* do the blend */
+			r = (r * (blendr + 1)) >> 8;
+			g = (g * (blendg + 1)) >> 8;
+			b = (b * (blendb + 1)) >> 8;
+			a = (a * (blenda + 1)) >> 8;
+
+			/* add clocal or alocal to RGB */
+			switch (FBZCP_CC_ADD_ACLOCAL(v->reg[fbzColorPath].u))
+			{
 			case 3:		/* reserved */
 			case 0:		/* nothing */
 				break;
@@ -490,49 +501,57 @@ void raster_generic(UINT32 TMUS, UINT32 TEXMODE0, UINT32 TEXMODE1, void *destbas
 				g += c_local.rgb.a;
 				b += c_local.rgb.a;
 				break;
-		}
+			}
 
-		/* clamp */
-		CLAMP(r, 0x00, 0xff);
-		CLAMP(g, 0x00, 0xff);
-		CLAMP(b, 0x00, 0xff);
+			/* add clocal or alocal to alpha */
+			if (FBZCP_CCA_ADD_ACLOCAL(v->reg[fbzColorPath].u))
+				a += c_local.rgb.a;
 
-		/* invert */
-		if (FBZCP_CC_INVERT_OUTPUT(v->reg[fbzColorPath].u))
-		{
-			r ^= 0xff;
-			g ^= 0xff;
-			b ^= 0xff;
-		}
+			/* clamp */
+			CLAMP(r, 0x00, 0xff);
+			CLAMP(g, 0x00, 0xff);
+			CLAMP(b, 0x00, 0xff);
+			CLAMP(a, 0x00, 0xff);
 
-		/* pixel pipeline part 2 handles fog, alpha, and final output */
-		PIXEL_PIPELINE_MODIFY(v, dither, dither4, x,
-							v->reg[fbzMode].u, v->reg[fbzColorPath].u, v->reg[alphaMode].u, v->reg[fogMode].u,
-							iterz, iterw, iterargb);
-		PIXEL_PIPELINE_FINISH(v, dither_lookup, x, dest, depth, v->reg[fbzMode].u);
-		PIXEL_PIPELINE_END(stats);
+			/* invert */
+			if (FBZCP_CC_INVERT_OUTPUT(v->reg[fbzColorPath].u))
+			{
+				r ^= 0xff;
+				g ^= 0xff;
+				b ^= 0xff;
+			}
 
-		/* update the iterated parameters */
-		iterr += extra->drdx;
-		iterg += extra->dgdx;
-		iterb += extra->dbdx;
-		itera += extra->dadx;
-		iterz += extra->dzdx;
-		iterw += extra->dwdx;
-		if (TMUS >= 1)
-		{
-			iterw0 += extra->dw0dx;
-			iters0 += extra->ds0dx;
-			itert0 += extra->dt0dx;
-		}
-		if (TMUS >= 2)
-		{
-			iterw1 += extra->dw1dx;
-			iters1 += extra->ds1dx;
-			itert1 += extra->dt1dx;
+			if (FBZCP_CCA_INVERT_OUTPUT(v->reg[fbzColorPath].u))
+				a ^= 0xff;
+
+			/* pixel pipeline part 2 handles fog, alpha, and final output */
+			PIXEL_PIPELINE_MODIFY(v, dither, dither4, x,
+				v->reg[fbzMode].u, v->reg[fbzColorPath].u, v->reg[alphaMode].u, v->reg[fogMode].u,
+				iterz, iterw, iterargb);
+			PIXEL_PIPELINE_FINISH(v, dither_lookup, x, dest, depth, v->reg[fbzMode].u);
+			PIXEL_PIPELINE_END(stats);
+
+			/* update the iterated parameters */
+			iterr += extra->drdx;
+			iterg += extra->dgdx;
+			iterb += extra->dbdx;
+			itera += extra->dadx;
+			iterz += extra->dzdx;
+			iterw += extra->dwdx;
+			if (TMUS >= 1)
+			{
+				iterw0 += extra->dw0dx;
+				iters0 += extra->ds0dx;
+				itert0 += extra->dt0dx;
+			}
+			if (TMUS >= 2)
+			{
+				iterw1 += extra->dw1dx;
+				iters1 += extra->ds1dx;
+				itert1 += extra->dt1dx;
+			}
 		}
 	}
-}
 
 
 /***************************************************************************
@@ -888,7 +907,7 @@ void soft_reset(voodoo_state *v)
  *
  *************************************/
 
-void recompute_video_memory(voodoo_state *v)
+void recompute_video_memory(voodoo_state* v)
 {
 	UINT32 buffer_pages = FBIINIT2_VIDEO_BUFFER_OFFSET(v->reg[fbiInit2].u);
 	UINT32 fifo_start_page = FBIINIT4_MEMORY_FIFO_START_ROW(v->reg[fbiInit4].u);
@@ -908,14 +927,14 @@ void recompute_video_memory(voodoo_state *v)
 	if (v->type == VOODOO_2)
 	{
 		v->fbi.x_tiles = (v->fbi.x_tiles << 1) |
-						(FBIINIT1_X_VIDEO_TILES_BIT5(v->reg[fbiInit1].u) << 5) |
-						(FBIINIT6_X_VIDEO_TILES_BIT0(v->reg[fbiInit6].u));
+			(FBIINIT1_X_VIDEO_TILES_BIT5(v->reg[fbiInit1].u) << 5) |
+			(FBIINIT6_X_VIDEO_TILES_BIT0(v->reg[fbiInit6].u));
 	}
 	v->fbi.rowpixels = v->fbi.tile_width * v->fbi.x_tiles;
 
-//  logerror("VOODOO.%d.VIDMEM: buffer_pages=%X  fifo=%X-%X  tiles=%X  rowpix=%d\n", v->index, buffer_pages, fifo_start_page, fifo_last_page, v->fbi.x_tiles, v->fbi.rowpixels);
+	//  logerror("VOODOO.%d.VIDMEM: buffer_pages=%X  fifo=%X-%X  tiles=%X  rowpix=%d\n", v->index, buffer_pages, fifo_start_page, fifo_last_page, v->fbi.x_tiles, v->fbi.rowpixels);
 
-	/* first RGB buffer always starts at 0 */
+		/* first RGB buffer always starts at 0 */
 	v->fbi.rgboffs[0] = 0;
 
 	/* second RGB buffer starts immediately afterwards */
@@ -925,7 +944,7 @@ void recompute_video_memory(voodoo_state *v)
 	switch (memory_config)
 	{
 	case 3:	/* reserved */
-		LOG(LOG_VOODOO,LOG_WARN)("VOODOO.ERROR:Unexpected memory configuration in recompute_video_memory!\n");
+		LOG(LOG_VOODOO, LOG_WARN)("VOODOO.ERROR:Unexpected memory configuration in recompute_video_memory!\n");
 
 	case 0:	/* 2 color buffers, 1 aux buffer */
 		v->fbi.rgboffs[2] = (UINT32)(~0);
@@ -959,9 +978,9 @@ void recompute_video_memory(voodoo_state *v)
 	/* is it valid and enabled? */
 	if (fifo_start_page <= fifo_last_page && FBIINIT0_ENABLE_MEMORY_FIFO(v->reg[fbiInit0].u))
 	{
-		v->fbi.fifo.size = (INT32)(((unsigned int)fifo_last_page + 1u - (unsigned int)fifo_start_page) * 0x1000u / 4u);
-		if (v->fbi.fifo.size > 65536*2)
-			v->fbi.fifo.size = 65536*2;
+		v->fbi.fifo.size = (fifo_last_page + 1 - fifo_start_page) * 0x1000 / 4;
+		if (v->fbi.fifo.size > 65536 * 2)
+			v->fbi.fifo.size = 65536 * 2;
 	}
 	else	/* if not, disable the FIFO */
 	{
@@ -1134,15 +1153,21 @@ void dacdata_r(dac_state *d, UINT8 regnum)
  *
  *************************************/
 
-void recompute_texture_params(tmu_state *t)
+ /*************************************
+  *
+  *  Texuture parameter computation
+  *
+  *************************************/
+
+void recompute_texture_params(tmu_state* t)
 {
 	int bppscale;
 	UINT32 base;
 	int lod;
 
 	/* extract LOD parameters */
-	t->lodmin = (INT32)TEXLOD_LODMIN(t->reg[tLOD].u) << 6;
-	t->lodmax = (INT32)TEXLOD_LODMAX(t->reg[tLOD].u) << 6;
+	t->lodmin = TEXLOD_LODMIN(t->reg[tLOD].u) << 6;
+	t->lodmax = TEXLOD_LODMAX(t->reg[tLOD].u) << 6;
 	t->lodbias = (INT8)(TEXLOD_LODBIAS(t->reg[tLOD].u) << 2) << 4;
 
 	/* determine which LODs are present */
@@ -1163,11 +1188,11 @@ void recompute_texture_params(tmu_state *t)
 		t->wmask >>= TEXLOD_LOD_ASPECT(t->reg[tLOD].u);
 
 	/* determine the bpp of the texture */
-	bppscale = (int)TEXMODE_FORMAT(t->reg[textureMode].u) >> 3;
+	bppscale = TEXMODE_FORMAT(t->reg[textureMode].u) >> 3;
 
 	/* start with the base of LOD 0 */
 	if (t->texaddr_shift == 0 && (t->reg[texBaseAddr].u & 1))
-		LOG(LOG_VOODOO,LOG_WARN)("Tiled texture\n");
+		LOG(LOG_VOODOO, LOG_WARN)("Tiled texture\n");
 	base = (t->reg[texBaseAddr].u & t->texaddr_mask) << t->texaddr_shift;
 	t->lodoffset[0] = base & t->mask;
 
@@ -1199,7 +1224,7 @@ void recompute_texture_params(tmu_state *t)
 	/* remaining LODs make sense */
 	for (lod = 4; lod <= 6; lod++)
 	{
-		if (t->lodmask & (1u << (lod - 1)))
+		if (t->lodmask & (1 << (lod - 1)))
 		{
 			UINT32 size = ((t->wmask >> (lod - 1)) + 1) * ((t->hmask >> (lod - 1)) + 1);
 			if (size < 4) size = 4;
@@ -1273,14 +1298,14 @@ INLINE INT32 round_coordinate(float value)
 	return result + (value - (float)result > 0.5f);
 }
 
-void poly_render_triangle(void *dest, poly_draw_scanline_func callback, const poly_vertex *v1, const poly_vertex *v2, const poly_vertex *v3, poly_extra_data *extra)
+void poly_render_triangle(void* dest, poly_draw_scanline_func callback, const poly_vertex* v1, const poly_vertex* v2, const poly_vertex* v3, poly_extra_data* extra)
 {
 	float dxdy_v1v2, dxdy_v1v3, dxdy_v2v3;
-	const poly_vertex *tv;
-	INT32 curscan, scaninc=1;
+	const poly_vertex* tv;
+	INT32 curscan, scaninc = 1;
 
 	INT32 v1yclip, v3yclip;
-	INT32 v1y, v3y;//, v1x;
+	INT32 v1y, v3y, v1x;
 
 	/* first sort by Y */
 	if (v2->y < v1->y)
@@ -1303,7 +1328,7 @@ void poly_render_triangle(void *dest, poly_draw_scanline_func callback, const po
 	}
 
 	/* compute some integral X/Y vertex values */
-//	v1x = round_coordinate(v1->x);
+	v1x = round_coordinate(v1->x);
 	v1y = round_coordinate(v1->y);
 	v3y = round_coordinate(v3->y);
 
@@ -1318,8 +1343,8 @@ void poly_render_triangle(void *dest, poly_draw_scanline_func callback, const po
 	dxdy_v1v3 = (v3->y == v1->y) ? 0.0f : (v3->x - v1->x) / (v3->y - v1->y);
 	dxdy_v2v3 = (v3->y == v2->y) ? 0.0f : (v3->x - v2->x) / (v3->y - v2->y);
 
-	poly_extent *extent = new poly_extent;
-	int extnum=0;
+	poly_extent* extent = new poly_extent;
+	int extnum = 0;
 	for (curscan = v1yclip; curscan < v3yclip; curscan += scaninc)
 	{
 		{
@@ -1352,7 +1377,7 @@ void poly_render_triangle(void *dest, poly_draw_scanline_func callback, const po
 
 			extent->startx = istartx;
 			extent->stopx = istopx;
-			(callback)(dest,curscan,extent,extra);
+			(callback)(dest, curscan, extent, extra);
 		}
 	}
 
@@ -1476,135 +1501,140 @@ void register_w(UINT32 offset, UINT32 data) {
 	{
 		/* Vertex data is 12.4 formatted fixed point */
 		case fvertexAx:
-			data = (UINT32)float_to_int32(data, 4);
+			data = float_to_int32(data, 4);
 		case vertexAx:
 			if (chips & 1) v->fbi.ax = (INT16)(data&0xffff);
+			if (v->fbi.ax > 0)
+			{
+				//LOG(LOG_FXEMU, LOG_NORMAL)("[%d] Register_W [Chip %d] FBI:AX[%d]", __LINE__, chips & 1, v->fbi.ax);
+				//SDL_Delay(200);
+			}
 			break;
 
 		case fvertexAy:
-			data = (UINT32)float_to_int32(data, 4);
+			data = float_to_int32(data, 4);
 		case vertexAy:
-			if (chips & 1) v->fbi.ay = (INT16)(data&0xffff);
+			if (chips & 1) v->fbi.ay = (INT16)(data & 0xffff);
 			break;
 
 		case fvertexBx:
-			data = (UINT32)float_to_int32(data, 4);
+			data = float_to_int32(data, 4);
 		case vertexBx:
-			if (chips & 1) v->fbi.bx = (INT16)(data&0xffff);
+			if (chips & 1) v->fbi.bx = (INT16)(data & 0xffff);
 			break;
 
 		case fvertexBy:
-			data = (UINT32)float_to_int32(data, 4);
+			data = float_to_int32(data, 4);
 		case vertexBy:
-			if (chips & 1) v->fbi.by = (INT16)(data&0xffff);
+			if (chips & 1) v->fbi.by = (INT16)(data & 0xffff);
 			break;
 
 		case fvertexCx:
-			data = (UINT32)float_to_int32(data, 4);
+			data = float_to_int32(data, 4);
 		case vertexCx:
-			if (chips & 1) v->fbi.cx = (INT16)(data&0xffff);
+			if (chips & 1) v->fbi.cx = (INT16)(data & 0xffff);
 			break;
 
 		case fvertexCy:
-			data = (UINT32)float_to_int32(data, 4);
+			data = float_to_int32(data, 4);
 		case vertexCy:
-			if (chips & 1) v->fbi.cy = (INT16)(data&0xffff);
+			if (chips & 1) v->fbi.cy = (INT16)(data & 0xffff);
 			break;
 
-		/* RGB data is 12.12 formatted fixed point */
+			/* RGB data is 12.12 formatted fixed point */
 		case fstartR:
-			data = (UINT32)float_to_int32(data, 12);
+			data = float_to_int32(data, 12);
 		case startR:
 			if (chips & 1) v->fbi.startr = (INT32)(data << 8) >> 8;
 			break;
 
 		case fstartG:
-			data = (UINT32)float_to_int32(data, 12);
+			data = float_to_int32(data, 12);
 		case startG:
 			if (chips & 1) v->fbi.startg = (INT32)(data << 8) >> 8;
 			break;
 
 		case fstartB:
-			data = (UINT32)float_to_int32(data, 12);
+			data = float_to_int32(data, 12);
 		case startB:
 			if (chips & 1) v->fbi.startb = (INT32)(data << 8) >> 8;
 			break;
 
 		case fstartA:
-			data = (UINT32)float_to_int32(data, 12);
+			data = float_to_int32(data, 12);
 		case startA:
 			if (chips & 1) v->fbi.starta = (INT32)(data << 8) >> 8;
 			break;
 
 		case fdRdX:
-			data = (UINT32)float_to_int32(data, 12);
+			data = float_to_int32(data, 12);
 		case dRdX:
 			if (chips & 1) v->fbi.drdx = (INT32)(data << 8) >> 8;
 			break;
 
 		case fdGdX:
-			data = (UINT32)float_to_int32(data, 12);
+			data = float_to_int32(data, 12);
 		case dGdX:
 			if (chips & 1) v->fbi.dgdx = (INT32)(data << 8) >> 8;
 			break;
 
 		case fdBdX:
-			data = (UINT32)float_to_int32(data, 12);
+			data = float_to_int32(data, 12);
 		case dBdX:
 			if (chips & 1) v->fbi.dbdx = (INT32)(data << 8) >> 8;
 			break;
 
 		case fdAdX:
-			data = (UINT32)float_to_int32(data, 12);
+			data = float_to_int32(data, 12);
 		case dAdX:
 			if (chips & 1) v->fbi.dadx = (INT32)(data << 8) >> 8;
 			break;
 
 		case fdRdY:
-			data = (UINT32)float_to_int32(data, 12);
+			data = float_to_int32(data, 12);
 		case dRdY:
 			if (chips & 1) v->fbi.drdy = (INT32)(data << 8) >> 8;
 			break;
 
 		case fdGdY:
-			data = (UINT32)float_to_int32(data, 12);
+			data = float_to_int32(data, 12);
 		case dGdY:
 			if (chips & 1) v->fbi.dgdy = (INT32)(data << 8) >> 8;
 			break;
 
 		case fdBdY:
-			data = (UINT32)float_to_int32(data, 12);
+			data = float_to_int32(data, 12);
 		case dBdY:
 			if (chips & 1) v->fbi.dbdy = (INT32)(data << 8) >> 8;
 			break;
 
 		case fdAdY:
-			data = (UINT32)float_to_int32(data, 12);
+			data = float_to_int32(data, 12);
 		case dAdY:
 			if (chips & 1) v->fbi.dady = (INT32)(data << 8) >> 8;
 			break;
 
-		/* Z data is 20.12 formatted fixed point */
+			/* Z data is 20.12 formatted fixed point */
 		case fstartZ:
-			data = (UINT32)float_to_int32(data, 12);
+			data = float_to_int32(data, 12);
 		case startZ:
 			if (chips & 1) v->fbi.startz = (INT32)data;
 			break;
 
 		case fdZdX:
-			data = (UINT32)float_to_int32(data, 12);
+			data = float_to_int32(data, 12);
 		case dZdX:
 			if (chips & 1) v->fbi.dzdx = (INT32)data;
 			break;
 
 		case fdZdY:
-			data = (UINT32)float_to_int32(data, 12);
+			data = float_to_int32(data, 12);
 		case dZdY:
 			if (chips & 1) v->fbi.dzdy = (INT32)data;
 			break;
 
-			
-		/* S,T data is 14.18 formatted fixed point, converted to 16.32 internally */
+
+			/* S,T data is 14.18 formatted fixed point, converted to 16.32 internally */
 		case fstartS:
 			data64 = float_to_int64(data, 32);
 			if (chips & 2) v->tmu[0].starts = data64;
@@ -1665,7 +1695,7 @@ void register_w(UINT32 offset, UINT32 data) {
 			if (chips & 4) v->tmu[1].dtdy = (INT64)(INT32)data << 14;
 			break;
 
-		/* W data is 2.30 formatted fixed point, converted to 16.32 internally */
+			/* W data is 2.30 formatted fixed point, converted to 16.32 internally */
 		case fstartW:
 			data64 = float_to_int64(data, 32);
 			if (chips & 1) v->fbi.startw = data64;
@@ -1702,16 +1732,14 @@ void register_w(UINT32 offset, UINT32 data) {
 			if (chips & 4) v->tmu[1].dwdy = (INT64)(INT32)data << 2;
 			break;
 
-		/* setup bits */
+			/* setup bits */
 		case sARGB:
 			if (chips & 1)
 			{
-				CPU_Core_Dyn_X86_SaveDHFPUState();
 				v->reg[sAlpha].f = (float)RGB_ALPHA(data);
 				v->reg[sRed].f = (float)RGB_RED(data);
 				v->reg[sGreen].f = (float)RGB_GREEN(data);
 				v->reg[sBlue].f = (float)RGB_BLUE(data);
-				CPU_Core_Dyn_X86_RestoreDHFPUState();
 			}
 			break;
 
@@ -1728,9 +1756,7 @@ void register_w(UINT32 offset, UINT32 data) {
 			if (chips & 1) {
 				if (v->ogl && v->active && (FBZMODE_Y_ORIGIN(v->reg[fbzMode].u)!=FBZMODE_Y_ORIGIN(data))) {
 					v->reg[fbzMode].u = data;
-					CPU_Core_Dyn_X86_SaveDHFPUState();
 					voodoo_ogl_set_window(v);
-					CPU_Core_Dyn_X86_RestoreDHFPUState();
 				} else {
 					v->reg[fbzMode].u = data;
 				}
@@ -1745,29 +1771,21 @@ void register_w(UINT32 offset, UINT32 data) {
 
 		/* triangle drawing */
 		case triangleCMD:
-			CPU_Core_Dyn_X86_SaveDHFPUState();
 			triangle(v);
-			CPU_Core_Dyn_X86_RestoreDHFPUState();
 			break;
 
 		case ftriangleCMD:
-			CPU_Core_Dyn_X86_SaveDHFPUState();
 			triangle(v);
-			CPU_Core_Dyn_X86_RestoreDHFPUState();
 			break;
 
 		case sBeginTriCMD:
 //			E_Exit("begin tri");
-			CPU_Core_Dyn_X86_SaveDHFPUState();
 			begin_triangle(v);
-			CPU_Core_Dyn_X86_RestoreDHFPUState();
 			break;
 
 		case sDrawTriCMD:
 //			E_Exit("draw tri");
-			CPU_Core_Dyn_X86_SaveDHFPUState();
 			draw_triangle(v);
-			CPU_Core_Dyn_X86_RestoreDHFPUState();
 			break;
 
 		/* other commands */
@@ -1779,15 +1797,11 @@ void register_w(UINT32 offset, UINT32 data) {
 			break;
 
 		case fastfillCMD:
-			CPU_Core_Dyn_X86_SaveDHFPUState();
 			fastfill(v);
-			CPU_Core_Dyn_X86_RestoreDHFPUState();
 			break;
 
 		case swapbufferCMD:
-//			CPU_Core_Dyn_X86_SaveDHFPUState();
 			swapbuffer(v, data);
-//			CPU_Core_Dyn_X86_RestoreDHFPUState();
 			break;
 
 		/* gamma table access -- Voodoo/Voodoo2 only */
@@ -1828,18 +1842,30 @@ void register_w(UINT32 offset, UINT32 data) {
 				v->reg[regnum].u = data;
 				if (v->reg[hSync].u != 0 && v->reg[vSync].u != 0 && v->reg[videoDimensions].u != 0)
 				{
-					CPU_Core_Dyn_X86_SaveDHFPUState();
 					int hvis, vvis, htotal, vtotal, hbp, vbp;
-					
-					/*
-					attoseconds_t refresh = v->screen->frame_period().attoseconds();
-					*/
-					
-					attoseconds_t stdperiod, medperiod, vgaperiod;
-					attoseconds_t stddiff, meddiff, vgadiff;
+
 					rectangle visarea;
 					
-					
+					SDL_DisplayMode displayMode;
+					SDL_GetDesktopDisplayMode(SDL_GetWindowDisplayIndex(sdlVoodoo.surface), &displayMode);
+
+					int w = 0;
+					int h = 0;
+					//w = displayMode.w;
+					//h = displayMode.h;
+					w = pciW;// = extVoodoo.pciW;
+					h = pciH;// = extVoodoo.pciH;
+					/*
+					if (sdlVoodoo.fullscreen)
+					{		
+						w = sdlVoodoo.pciFSW;
+						h = sdlVoodoo.pciFSH;
+					}
+					else {
+						w = sdlVoodoo.pciW;
+						h = sdlVoodoo.pciH;
+					}
+					*/
 					htotal 	= ((v->reg[hSync].u >> 16) & 0x3ff) + 1 + (v->reg[hSync].u & 0xff ) + 1;
 					vtotal 	= ((v->reg[vSync].u >> 16) & 0xfff)     + (v->reg[vSync].u & 0xfff);
 					
@@ -1847,13 +1873,8 @@ void register_w(UINT32 offset, UINT32 data) {
 					vvis 	= (v->reg[videoDimensions].u >> 16) & 0x3ff;
 					
 					hbp	 	= (v->reg[backPorch].u & 0xff) + 2;
-					vbp 	= (v->reg[backPorch].u >> 16) & 0xff;
-														
-					
-					/*
-					attoseconds_t refresh = video_screen_get_frame_period(v->screen).attoseconds;
-					*/
-					
+					vbp 	= (v->reg[backPorch].u >> 16) & 0xff;			
+
 					attoseconds_t refresh = 0;
 					
 					/* create a new visarea */
@@ -1865,54 +1886,54 @@ void register_w(UINT32 offset, UINT32 data) {
 					/* keep within bounds */
 					visarea.max_x = MIN(visarea.max_x, htotal - 1);
 					visarea.max_y = MIN(visarea.max_y, vtotal - 1);
+								
 
-					/* compute the new period for standard res, medium res, and VGA res */
-
-					stdperiod = HZ_TO_ATTOSECONDS(15750) * vtotal;
-					medperiod = HZ_TO_ATTOSECONDS(25000) * vtotal;
-					vgaperiod = HZ_TO_ATTOSECONDS(31500) * vtotal;
-
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo: Screen Mode Note: ==============");						
-					LOG(LOG_VOODOO,LOG_WARN)(" - Vertical   Visible     :  (%d, 0x%x)",vvis,vvis);						// 480, 0x1e0						
-					LOG(LOG_VOODOO,LOG_WARN)(" - Horizontal Visible     :  (%d, 0x%x)",hvis,hvis);						// 639, 0x27f					
-					LOG(LOG_VOODOO,LOG_WARN)(" - Vertical   Total       :  (%d, 0x%x)",vtotal,vtotal);					// 525, 0x20d						
-					LOG(LOG_VOODOO,LOG_WARN)(" - Horizontal Total       :  (%d, 0x%x)",htotal,htotal);					// 802, 0x322										
-					LOG(LOG_VOODOO,LOG_WARN)(" - Horizontal BP          :  (%d, 0x%x)",hbp,hbp);						// 40, 0x28	
-					LOG(LOG_VOODOO,LOG_WARN)(" - Vertical   BP          :  (%d, 0x%x)",vbp,vbp);						// 25, 0x19
-					LOG(LOG_VOODOO,LOG_WARN)(" - Horiz: (Min)%d-(Max)%d :  (%d total)",visarea.min_x, visarea.max_x,htotal);
-					LOG(LOG_VOODOO,LOG_WARN)(" - Vert : (Min)%d-(Max)%d :  (%d total)",visarea.min_y, visarea.max_y,vtotal);
-					LOG(LOG_VOODOO,LOG_WARN)(" - Horizontal Sync        :  (%d, %08X)",v->reg[hSync].u,v->reg[hSync].u);
-					LOG(LOG_VOODOO,LOG_WARN)(" - Vertical   Sync        :  (%d, %08X)",v->reg[vSync].u,v->reg[vSync].u);
-					LOG(LOG_VOODOO,LOG_WARN)(" - BackPorch              :  (%d, %08X)",v->reg[backPorch].u,v->reg[backPorch].u);
-					LOG(LOG_VOODOO,LOG_WARN)(" - Video Dimensions       :  (%d, %08X)",v->reg[videoDimensions].u,v->reg[videoDimensions].u);					
-					LOG(LOG_VOODOO,LOG_WARN)(" - Display Index          :   %d", sdlVoodoo.displaynumber);
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo: Screen Mode Note: ===========END\n\n");						
-
-					
-					/* compute a diff against the current refresh period */
-					stddiff = stdperiod - refresh;
-					if (stddiff < 0) stddiff = -stddiff;
-					meddiff = medperiod - refresh;
-					if (meddiff < 0) meddiff = -meddiff;
-					vgadiff = vgaperiod - refresh;
-					if (vgadiff < 0) vgadiff = -vgadiff;			
-
-					/* configure the screen based on which one matches the closest */
-					if (stddiff < meddiff && stddiff < vgadiff)
+					/////////////////////////////////////////////////////////////////////////////////////////////
+					static vidmode_t vid_modes[] =
 					{
-//						video_screen_configure(v->screen, htotal, vtotal, &visarea, stdperiod);
-						//LOG_MSG("Voodoo: Standard resolution, %f Hz\n", ATTOSECONDS_TO_HZ(stdperiod));
-					}
-					else if (meddiff < vgadiff)
-					{
-//						video_screen_configure(v->screen, htotal, vtotal, &visarea, medperiod);
-						//LOG_MSG("Voodoo: Medium resolution, %f Hz\n", ATTOSECONDS_TO_HZ(medperiod));
-					}
-					else
-					{
-//						video_screen_configure(v->screen, htotal, vtotal, &visarea, vgaperiod);
-						//LOG_MSG("Voodoo: VGA resolution, %f Hz\n", ATTOSECONDS_TO_HZ(vgaperiod));
-					}
+						/*#include "vid_modes.h"
+						* 
+						* List of video modes included in platform-specific modules
+						* https://tomverbeure.github.io/video_timings_calculator
+						* TODO ...
+						*											  (Weite -1)
+						* Description      ,   Weite| Höhe |Nr| hTotal| hVis   | hBP  | vTotal| vVis  | vBP |
+						*/
+						{ "Mode 6: 800x600",	 800,  600,  5,   1056,  799	, 88   ,628    ,  600  , 23},
+						{ "Mode 6: 1024x768",	1024,  768,  6,   1344,  1023	, 160  ,806    ,  768  , 29}
+					};
+
+					static int num_vid_modes = (int)(sizeof(vid_modes) / sizeof(vid_modes[0])); //mxd
+					/*
+						htotal = vid_modes[1].htotal;
+						vtotal = vid_modes[1].vtotal;
+
+						hvis = vid_modes[1].hvis;
+						vvis = vid_modes[1].vvis;
+
+						hbp = vid_modes[1].hbp;
+						vbp = vid_modes[1].vbp;
+					*/
+					/////////////////////////////////////////////////////////////////////////////////////////////
+
+
+					#if defined(C_DEBUG)
+					LOG(LOG_FXEMU, LOG_NORMAL)("[%d]Voodoo: Screen Mode Note: ==============",__LINE__);
+					LOG(LOG_FXEMU, LOG_NORMAL)(" -  Vertical   Visible     : %d [0x%x]",vvis,vvis);						// 480, 0x1e0						
+					LOG(LOG_FXEMU, LOG_NORMAL)(" -  Horizontal Visible     : %d [0x%x]",hvis,hvis);						// 639, 0x27f					
+					LOG(LOG_FXEMU, LOG_NORMAL)(" -  Vertical   Total       : %d [0x%x]",vtotal,vtotal);					// 525, 0x20d						
+					LOG(LOG_FXEMU, LOG_NORMAL)(" -  Horizontal Total       : %d [0x%x]",htotal,htotal);					// 802, 0x322										
+					LOG(LOG_FXEMU, LOG_NORMAL)(" -  Horizontal Backporch   : %d [0x%x]",hbp,hbp);						// 40, 0x28	
+					LOG(LOG_FXEMU, LOG_NORMAL)(" -  Vertical   Backporch   : %d [0x%x]",vbp,vbp);						// 25, 0x19
+					LOG(LOG_FXEMU, LOG_NORMAL)(" -  Horiz: (Min)%d-(Max)%d : %d total",visarea.min_x, visarea.max_x,htotal);
+					LOG(LOG_FXEMU, LOG_NORMAL)(" -  Vert : (Min)%d-(Max)%d : %d total",visarea.min_y, visarea.max_y,vtotal);
+					LOG(LOG_FXEMU, LOG_NORMAL)(" -  Horizontal Sync        : %d [%08X]",v->reg[hSync].u,v->reg[hSync].u);
+					LOG(LOG_FXEMU, LOG_NORMAL)(" -  Vertical   Sync        : %d [%08X]",v->reg[vSync].u,v->reg[vSync].u);
+					LOG(LOG_FXEMU, LOG_NORMAL)(" -  BackPorch              : %d [%08X]",v->reg[backPorch].u,v->reg[backPorch].u);
+					LOG(LOG_FXEMU, LOG_NORMAL)(" -  Video Dimensions       : %d [%08X]",v->reg[videoDimensions].u,v->reg[videoDimensions].u);
+					LOG(LOG_FXEMU, LOG_NORMAL)(" -  Display Index          : %d", sdlVoodoo.displaynumber);
+					LOG(LOG_FXEMU, LOG_NORMAL)("[%d]Voodoo: Screen Mode Note: ===========END\n\n",__LINE__);
+					#endif
 
 					/* configure the new framebuffer info */
 					UINT32 new_width  = ((UINT32)hvis+1u) & ~1u;
@@ -1924,20 +1945,20 @@ void register_w(UINT32 offset, UINT32 data) {
 						v->fbi.height 	= new_height;
 						v->ogl_dimchange= true;
 					}
-					
-//					v->fbi.xoffs = hbp;
-//					v->fbi.yoffs = vbp;
-//					v->fbi.vsyncscan = (v->reg[vSync].u >> 16) & 0xfff;
+					/*
+					v->fbi.xoffs = hbp;
+					v->fbi.yoffs = vbp;
+					*/
+					/*v->fbi.vsyncscan = (v->reg[vSync].u >> 16) & 0xfff;*/
 
 					/* recompute the time of VBLANK */
-//					adjust_vblank_timer(v);
+					/* adjust_vblank_timer(v); */
 
 					/* if changing dimensions, update video memory layout */
 					if (regnum == videoDimensions)
 						recompute_video_memory(v);
 
 					Voodoo_UpdateScreenStart();
-					CPU_Core_Dyn_X86_RestoreDHFPUState();
 				}
 			}
 			break;
@@ -1946,13 +1967,11 @@ void register_w(UINT32 offset, UINT32 data) {
 		case fbiInit0:
 			if ((chips & 1) && INITEN_ENABLE_HW_INIT(v->pci.init_enable))
 			{
-				CPU_Core_Dyn_X86_SaveDHFPUState();
 				Voodoo_Output_Enable(FBIINIT0_VGA_PASSTHRU(data));
 				v->reg[fbiInit0].u = data;
 				if (FBIINIT0_GRAPHICS_RESET(data))
 					soft_reset(v);
 				recompute_video_memory(v);
-				CPU_Core_Dyn_X86_RestoreDHFPUState();
 			}
 			break;
 
@@ -2091,9 +2110,7 @@ void register_w(UINT32 offset, UINT32 data) {
 		case clipLeftRight:
 			if (chips & 1) v->reg[0x000 + regnum].u = data;
 			if (v->ogl) {
-				CPU_Core_Dyn_X86_SaveDHFPUState();
 				voodoo_ogl_clip_window(v);
-				CPU_Core_Dyn_X86_RestoreDHFPUState();
 			}
 			break;
 
@@ -2118,22 +2135,18 @@ default_case:
 			break;
 	}
 
-}
+}                                                                          \
 
+ /*************************************
+  *
+  *  Voodoo LFB writes
+  *
+  *************************************/
 
+void lfb_w(UINT32 offset, UINT32 data, UINT32 mem_mask)
+{
 
-/*************************************
- *
- *  Voodoo LFB writes
- *
- *************************************/
-
-void lfb_w(UINT32 offset, UINT32 data, UINT32 mem_mask) {
-
-	#if defined(C_DEBUG)	
-		//LOG(LOG_VOODOO,LOG_WARN)("V3D:WR LFB offset %X value %08X", offset, data);
-	#endif	
-	UINT16 *dest, *depth;
+	UINT16* dest, * depth;
 	UINT32 destmax, depthmax;
 
 	int sr[2], sg[2], sb[2], sa[2], sw[2];
@@ -2155,379 +2168,182 @@ void lfb_w(UINT32 offset, UINT32 data, UINT32 mem_mask) {
 	}
 
 	/* extract default depth and alpha values */
-	sw[0] = sw[1] = (int)(v->reg[zaColor].u & 0xffff);
-	sa[0] = sa[1] = (int)(v->reg[zaColor].u >> 24);
+	sw[0] = sw[1] = v->reg[zaColor].u & 0xffff;
+	sa[0] = sa[1] = v->reg[zaColor].u >> 24;
 
 	/* first extract A,R,G,B from the data */
 	switch (LFBMODE_WRITE_FORMAT(v->reg[lfbMode].u) + 16 * LFBMODE_RGBA_LANES(v->reg[lfbMode].u))
 	{
-		case 16*0 + 0:		/* ARGB, 16-bit RGB 5-6-5 */
-			#if defined(C_DEBUG)	
-				if (16*0 + 0 !=  nExtractedARGB && uExtractedARGB == true){
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: ARGB, 16-bit RGB 5-6-5");
-					nExtractedARGB = 16*0 + 0;
-				}					
-			#endif	
-		case 16*2 + 0:		/* RGBA, 16-bit RGB 5-6-5 */
-			#if defined(C_DEBUG)
-				if (16*2 + 0 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: RGBA, 16-bit RGB 5-6-5");
-					nExtractedARGB = 16*2 + 0;					
-				}
-			#endif
-			EXTRACT_565_TO_888(data, sr[0], sg[0], sb[0]);
-			EXTRACT_565_TO_888(data >> 16, sr[1], sg[1], sb[1]);
-			mask = LFB_RGB_PRESENT | (LFB_RGB_PRESENT << 4);
-			offset <<= 1;
-			break;
-		case 16*1 + 0:		/* ABGR, 16-bit RGB 5-6-5 */
-			#if defined(C_DEBUG)	
-				if (16*1 + 0 !=  nExtractedARGB && uExtractedARGB == true){	
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: ABGR, 16-bit RGB 5-6-5");		
-					nExtractedARGB = 16*1 + 0;					
-				}
-			#endif
-		case 16*3 + 0:		/* BGRA, 16-bit RGB 5-6-5 */
-			#if defined(C_DEBUG)	
-				if (16*3 + 0 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: BGRA, 16-bit RGB 5-6-5");		
-					nExtractedARGB = 16*3 + 0;
-				}					
-			#endif
-			EXTRACT_565_TO_888(data, sb[0], sg[0], sr[0]);
-			EXTRACT_565_TO_888(data >> 16, sb[1], sg[1], sr[1]);
-			mask = LFB_RGB_PRESENT | (LFB_RGB_PRESENT << 4);
-			offset <<= 1;
-			break;
+	case 16 * 0 + 0:		/* ARGB, 16-bit RGB 5-6-5 */
+	case 16 * 2 + 0:		/* RGBA, 16-bit RGB 5-6-5 */
+		EXTRACT_565_TO_888(data, sr[0], sg[0], sb[0]);
+		EXTRACT_565_TO_888(data >> 16, sr[1], sg[1], sb[1]);
+		mask = LFB_RGB_PRESENT | (LFB_RGB_PRESENT << 4);
+		offset <<= 1;
+		break;
+	case 16 * 1 + 0:		/* ABGR, 16-bit RGB 5-6-5 */
+	case 16 * 3 + 0:		/* BGRA, 16-bit RGB 5-6-5 */
+		EXTRACT_565_TO_888(data, sb[0], sg[0], sr[0]);
+		EXTRACT_565_TO_888(data >> 16, sb[1], sg[1], sr[1]);
+		mask = LFB_RGB_PRESENT | (LFB_RGB_PRESENT << 4);
+		offset <<= 1;
+		break;
+	case 16 * 0 + 1:		/* ARGB, 16-bit RGB x-5-5-5 */
+		EXTRACT_x555_TO_888(data, sr[0], sg[0], sb[0]);
+		EXTRACT_x555_TO_888(data >> 16, sr[1], sg[1], sb[1]);
+		mask = LFB_RGB_PRESENT | (LFB_RGB_PRESENT << 4);
+		offset <<= 1;
+		break;
+	case 16 * 1 + 1:		/* ABGR, 16-bit RGB x-5-5-5 */
+		EXTRACT_x555_TO_888(data, sb[0], sg[0], sr[0]);
+		EXTRACT_x555_TO_888(data >> 16, sb[1], sg[1], sr[1]);
+		mask = LFB_RGB_PRESENT | (LFB_RGB_PRESENT << 4);
+		offset <<= 1;
+		break;
+	case 16 * 2 + 1:		/* RGBA, 16-bit RGB x-5-5-5 */
+		EXTRACT_555x_TO_888(data, sr[0], sg[0], sb[0]);
+		EXTRACT_555x_TO_888(data >> 16, sr[1], sg[1], sb[1]);
+		mask = LFB_RGB_PRESENT | (LFB_RGB_PRESENT << 4);
+		offset <<= 1;
+		break;
+	case 16 * 3 + 1:		/* BGRA, 16-bit RGB x-5-5-5 */
+		EXTRACT_555x_TO_888(data, sb[0], sg[0], sr[0]);
+		EXTRACT_555x_TO_888(data >> 16, sb[1], sg[1], sr[1]);
+		mask = LFB_RGB_PRESENT | (LFB_RGB_PRESENT << 4);
+		offset <<= 1;
+		break;
+	case 16 * 0 + 2:		/* ARGB, 16-bit ARGB 1-5-5-5 */
+		EXTRACT_1555_TO_8888(data, sa[0], sr[0], sg[0], sb[0]);
+		EXTRACT_1555_TO_8888(data >> 16, sa[1], sr[1], sg[1], sb[1]);
+		mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT | ((LFB_RGB_PRESENT | LFB_ALPHA_PRESENT) << 4);
+		offset <<= 1;
+		break;
+	case 16 * 1 + 2:		/* ABGR, 16-bit ARGB 1-5-5-5 */
+		EXTRACT_1555_TO_8888(data, sa[0], sb[0], sg[0], sr[0]);
+		EXTRACT_1555_TO_8888(data >> 16, sa[1], sb[1], sg[1], sr[1]);
+		mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT | ((LFB_RGB_PRESENT | LFB_ALPHA_PRESENT) << 4);
+		offset <<= 1;
+		break;
+	case 16 * 2 + 2:		/* RGBA, 16-bit ARGB 1-5-5-5 */
+		EXTRACT_5551_TO_8888(data, sr[0], sg[0], sb[0], sa[0]);
+		EXTRACT_5551_TO_8888(data >> 16, sr[1], sg[1], sb[1], sa[1]);
+		mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT | ((LFB_RGB_PRESENT | LFB_ALPHA_PRESENT) << 4);
+		offset <<= 1;
+		break;
+	case 16 * 3 + 2:		/* BGRA, 16-bit ARGB 1-5-5-5 */
+		EXTRACT_5551_TO_8888(data, sb[0], sg[0], sr[0], sa[0]);
+		EXTRACT_5551_TO_8888(data >> 16, sb[1], sg[1], sr[1], sa[1]);
+		mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT | ((LFB_RGB_PRESENT | LFB_ALPHA_PRESENT) << 4);
+		offset <<= 1;
+		break;
+	case 16 * 0 + 4:		/* ARGB, 32-bit RGB x-8-8-8 */
+		EXTRACT_x888_TO_888(data, sr[0], sg[0], sb[0]);
+		mask = LFB_RGB_PRESENT;
+		break;
+	case 16 * 1 + 4:		/* ABGR, 32-bit RGB x-8-8-8 */
+		EXTRACT_x888_TO_888(data, sb[0], sg[0], sr[0]);
+		mask = LFB_RGB_PRESENT;
+		break;
+	case 16 * 2 + 4:		/* RGBA, 32-bit RGB x-8-8-8 */
+		EXTRACT_888x_TO_888(data, sr[0], sg[0], sb[0]);
+		mask = LFB_RGB_PRESENT;
+		break;
+	case 16 * 3 + 4:		/* BGRA, 32-bit RGB x-8-8-8 */
+		EXTRACT_888x_TO_888(data, sb[0], sg[0], sr[0]);
+		mask = LFB_RGB_PRESENT;
+		break;
+	case 16 * 0 + 5:		/* ARGB, 32-bit ARGB 8-8-8-8 */
+		EXTRACT_8888_TO_8888(data, sa[0], sr[0], sg[0], sb[0]);
+		mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT;
+		break;
+	case 16 * 1 + 5:		/* ABGR, 32-bit ARGB 8-8-8-8 */
+		EXTRACT_8888_TO_8888(data, sa[0], sb[0], sg[0], sr[0]);
+		mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT;
+		break;
+	case 16 * 2 + 5:		/* RGBA, 32-bit ARGB 8-8-8-8 */
+		EXTRACT_8888_TO_8888(data, sr[0], sg[0], sb[0], sa[0]);
+		mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT;
+		break;
+	case 16 * 3 + 5:		/* BGRA, 32-bit ARGB 8-8-8-8 */
+		EXTRACT_8888_TO_8888(data, sb[0], sg[0], sr[0], sa[0]);
+		mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT;
+		break;
+	case 16 * 0 + 12:		/* ARGB, 32-bit depth+RGB 5-6-5 */
+	case 16 * 2 + 12:		/* RGBA, 32-bit depth+RGB 5-6-5 */
+		sw[0] = data >> 16;
+		EXTRACT_565_TO_888(data, sr[0], sg[0], sb[0]);
+		mask = LFB_RGB_PRESENT | LFB_DEPTH_PRESENT_MSW;
+		break;
+	case 16 * 1 + 12:		/* ABGR, 32-bit depth+RGB 5-6-5 */
+	case 16 * 3 + 12:		/* BGRA, 32-bit depth+RGB 5-6-5 */
+		sw[0] = data >> 16;
+		EXTRACT_565_TO_888(data, sb[0], sg[0], sr[0]);
+		mask = LFB_RGB_PRESENT | LFB_DEPTH_PRESENT_MSW;
+		break;
+	case 16 * 0 + 13:		/* ARGB, 32-bit depth+RGB x-5-5-5 */
+		sw[0] = data >> 16;
+		EXTRACT_x555_TO_888(data, sr[0], sg[0], sb[0]);
+		mask = LFB_RGB_PRESENT | LFB_DEPTH_PRESENT_MSW;
+		break;
+	case 16 * 1 + 13:		/* ABGR, 32-bit depth+RGB x-5-5-5 */
+		sw[0] = data >> 16;
+		EXTRACT_x555_TO_888(data, sb[0], sg[0], sr[0]);
+		mask = LFB_RGB_PRESENT | LFB_DEPTH_PRESENT_MSW;
+		break;
+	case 16 * 2 + 13:		/* RGBA, 32-bit depth+RGB x-5-5-5 */
+		sw[0] = data >> 16;
+		EXTRACT_555x_TO_888(data, sr[0], sg[0], sb[0]);
+		mask = LFB_RGB_PRESENT | LFB_DEPTH_PRESENT_MSW;
+		break;
+	case 16 * 3 + 13:		/* BGRA, 32-bit depth+RGB x-5-5-5 */
+		sw[0] = data >> 16;
+		EXTRACT_555x_TO_888(data, sb[0], sg[0], sr[0]);
+		mask = LFB_RGB_PRESENT | LFB_DEPTH_PRESENT_MSW;
+		break;
+	case 16 * 0 + 14:		/* ARGB, 32-bit depth+ARGB 1-5-5-5 */
+		sw[0] = data >> 16;
+		EXTRACT_1555_TO_8888(data, sa[0], sr[0], sg[0], sb[0]);
+		mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT | LFB_DEPTH_PRESENT_MSW;
+		break;
+	case 16 * 1 + 14:		/* ABGR, 32-bit depth+ARGB 1-5-5-5 */
+		sw[0] = data >> 16;
+		EXTRACT_1555_TO_8888(data, sa[0], sb[0], sg[0], sr[0]);
+		mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT | LFB_DEPTH_PRESENT_MSW;
+		break;
+	case 16 * 2 + 14:		/* RGBA, 32-bit depth+ARGB 1-5-5-5 */
+		sw[0] = data >> 16;
+		EXTRACT_5551_TO_8888(data, sr[0], sg[0], sb[0], sa[0]);
+		mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT | LFB_DEPTH_PRESENT_MSW;
+		break;
+	case 16 * 3 + 14:		/* BGRA, 32-bit depth+ARGB 1-5-5-5 */
+		sw[0] = data >> 16;
+		EXTRACT_5551_TO_8888(data, sb[0], sg[0], sr[0], sa[0]);
+		mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT | LFB_DEPTH_PRESENT_MSW;
+		break;
 
-		case 16*0 + 1:		/* ARGB, 16-bit RGB x-5-5-5 */
-			#if defined(C_DEBUG)	
-				if (16*0 + 1 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: ARGB, 16-bit RGB x-5-5-5");			
-					nExtractedARGB = 16*0 + 1;				
-				}					
-			#endif
-			EXTRACT_x555_TO_888(data, sr[0], sg[0], sb[0]);
-			EXTRACT_x555_TO_888(data >> 16, sr[1], sg[1], sb[1]);
-			mask = LFB_RGB_PRESENT | (LFB_RGB_PRESENT << 4);
-			offset <<= 1;
-			break;
-		case 16*1 + 1:		/* ABGR, 16-bit RGB x-5-5-5 */
-			#if defined(C_DEBUG)	
-				if (16*1 + 1 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: ABGR, 16-bit RGB x-5-5-5");
-					nExtractedARGB = 16*1 + 1;
-				}					
-			#endif
-			EXTRACT_x555_TO_888(data, sb[0], sg[0], sr[0]);
-			EXTRACT_x555_TO_888(data >> 16, sb[1], sg[1], sr[1]);
-			mask = LFB_RGB_PRESENT | (LFB_RGB_PRESENT << 4);
-			offset <<= 1;
-			break;
-		case 16*2 + 1:		/* RGBA, 16-bit RGB x-5-5-5 */
-			#if defined(C_DEBUG)	
-				if (16*2 + 1 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: RGBA, 16-bit RGB x-5-5-5");		
-					nExtractedARGB = 16*2 + 1;				
-				}					
-			#endif
-			EXTRACT_555x_TO_888(data, sr[0], sg[0], sb[0]);
-			EXTRACT_555x_TO_888(data >> 16, sr[1], sg[1], sb[1]);
-			mask = LFB_RGB_PRESENT | (LFB_RGB_PRESENT << 4);
-			offset <<= 1;
-			break;
-		case 16*3 + 1:		/* BGRA, 16-bit RGB x-5-5-5 */
-			#if defined(C_DEBUG)	
-				if (16*3 + 1 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: BGRA, 16-bit RGB x-5-5-5");		
-					nExtractedARGB = 16*3 + 1;				
-				}					
-			#endif
-			EXTRACT_555x_TO_888(data, sb[0], sg[0], sr[0]);
-			EXTRACT_555x_TO_888(data >> 16, sb[1], sg[1], sr[1]);
-			mask = LFB_RGB_PRESENT | (LFB_RGB_PRESENT << 4);
-			offset <<= 1;
-			break;
+	case 16 * 0 + 15:		/* ARGB, 16-bit depth */
+	case 16 * 1 + 15:		/* ARGB, 16-bit depth */
+	case 16 * 2 + 15:		/* ARGB, 16-bit depth */
+	case 16 * 3 + 15:		/* ARGB, 16-bit depth */
 
-		case 16*0 + 2:		/* ARGB, 16-bit ARGB 1-5-5-5 */
-			#if defined(C_DEBUG)	
-				if (16*0 + 2 !=  nExtractedARGB){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: ARGB, 16-bit ARGB 1-5-5-5");		
-					nExtractedARGB = 16*0 + 2;
-				}					
-			#endif
-			EXTRACT_1555_TO_8888(data, sa[0], sr[0], sg[0], sb[0]);
-			EXTRACT_1555_TO_8888(data >> 16, sa[1], sr[1], sg[1], sb[1]);
-			mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT | ((LFB_RGB_PRESENT | LFB_ALPHA_PRESENT) << 4);
-			offset <<= 1;
-			break;
-		case 16*1 + 2:		/* ABGR, 16-bit ARGB 1-5-5-5 */
-			#if defined(C_DEBUG)	
-				if (16*1 + 2 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: ABGR, 16-bit ARGB 1-5-5-5");		
-					nExtractedARGB = 16*1 + 2;
-				}					
-			#endif
-			EXTRACT_1555_TO_8888(data, sa[0], sb[0], sg[0], sr[0]);
-			EXTRACT_1555_TO_8888(data >> 16, sa[1], sb[1], sg[1], sr[1]);
-			mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT | ((LFB_RGB_PRESENT | LFB_ALPHA_PRESENT) << 4);
-			offset <<= 1;
-			break;
-		case 16*2 + 2:		/* RGBA, 16-bit ARGB 1-5-5-5 */
-			#if defined(C_DEBUG)	
-				if (16*2 + 2 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: RGBA, 16-bit ARGB 1-5-5-5");		
-					nExtractedARGB = 16*2 + 2;				
-				}				
-			#endif
-			EXTRACT_5551_TO_8888(data, sr[0], sg[0], sb[0], sa[0]);
-			EXTRACT_5551_TO_8888(data >> 16, sr[1], sg[1], sb[1], sa[1]);
-			mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT | ((LFB_RGB_PRESENT | LFB_ALPHA_PRESENT) << 4);
-			offset <<= 1;
-			break;
-		case 16*3 + 2:		/* BGRA, 16-bit ARGB 1-5-5-5 */
-			#if defined(C_DEBUG)	
-				if (16*3 + 2 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: BGRA, 16-bit ARGB 1-5-5-5");
-					nExtractedARGB = 16*3 + 2;
-				}					
-			#endif
-			EXTRACT_5551_TO_8888(data, sb[0], sg[0], sr[0], sa[0]);
-			EXTRACT_5551_TO_8888(data >> 16, sb[1], sg[1], sr[1], sa[1]);
-			mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT | ((LFB_RGB_PRESENT | LFB_ALPHA_PRESENT) << 4);
-			offset <<= 1;
-			break;
+#if defined(C_DEBUG)
+		if (16 * 3 + 15 != nExtractedARGB && uExtractedARGB == true) {
+			LOG(LOG_VOODOO, LOG_WARN)("Voodoo:  Extract A,R,G,B Data: ARGB, 16-bit depth ");
+			nExtractedARGB = 16 * 3 + 15;
+		}
+#endif
 
-		case 16*0 + 4:		/* ARGB, 32-bit RGB x-8-8-8 */
-			#if defined(C_DEBUG)
-				if (16*0 + 4 !=  nExtractedARGB && uExtractedARGB == true){
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: ARGB, 32-bit RGB x-8-8-8");		
-					nExtractedARGB = 16*0 + 4;				
-				}				
-			#endif
-			EXTRACT_x888_TO_888(data, sr[0], sg[0], sb[0]);
-			mask = LFB_RGB_PRESENT;
-			break;
-		case 16*1 + 4:		/* ABGR, 32-bit RGB x-8-8-8 */
-			#if defined(C_DEBUG)	
-				if (16*1 + 4 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: ABGR, 32-bit RGB x-8-8-8");		
-					nExtractedARGB = 16*1 + 4;				
-				}				
-			#endif
-			EXTRACT_x888_TO_888(data, sb[0], sg[0], sr[0]);
-			mask = LFB_RGB_PRESENT;
-			break;
-		case 16*2 + 4:		/* RGBA, 32-bit RGB x-8-8-8 */
-			#if defined(C_DEBUG)	
-				if (16*2 + 4 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: RGBA, 32-bit RGB x-8-8-8");		
-					nExtractedARGB = 16*2 + 4;				
-				}				
-			#endif
-			EXTRACT_888x_TO_888(data, sr[0], sg[0], sb[0]);
-			mask = LFB_RGB_PRESENT;
-			break;
-		case 16*3 + 4:		/* BGRA, 32-bit RGB x-8-8-8 */
-			#if defined(C_DEBUG)	
-				if (16*3 + 4 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: BGRA, 32-bit RGB x-8-8-8");		
-					nExtractedARGB = 16*3 + 4;				
-				}				
-			#endif
-			EXTRACT_888x_TO_888(data, sb[0], sg[0], sr[0]);
-			mask = LFB_RGB_PRESENT;
-			break;
+		sw[0] = (int)(data & 0xffff);
+		sw[1] = (int)(data >> 16);
+		mask = LFB_DEPTH_PRESENT | (LFB_DEPTH_PRESENT << 4);
+		offset <<= 1;
+		break;
 
-		case 16*0 + 5:		/* ARGB, 32-bit ARGB 8-8-8-8 */
-			#if defined(C_DEBUG)	
-				if (16*0 + 5 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: ARGB, 32-bit ARGB 8-8-8-8");	
-					nExtractedARGB = 16*0 + 5;
-				}				
-			#endif
-			EXTRACT_8888_TO_8888(data, sa[0], sr[0], sg[0], sb[0]);
-			mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT;
-			break;
-		case 16*1 + 5:		/* ABGR, 32-bit ARGB 8-8-8-8 */
-			#if defined(C_DEBUG)	
-				if (16*1 + 5 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: ABGR, 32-bit ARGB 8-8-8-8");		
-					nExtractedARGB = 16*1 + 5;				
-				}				
-			#endif
-			EXTRACT_8888_TO_8888(data, sa[0], sb[0], sg[0], sr[0]);
-			mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT;
-			break;
-		case 16*2 + 5:		/* RGBA, 32-bit ARGB 8-8-8-8 */
-			#if defined(C_DEBUG)	
-				if (16*2 + 5 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: RGBA, 32-bit ARGB 8-8-8-8");		
-					nExtractedARGB = 16*2 + 5;				
-				}				
-			#endif
-			EXTRACT_8888_TO_8888(data, sr[0], sg[0], sb[0], sa[0]);
-			mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT;
-			break;
-		case 16*3 + 5:		/* BGRA, 32-bit ARGB 8-8-8-8 */
-			#if defined(C_DEBUG)	
-				if (16*3 + 5 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: BGRA, 32-bit ARGB 8-8-8-8");		
-					nExtractedARGB = 16*3 + 5;				
-				}				
-			#endif
-			EXTRACT_8888_TO_8888(data, sb[0], sg[0], sr[0], sa[0]);
-			mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT;
-			break;
-
-		case 16*0 + 12:		/* ARGB, 32-bit depth+RGB 5-6-5 */
-			#if defined(C_DEBUG)	
-				if (16*0 + 12 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: ARGB, 32-bit depth+RGB 5-6-5");		
-					nExtractedARGB = 16*0 + 12;				
-				}				
-			#endif
-		case 16*2 + 12:		/* RGBA, 32-bit depth+RGB 5-6-5 */
-			#if defined(C_DEBUG)	
-				if (16*2 + 12 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: RGBA, 32-bit depth+RGB 5-6-5");		
-					nExtractedARGB = 16*2 + 12;				
-				}				
-			#endif
-			sw[0] = (int)(data >> 16);
-			EXTRACT_565_TO_888(data, sr[0], sg[0], sb[0]);
-			mask = LFB_RGB_PRESENT | LFB_DEPTH_PRESENT_MSW;
-			break;
-		case 16*1 + 12:		/* ABGR, 32-bit depth+RGB 5-6-5 */
-			#if defined(C_DEBUG)	
-				if (16*1 + 12 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: ABGR, 32-bit depth+RGB 5-6-5");		
-					nExtractedARGB = 16*1 + 12;				
-				}				
-			#endif
-		case 16*3 + 12:		/* BGRA, 32-bit depth+RGB 5-6-5 */
-			#if defined(C_DEBUG)	
-				if (16*3 + 12 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: BGRA, 32-bit depth+RGB 5-6-5");		
-					nExtractedARGB = 16*3 + 12;				
-				}				
-			#endif
-			sw[0] = (int)(data >> 16);
-			EXTRACT_565_TO_888(data, sb[0], sg[0], sr[0]);
-			mask = LFB_RGB_PRESENT | LFB_DEPTH_PRESENT_MSW;
-			break;
-
-		case 16*0 + 13:		/* ARGB, 32-bit depth+RGB x-5-5-5 */
-			#if defined(C_DEBUG)	
-				if (16*0 + 13 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: ARGB, 32-bit depth+RGB x-5-5-5");		
-					nExtractedARGB = 16*0 + 13;				
-				}				
-			#endif
-			sw[0] = (int)(data >> 16);
-			EXTRACT_x555_TO_888(data, sr[0], sg[0], sb[0]);
-			mask = LFB_RGB_PRESENT | LFB_DEPTH_PRESENT_MSW;
-			break;
-		case 16*1 + 13:		/* ABGR, 32-bit depth+RGB x-5-5-5 */
-			#if defined(C_DEBUG)	
-				if (16*1 + 13 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: ABGR, 32-bit depth+RGB x-5-5-5");			
-					nExtractedARGB = 16*1 + 13;				
-				}				
-			#endif
-			sw[0] = (int)(data >> 16);
-			EXTRACT_x555_TO_888(data, sb[0], sg[0], sr[0]);
-			mask = LFB_RGB_PRESENT | LFB_DEPTH_PRESENT_MSW;
-			break;
-		case 16*2 + 13:		/* RGBA, 32-bit depth+RGB x-5-5-5 */
-			#if defined(C_DEBUG)
-				if (16*2 + 13 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: RGBA, 32-bit depth+RGB x-5-5-5");		
-					nExtractedARGB = 16*2 + 13;				
-				}				
-			#endif			
-			sw[0] = (int)(data >> 16);
-			EXTRACT_555x_TO_888(data, sr[0], sg[0], sb[0]);
-			mask = LFB_RGB_PRESENT | LFB_DEPTH_PRESENT_MSW;
-			break;
-		case 16*3 + 13:		/* BGRA, 32-bit depth+RGB x-5-5-5 */
-			#if defined(C_DEBUG)
-				if (16*3 + 13 !=  nExtractedARGB && uExtractedARGB == true){
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: BGRA, 32-bit depth+RGB x-5-5-5");			
-					nExtractedARGB = 16*3 + 13;				
-				}				
-			#endif
-			sw[0] = (int)(data >> 16);
-			EXTRACT_555x_TO_888(data, sb[0], sg[0], sr[0]);
-			mask = LFB_RGB_PRESENT | LFB_DEPTH_PRESENT_MSW;
-			break;
-
-		case 16*0 + 14:		/* ARGB, 32-bit depth+ARGB 1-5-5-5 */
-			#if defined(C_DEBUG)
-				if (16*0 + 14 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: ARGB, 32-bit depth+ARGB 1-5-5-5");		
-					nExtractedARGB = 16*0 + 14;				
-				}				
-			#endif
-			sw[0] = (int)(data >> 16);
-			EXTRACT_1555_TO_8888(data, sa[0], sr[0], sg[0], sb[0]);
-			mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT | LFB_DEPTH_PRESENT_MSW;
-			break;
-		case 16*1 + 14:		/* ABGR, 32-bit depth+ARGB 1-5-5-5 */
-			#if defined(C_DEBUG)
-				if (16*1 + 14 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: ABGR, 32-bit depth+ARGB 1-5-5-5");				
-					nExtractedARGB = 16*1 + 14;				
-				}				
-			#endif
-			sw[0] = (int)(data >> 16);
-			EXTRACT_1555_TO_8888(data, sa[0], sb[0], sg[0], sr[0]);
-			mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT | LFB_DEPTH_PRESENT_MSW;
-			break;
-		case 16*2 + 14:		/* RGBA, 32-bit depth+ARGB 1-5-5-5 */
-			#if defined(C_DEBUG)
-				if (16*2 + 14 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: RGBA, 32-bit depth+ARGB 1-5-5-5");				
-					nExtractedARGB = 16*2 + 14;				
-				}				
-			#endif
-			sw[0] = (int)(data >> 16);
-			EXTRACT_5551_TO_8888(data, sr[0], sg[0], sb[0], sa[0]);
-			mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT | LFB_DEPTH_PRESENT_MSW;
-			break;
-		case 16*3 + 14:		/* BGRA, 32-bit depth+ARGB 1-5-5-5 */
-			#if defined(C_DEBUG)
-				if (16*3 + 14 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: BGRA, 32-bit depth+ARGB 1-5-5-5");
-					nExtractedARGB = 16*3 + 14;				
-				}				
-			#endif
-			sw[0] = (int)(data >> 16);
-			EXTRACT_5551_TO_8888(data, sb[0], sg[0], sr[0], sa[0]);
-			mask = LFB_RGB_PRESENT | LFB_ALPHA_PRESENT | LFB_DEPTH_PRESENT_MSW;
-			break;
-
-		case 16*0 + 15:		/* ARGB, 16-bit depth */
-		case 16*1 + 15:		/* ARGB, 16-bit depth */
-		case 16*2 + 15:		/* ARGB, 16-bit depth */
-		case 16*3 + 15:		/* ARGB, 16-bit depth */
-			#if defined(C_DEBUG)
-				if (16*3 + 15 !=  nExtractedARGB && uExtractedARGB == true){			
-					LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: ARGB, 16-bit depth ");			
-					nExtractedARGB = 16*3 + 15;				
-				}				
-			#endif
-			sw[0] = (int)(data & 0xffff);
-			sw[1] = (int)(data >> 16);
-			mask = LFB_DEPTH_PRESENT | (LFB_DEPTH_PRESENT << 4);
-			offset <<= 1;
-			break;
-
-		default:			/* reserved */
-			#if defined(C_DEBUG)					
-			LOG(LOG_VOODOO,LOG_WARN)("Voodoo:  Extract A,R,G,B Data: (Reserved) %d ",LFBMODE_WRITE_FORMAT(v->reg[lfbMode].u) + 16 * LFBMODE_RGBA_LANES(v->reg[lfbMode].u));	
-			#endif
-			return;
+	default:			/* reserved */
+#if defined(C_DEBUG)					
+		LOG(LOG_VOODOO, LOG_WARN)("Voodoo:  Extract A,R,G,B Data: (Reserved) %d ", LFBMODE_WRITE_FORMAT(v->reg[lfbMode].u) + 16 * LFBMODE_RGBA_LANES(v->reg[lfbMode].u));
+#endif
+		return;
 	}
 
 	/* compute X,Y */
@@ -2537,82 +2353,91 @@ void lfb_w(UINT32 offset, UINT32 data, UINT32 mem_mask) {
 	/* adjust the mask based on which half of the data is written */
 	if (!ACCESSING_BITS_0_15)
 		mask &= ~(0x0f - LFB_DEPTH_PRESENT_MSW);
+
 	if (!ACCESSING_BITS_16_31)
 		mask &= ~(0xf0 + LFB_DEPTH_PRESENT_MSW);
 
+
 	/* select the target buffer */
 	destbuf = LFBMODE_WRITE_BUFFER_SELECT(v->reg[lfbMode].u);
-//	LOG(LOG_VOODOO,LOG_WARN)("destbuf %X lfbmode %X",destbuf, v->reg[lfbMode].u);
+
+#ifdef C_DEBUG
+	if (sdlVoodoo.count.bDrawPixelLFB1 == true)
+	{
+		sdlVoodoo.count.iDrawPixelLFB1++;
+		LOG(LOG_FXOGL, LOG_NORMAL)("[%d] LFB Write: Drawing Pixel through Framebuffer [%d][%d]", __LINE__, destbuf, sdlVoodoo.count.iDrawPixelLFB1);
+	}
+#endif	
 	switch (destbuf)
 	{
-		case 0:			/* front buffer */
-			dest = (UINT16 *)(v->fbi.ram + v->fbi.rgboffs[v->fbi.frontbuf]);
-			destmax = (v->fbi.mask + 1 - v->fbi.rgboffs[v->fbi.frontbuf]) / 2;
-			break;
+	case 0:			/* front buffer */
+		dest = (UINT16*)(v->fbi.ram + v->fbi.rgboffs[v->fbi.frontbuf]);
+		destmax = (v->fbi.mask + 1 - v->fbi.rgboffs[v->fbi.frontbuf]) / 2;
+		break;
 
-		case 1:			/* back buffer */
-			dest = (UINT16 *)(v->fbi.ram + v->fbi.rgboffs[v->fbi.backbuf]);
-			destmax = (v->fbi.mask + 1 - v->fbi.rgboffs[v->fbi.backbuf]) / 2;
-			break;
+	case 1:			/* back buffer */
+		dest = (UINT16*)(v->fbi.ram + v->fbi.rgboffs[v->fbi.backbuf]);
+		destmax = (v->fbi.mask + 1 - v->fbi.rgboffs[v->fbi.backbuf]) / 2;
+		break;
 
-		default:		/* reserved */
-			LOG_MSG("\n\nVoodoo: Game Write to LFB Buffer %d (%d [0x%x])",destbuf,v->reg[lfbMode].u,v->reg[lfbMode].u);
-			LOG_MSG("Voodoo: File %s, Line %d\n\n",__FILE__,__LINE__);				
-			/* E_Exit disabled, game works
-			   Druuna - Morbius Grave (2001) Crash (Point to destbuf = 2)
-			   No idea, i think this is incorrekt?
-			   E_Exit("VOODOO: voodoo_emu.cpp, LFB:reserved lfb write (destbuf=%d)",destbuf");*/
-			return;
-			
-			
-
+	default:		/* reserved */
+		LOG_MSG("\n\nVoodoo: Game Write to LFB Buffer %d (%d [0x%x])", destbuf, v->reg[lfbMode].u, v->reg[lfbMode].u);
+		LOG_MSG("Voodoo: File %s, Line %d\n\n", __FILE__, __LINE__);
+		/* E_Exit disabled, game works
+		   Druuna - Morbius Grave (2001) Crash (Point to destbuf = 2)
+		   No idea, i think this is incorrekt?
+		   E_Exit("VOODOO: voodoo_emu.cpp, LFB:reserved lfb write (destbuf=%d)",destbuf");*/
+		return;
 	}
-	depth = (UINT16 *)(v->fbi.ram + v->fbi.auxoffs);
+	depth = (UINT16*)(v->fbi.ram + v->fbi.auxoffs);
 	depthmax = (v->fbi.mask + 1 - v->fbi.auxoffs) / 2;
 
 	/* simple case: no pipeline */
 	if (!LFBMODE_ENABLE_PIXEL_PIPELINE(v->reg[lfbMode].u))
 	{
-		DECLARE_DITHER_POINTERS_NO_DITHER_VAR;
+		DECLARE_DITHER_POINTERS;
 		UINT32 bufoffs;
-		#if defined(C_DEBUG)
-			if (LOG_LFB){
-				//LOG(LOG_VOODOO,LOG_WARN)("VOODOO.LFB:write raw mode %X (%d,%d) = %08X & %08X\n", LFBMODE_WRITE_FORMAT(v->reg[lfbMode].u), x, y, data, mem_mask);
-			}
-		#endif
+
+#if defined(C_DEBUG)
+		if (LOG_LFB) {
+			//LOG(LOG_VOODOO,LOG_WARN)("VOODOO.LFB:write raw mode %X (%d,%d) = %08X & %08X\n", LFBMODE_WRITE_FORMAT(v->reg[lfbMode].u), x, y, data, mem_mask);
+		}
+#endif
 
 		/* determine the screen Y */
 		scry = y;
 		if (LFBMODE_Y_ORIGIN(v->reg[lfbMode].u))
-			scry = ((int)v->fbi.yorigin - y) ;//& 0x3ff;
+			scry = (v->fbi.yorigin - y) & 0x3ff;
 
 		/* advance pointers to the proper row */
-		bufoffs = (unsigned long)((long)scry * (long)v->fbi.rowpixels + (long)x);
+		bufoffs = scry * v->fbi.rowpixels + x;
 
 		/* compute dithering */
-		COMPUTE_DITHER_POINTERS_NO_DITHER_VAR(v->reg[fbzMode].u, y);
+		COMPUTE_DITHER_POINTERS(v->reg[fbzMode].u, y);
 
+		Uint16 looping = 0;
 		/* loop over up to two pixels */
 		for (pix = 0; mask; pix++)
 		{
 			/* make sure we care about this pixel */
-			if (mask & 0x0f)
+			if (mask & 0x0ff)
 			{
 				bool has_rgb = (mask & LFB_RGB_PRESENT) > 0;
 				bool has_alpha = ((mask & LFB_ALPHA_PRESENT) > 0) && (FBZMODE_ENABLE_ALPHA_PLANES(v->reg[fbzMode].u) > 0);
 				bool has_depth = ((mask & (LFB_DEPTH_PRESENT | LFB_DEPTH_PRESENT_MSW)) && !FBZMODE_ENABLE_ALPHA_PLANES(v->reg[fbzMode].u));
 				if (v->ogl && v->active) {
-					if (has_rgb || has_alpha) {
-						// if enabling dithering: output is 565 not 888 anymore
-//						APPLY_DITHER(v->reg[fbzMode].u, x, dither_lookup, sr[pix], sg[pix], sb[pix]);
-						voodoo_ogl_draw_pixel(x, scry, has_rgb, has_alpha, sr[pix], sg[pix], sb[pix], sa[pix]);
-					}
-					if (has_depth) {
-						#if C_OPENGL
-							voodoo_ogl_draw_z(x, scry+1, sw[pix]);
-						#endif
-					}
-				} else {
+					/*
+					if enabling dithering: output is 565 not 888 anymore					
+					APPLY_DITHER(v->reg[fbzMode].u, x, dither_lookup, sr[pix], sg[pix], sb[pix]);
+					*/
+					if (has_rgb || has_alpha)
+						voodoo_ogl_draw_pixel(x, scry+1, has_rgb, has_alpha, sr[pix], sg[pix], sb[pix], sa[pix]);						
+
+					if (has_depth)
+						voodoo_ogl_draw_z(x, scry+1, sw[pix]);
+				}
+				else
+				{
 					/* write to the RGB buffer */
 					if (has_rgb && bufoffs < destmax)
 					{
@@ -2644,26 +2469,24 @@ void lfb_w(UINT32 offset, UINT32 data, UINT32 mem_mask) {
 			mask >>= 4;
 		}
 	}
-
-	/* tricky case: run the full pixel pipeline on the pixel */
-	else
+	else /* tricky case: run the full pixel pipeline on the pixel */
 	{
 		DECLARE_DITHER_POINTERS;
-		#if defined(C_DEBUG)
-			if (LOG_LFB){
-				//LOG(LOG_VOODOO,LOG_WARN)("VOODOO.LFB:write pipelined mode %X (%d,%d) = %08X & %08X\n", LFBMODE_WRITE_FORMAT(v->reg[lfbMode].u), x, y, data, mem_mask);
-			}
-		#endif
+#if defined(C_DEBUG)
+		if (LOG_LFB) {
+			//LOG(LOG_VOODOO,LOG_WARN)("VOODOO.LFB:write pipelined mode %X (%d,%d) = %08X & %08X\n", LFBMODE_WRITE_FORMAT(v->reg[lfbMode].u), x, y, data, mem_mask);
+		}
+#endif
 
 		/* determine the screen Y */
 		scry = y;
 		if (FBZMODE_Y_ORIGIN(v->reg[fbzMode].u))
-			scry = ((int)v->fbi.yorigin - y);// & 0x3ff;
+			scry = (v->fbi.yorigin - y) & 0x3ff;
 
 		/* advance pointers to the proper row */
-		dest += (unsigned long)((long)scry * (long)v->fbi.rowpixels);
+		dest += scry * v->fbi.rowpixels;
 		if (depth)
-			depth += (unsigned long)((long)scry * (long)v->fbi.rowpixels);
+			depth += scry * v->fbi.rowpixels;
 
 		/* compute dithering */
 		COMPUTE_DITHER_POINTERS(v->reg[fbzMode].u, y);
@@ -2674,16 +2497,10 @@ void lfb_w(UINT32 offset, UINT32 data, UINT32 mem_mask) {
 			/* make sure we care about this pixel */
 			if (mask & 0x0f)
 			{
-				stats_block *stats = &v->fbi.lfb_stats;
-                                INT64 iterw;
-				if (LFBMODE_WRITE_W_SELECT(v->reg[lfbMode].u)) {
-					iterw = (UINT32) v->reg[zaColor].u << 16;
-				} else {
-					iterw = (UINT32) sw[pix] << 16;
-				}
+				stats_block* stats = &v->fbi.lfb_stats;
+				INT64 iterw = sw[pix] << (30 - 16);
 				INT32 iterz = sw[pix] << 12;
 				rgb_union color;
-				rgb_union iterargb = { 0 };
 
 				/* apply clipping */
 				if (FBZMODE_ENABLE_CLIPPING(v->reg[fbzMode].u))
@@ -2701,52 +2518,13 @@ void lfb_w(UINT32 offset, UINT32 data, UINT32 mem_mask) {
 
 				/* pixel pipeline part 1 handles depth testing and stippling */
 				// TODO: in the v->ogl case this macro doesn't really work with depth testing
-				// PIXEL_PIPELINE_BEGIN(v, x, y, v->reg[fbzColorPath].u, v->reg[fbzMode].u, iterz, iterw);
-// Start PIXEL_PIPE_BEGIN copy
-					INT32 fogdepth, biasdepth;
-					INT32 prefogr, prefogg, prefogb;
-					INT32 r, g, b, a;
-
-					(stats)->pixels_in++;
-
-					/* apply clipping */
-					/* note that for perf reasons, we assume the caller has done clipping */
-
-					/* handle stippling */
-					if (FBZMODE_ENABLE_STIPPLE(v->reg[fbzMode].u))
-					{
-						/* rotate mode */
-						if (FBZMODE_STIPPLE_PATTERN(v->reg[fbzMode].u) == 0)
-						{
-							v->reg[stipple].u = (v->reg[stipple].u << 1) | (v->reg[stipple].u >> 31);
-							if ((v->reg[stipple].u & 0x80000000) == 0)
-							{
-								goto skipdrawdepth;
-							}
-						}
-
-						/* pattern mode */
-						else
-						{
-							int stipple_index = ((y & 3) << 3) | (~x & 7);
-							if (((v->reg[stipple].u >> stipple_index) & 1) == 0)
-							{
-								goto nextpixel;
-							}
-						}
-					}
-// End PIXEL_PIPELINE_BEGIN COPY
-
-				// Depth testing value for lfb pipeline writes is directly from write data, no biasing is used
-				fogdepth = biasdepth = (INT32) sw[pix];
+				PIXEL_PIPELINE_BEGIN(v, x, y, v->reg[fbzColorPath].u, v->reg[fbzMode].u, iterz, iterw);
 
 				color.rgb.r = sr[pix];
 				color.rgb.g = sg[pix];
 				color.rgb.b = sb[pix];
 				color.rgb.a = sa[pix];
 
-				/* Perform depth testing */
-				DEPTH_TEST(v, stats, x, v->reg[fbzMode].u);	
 				/* apply chroma key */
 				APPLY_CHROMAKEY(v, stats, v->reg[fbzMode].u, color);
 
@@ -2756,30 +2534,30 @@ void lfb_w(UINT32 offset, UINT32 data, UINT32 mem_mask) {
 
 
 				if (FBZCP_CC_MSELECT(v->reg[fbzColorPath].u) != 0) {
-					#if defined(C_DEBUG)
-						LOG(LOG_VOODOO,LOG_WARN)("VOODOO: lfbw fpp mselect %8x",FBZCP_CC_MSELECT(v->reg[fbzColorPath].u));
-					#endif
+#if defined(C_DEBUG)
+					LOG(LOG_VOODOO, LOG_WARN)("VOODOO: lfbw fpp mselect %8x", FBZCP_CC_MSELECT(v->reg[fbzColorPath].u));
+#endif
 				}
-				if (FBZCP_CCA_MSELECT(v->reg[fbzColorPath].u) > 1){
-					#if defined(C_DEBUG)
-						LOG(LOG_VOODOO,LOG_WARN)("VOODOO: lfbw fpp mselect alpha %8x",FBZCP_CCA_MSELECT(v->reg[fbzColorPath].u));
-					#endif
-				} 
+				if (FBZCP_CCA_MSELECT(v->reg[fbzColorPath].u) > 1) {
+#if defined(C_DEBUG)
+					LOG(LOG_VOODOO, LOG_WARN)("VOODOO: lfbw fpp mselect alpha %8x", FBZCP_CCA_MSELECT(v->reg[fbzColorPath].u));
+#endif
+				}
 
 				if (FBZCP_CC_REVERSE_BLEND(v->reg[fbzColorPath].u) != 0) {
-					
+
 					if (FBZCP_CC_MSELECT(v->reg[fbzColorPath].u) != 0) {
-						#if defined(C_DEBUG)
-							LOG(LOG_VOODOO,LOG_WARN)("VOODOO: lfbw fpp rblend %8x",FBZCP_CC_REVERSE_BLEND(v->reg[fbzColorPath].u));
-						#endif
+#if defined(C_DEBUG)
+						LOG(LOG_VOODOO, LOG_WARN)("VOODOO: lfbw fpp rblend %8x", FBZCP_CC_REVERSE_BLEND(v->reg[fbzColorPath].u));
+#endif
 					}
 				}
-				
+
 				if (FBZCP_CCA_REVERSE_BLEND(v->reg[fbzColorPath].u) != 0) {
-					if (FBZCP_CC_MSELECT(v->reg[fbzColorPath].u) != 0){
-						#if defined(C_DEBUG)
-							LOG(LOG_VOODOO,LOG_WARN)("VOODOO: lfbw fpp rblend alpha %8x",FBZCP_CCA_REVERSE_BLEND(v->reg[fbzColorPath].u));
-						#endif
+					if (FBZCP_CC_MSELECT(v->reg[fbzColorPath].u) != 0) {
+#if defined(C_DEBUG)
+						LOG(LOG_VOODOO, LOG_WARN)("VOODOO: lfbw fpp rblend alpha %8x", FBZCP_CCA_REVERSE_BLEND(v->reg[fbzColorPath].u));
+#endif
 					}
 				}
 
@@ -2792,7 +2570,7 @@ void lfb_w(UINT32 offset, UINT32 data, UINT32 mem_mask) {
 				{
 					if (FBZCP_CC_LOCALSELECT(v->reg[fbzColorPath].u) == 0)	/* iterated RGB */
 					{
-//						c_local.u = iterargb.u;
+						//						c_local.u = iterargb.u;
 						c_local.rgb.r = sr[pix];
 						c_local.rgb.g = sg[pix];
 						c_local.rgb.b = sb[pix];
@@ -2802,40 +2580,40 @@ void lfb_w(UINT32 offset, UINT32 data, UINT32 mem_mask) {
 				}
 				else
 				{
-					#if defined(C_DEBUG)
-						LOG(LOG_VOODOO,LOG_WARN)("VOODOO: lfbw fpp FBZCP_CC_LOCALSELECT_OVERRIDE set!");
-					#endif
-/*					if (!(texel.rgb.a & 0x80))					// iterated RGB
-						c_local.u = iterargb.u;
-					else											// color0 RGB
-						c_local.u = v->reg[color0].u; */
+#if defined(C_DEBUG)
+					LOG(LOG_VOODOO, LOG_WARN)("VOODOO: lfbw fpp FBZCP_CC_LOCALSELECT_OVERRIDE set!");
+#endif
+					/*					if (!(texel.rgb.a & 0x80))					// iterated RGB
+											c_local.u = iterargb.u;
+										else											// color0 RGB
+											c_local.u = v->reg[color0].u; */
 				}
 
 				/* compute a_local */
 				switch (FBZCP_CCA_LOCALSELECT(v->reg[fbzColorPath].u))
 				{
-					default:
-					case 0:		/* iterated alpha */
+				default:
+				case 0:		/* iterated alpha */
 //						c_local.rgb.a = iterargb.rgb.a;
-						c_local.rgb.a = sa[pix];
-						break;
-					case 1:		/* color0 alpha */
-						c_local.rgb.a = v->reg[color0].rgb.a;
-						break;
-					case 2:		/* clamped iterated Z[27:20] */
-					{
-						int temp;
-						CLAMPED_Z(iterz, v->reg[fbzColorPath].u, temp);
-						c_local.rgb.a = (UINT8)temp;
-						break;
-					}
-					case 3:		/* clamped iterated W[39:32] */
-					{
-						int temp;
-						CLAMPED_W(iterw, v->reg[fbzColorPath].u, temp);			/* Voodoo 2 only */
-						c_local.rgb.a = (UINT8)temp;
-						break;
-					}
+					c_local.rgb.a = sa[pix];
+					break;
+				case 1:		/* color0 alpha */
+					c_local.rgb.a = v->reg[color0].rgb.a;
+					break;
+				case 2:		/* clamped iterated Z[27:20] */
+				{
+					int temp;
+					CLAMPED_Z(iterz, v->reg[fbzColorPath].u, temp);
+					c_local.rgb.a = (UINT8)temp;
+					break;
+				}
+				case 3:		/* clamped iterated W[39:32] */
+				{
+					int temp;
+					CLAMPED_W(iterw, v->reg[fbzColorPath].u, temp);			/* Voodoo 2 only */
+					c_local.rgb.a = (UINT8)temp;
+					break;
+				}
 				}
 
 				/* select zero or c_other */
@@ -2843,14 +2621,16 @@ void lfb_w(UINT32 offset, UINT32 data, UINT32 mem_mask) {
 					r = sr[pix];
 					g = sg[pix];
 					b = sb[pix];
-				} else {
+				}
+				else {
 					r = g = b = 0;
 				}
 
 				/* select zero or a_other */
 				if (FBZCP_CCA_ZERO_OTHER(v->reg[fbzColorPath].u) == 0) {
 					a = sa[pix];
-				} else {
+				}
+				else {
 					a = 0;
 				}
 
@@ -2869,80 +2649,80 @@ void lfb_w(UINT32 offset, UINT32 data, UINT32 mem_mask) {
 				/* blend RGB */
 				switch (FBZCP_CC_MSELECT(v->reg[fbzColorPath].u))
 				{
-					default:	/* reserved */
-					case 0:		/* 0 */
-						blendr = blendg = blendb = 0;
-						break;
-					case 1:		/* c_local */
-						blendr = c_local.rgb.r;
-						blendg = c_local.rgb.g;
-						blendb = c_local.rgb.b;
-						#if defined(C_DEBUG)
-							LOG(LOG_VOODOO,LOG_WARN)("VOODOO: blend RGB c_local");
-						#endif
-						break;
-					case 2:		/* a_other */
-						blendr = blendg = blendb = 0; // HACK: Gotta fill them with something --J.C
+				default:	/* reserved */
+				case 0:		/* 0 */
+					blendr = blendg = blendb = 0;
+					break;
+				case 1:		/* c_local */
+					blendr = c_local.rgb.r;
+					blendg = c_local.rgb.g;
+					blendb = c_local.rgb.b;
+#if defined(C_DEBUG)
+					LOG(LOG_VOODOO, LOG_WARN)("VOODOO: blend RGB c_local");
+#endif
+					break;
+				case 2:		/* a_other */
+					blendr = blendg = blendb = 0; // HACK: Gotta fill them with something --J.C
 //						blendr = blendg = blendb = c_other.rgb.a;
-						#if defined(C_DEBUG)
-							LOG(LOG_VOODOO,LOG_WARN)("VOODOO: blend RGB a_other");
-						#endif
-						break;
-					case 3:		/* a_local */
-						blendr = blendg = blendb = c_local.rgb.a;
-						#if defined(C_DEBUG)
-							LOG(LOG_VOODOO,LOG_WARN)("VOODOO: blend RGB a_local");
-						#endif
-						break;
-					case 4:		/* texture alpha */
-						blendr = blendg = blendb = 0; // HACK: Gotta fill them with something --J.C
+#if defined(C_DEBUG)
+					LOG(LOG_VOODOO, LOG_WARN)("VOODOO: blend RGB a_other");
+#endif
+					break;
+				case 3:		/* a_local */
+					blendr = blendg = blendb = c_local.rgb.a;
+#if defined(C_DEBUG)
+					LOG(LOG_VOODOO, LOG_WARN)("VOODOO: blend RGB a_local");
+#endif
+					break;
+				case 4:		/* texture alpha */
+					blendr = blendg = blendb = 0; // HACK: Gotta fill them with something --J.C
 //						blendr = blendg = blendb = texel.rgb.a;
-						#if defined(C_DEBUG)
-							LOG(LOG_VOODOO,LOG_WARN)("VOODOO: blend RGB texture alpha");
-						#endif
-						break;
-					case 5:		/* texture RGB (Voodoo 2 only) */
-						blendr = blendg = blendb = 0; // HACK: Gotta fill them with something --J.C
+#if defined(C_DEBUG)
+					LOG(LOG_VOODOO, LOG_WARN)("VOODOO: blend RGB texture alpha");
+#endif
+					break;
+				case 5:		/* texture RGB (Voodoo 2 only) */
+					blendr = blendg = blendb = 0; // HACK: Gotta fill them with something --J.C
 /*						blendr = texel.rgb.r;
 						blendg = texel.rgb.g;
 						blendb = texel.rgb.b; */
-						#if defined(C_DEBUG)
-							LOG(LOG_VOODOO,LOG_WARN)("VOODOO: blend RGB texture RGB");
-						#endif
-						break;
+#if defined(C_DEBUG)
+					LOG(LOG_VOODOO, LOG_WARN)("VOODOO: blend RGB texture RGB");
+#endif
+					break;
 				}
 
 				/* blend alpha */
 				switch (FBZCP_CCA_MSELECT(v->reg[fbzColorPath].u))
 				{
-					default:	/* reserved */
-					case 0:		/* 0 */
-						blenda = 0;
-						break;
-					case 1:		/* a_local */
-						blenda = c_local.rgb.a;
-//						LOG_MSG("blend alpha a_local");
-						break;
-					case 2:		/* a_other */
-						blenda = 0; /* HACK: gotta fill it with something */
+				default:	/* reserved */
+				case 0:		/* 0 */
+					blenda = 0;
+					break;
+				case 1:		/* a_local */
+					blenda = c_local.rgb.a;
+					//						LOG_MSG("blend alpha a_local");
+					break;
+				case 2:		/* a_other */
+					blenda = 0; /* HACK: gotta fill it with something */
 //						blenda = c_other.rgb.a;
-						#if defined(C_DEBUG)
-							LOG(LOG_VOODOO,LOG_WARN)("VOODOO: blend alpha a_other");
-						#endif
-						break;
-					case 3:		/* a_local */
-						blenda = c_local.rgb.a;
-						#if defined(C_DEBUG)
-							LOG(LOG_VOODOO,LOG_WARN)("VOODOO: blend alpha a_local");
-						#endif
-						break;
-					case 4:		/* texture alpha */
-						blenda = 0; /* HACK: gotta fill it with something */
+#if defined(C_DEBUG)
+					LOG(LOG_VOODOO, LOG_WARN)("VOODOO: blend alpha a_other");
+#endif
+					break;
+				case 3:		/* a_local */
+					blenda = c_local.rgb.a;
+#if defined(C_DEBUG)
+					LOG(LOG_VOODOO, LOG_WARN)("VOODOO: blend alpha a_local");
+#endif
+					break;
+				case 4:		/* texture alpha */
+					blenda = 0; /* HACK: gotta fill it with something */
 //						blenda = texel.rgb.a;
-						#if defined(C_DEBUG)
-							LOG(LOG_VOODOO,LOG_WARN)("VOODOO: blend alpha texture alpha");
-						#endif
-						break;
+#if defined(C_DEBUG)
+					LOG(LOG_VOODOO, LOG_WARN)("VOODOO: blend alpha texture alpha");
+#endif
+					break;
 				}
 
 				/* reverse the RGB blend */
@@ -2966,19 +2746,19 @@ void lfb_w(UINT32 offset, UINT32 data, UINT32 mem_mask) {
 				/* add clocal or alocal to RGB */
 				switch (FBZCP_CC_ADD_ACLOCAL(v->reg[fbzColorPath].u))
 				{
-					case 3:		/* reserved */
-					case 0:		/* nothing */
-						break;
-					case 1:		/* add c_local */
-						r += c_local.rgb.r;
-						g += c_local.rgb.g;
-						b += c_local.rgb.b;
-						break;
-					case 2:		/* add_alocal */
-						r += c_local.rgb.a;
-						g += c_local.rgb.a;
-						b += c_local.rgb.a;
-						break;
+				case 3:		/* reserved */
+				case 0:		/* nothing */
+					break;
+				case 1:		/* add c_local */
+					r += c_local.rgb.r;
+					g += c_local.rgb.g;
+					b += c_local.rgb.b;
+					break;
+				case 2:		/* add_alocal */
+					r += c_local.rgb.a;
+					g += c_local.rgb.a;
+					b += c_local.rgb.a;
+					break;
 				}
 
 				/* add clocal or alocal to alpha */
@@ -3002,25 +2782,30 @@ void lfb_w(UINT32 offset, UINT32 data, UINT32 mem_mask) {
 					a ^= 0xff;
 
 				if (v->ogl && v->active) {
-					if (FBZMODE_RGB_BUFFER_MASK(v->reg[fbzMode].u)) {
-//						APPLY_DITHER(FBZMODE, XX, DITHER_LOOKUP, r, g, b);
-						voodoo_ogl_draw_pixel_pipeline(x, scry, r, g, b);
+					if (FBZMODE_RGB_BUFFER_MASK(v->reg[fbzMode].u))
+					{
+						// APPLY_DITHER(FBZMODE, XX, DITHER_LOOKUP, r, g, b);
+						voodoo_ogl_draw_pixel_pipeline(x, scry + 1, r, g, b);
 					}
-/*					if (depth && FBZMODE_AUX_BUFFER_MASK(v->reg[fbzMode].u)) {
+					/*
+					if (depth && FBZMODE_AUX_BUFFER_MASK(v->reg[fbzMode].u)) {
 						if (FBZMODE_ENABLE_ALPHA_PLANES(v->reg[fbzMode].u) == 0)
 							voodoo_ogl_draw_z(x, y, depthval&0xffff, depthval>>16);
-//						else
-//							depth[XX] = a;
-					} */
-				} else {
+						else
+							depth[XX] = a;
+					}
+					*/
+				}
+				else {
 					/* pixel pipeline part 2 handles color combine, fog, alpha, and final output */
-					PIXEL_PIPELINE_MODIFY(v, dither, dither4, x, v->reg[fbzMode].u, v->reg[fbzColorPath].u, v->reg[alphaMode].u, v->reg[fogMode].u, iterz, iterw, iterargb);
+					PIXEL_PIPELINE_MODIFY(v, dither, dither4, x, v->reg[fbzMode].u, v->reg[fbzColorPath].u, v->reg[alphaMode].u, v->reg[fogMode].u, iterz, iterw, v->reg[zaColor]);
 
 					PIXEL_PIPELINE_FINISH(v, dither_lookup, x, dest, depth, v->reg[fbzMode].u);
 				}
 
 				PIXEL_PIPELINE_END(stats);
-nextpixel:
+			}
+		nextpixel:
 			/* advance our pointers */
 			x++;
 			mask >>= 4;
@@ -3038,12 +2823,12 @@ nextpixel:
 
 INT32 texture_w(UINT32 offset, UINT32 data) {
 	int tmunum = (offset >> 19) & 0x03;
-	
-	#if defined(C_DEBUG)
-		//LOG(LOG_VOODOO,LOG_WARN)("VOODOO: V3D,write TMU%x offset %X value %X", tmunum, offset, data);
-	#endif
 
-	tmu_state *t;
+#if defined(C_DEBUG)
+	//LOG(LOG_VOODOO,LOG_WARN)("VOODOO: V3D,write TMU%x offset %X value %X", tmunum, offset, data);
+#endif
+
+	tmu_state* t;
 
 	/* point to the right TMU */
 	if (!(v->chipmask & (2 << tmunum)))
@@ -3052,7 +2837,7 @@ INT32 texture_w(UINT32 offset, UINT32 data) {
 
 	if (TEXLOD_TDIRECT_WRITE(t->reg[tLOD].u))
 		//E_Exit("Texture direct write!");
-		LOG_MSG("Voodoo: Really? E_EXIT? Texture direct write! (File %s, Line %d)",__FILE__,__LINE__);
+		LOG_MSG("Voodoo: Really? E_EXIT? Texture direct write! (File %s, Line %d)", __FILE__, __LINE__);
 
 	/* update texture info if dirty */
 	if (t->regdirty)
@@ -3069,7 +2854,7 @@ INT32 texture_w(UINT32 offset, UINT32 data) {
 	{
 		int lod, tt, ts;
 		UINT32 tbaseaddr;
-		UINT8 *dest;
+		UINT8* dest;
 
 		/* extract info */
 		lod = (offset >> 15) & 0x0f;
@@ -3087,12 +2872,12 @@ INT32 texture_w(UINT32 offset, UINT32 data) {
 
 		/* compute the base address */
 		tbaseaddr = t->lodoffset[lod];
-		tbaseaddr += (UINT32)((long)tt * (((long)t->wmask >> lod) + 1l) + (long)ts);
-		#if defined(C_DEBUG)
-			if (LOG_TEXTURE_RAM){
-				LOG(LOG_VOODOO,LOG_WARN)("Texture 8-bit w: lod=%d s=%d t=%d data=%08X\n", lod, ts, tt, data);
-			}
-		#endif
+		tbaseaddr += tt * ((t->wmask >> lod) + 1) + ts;
+#if defined(C_DEBUG)
+		if (LOG_TEXTURE_RAM) {
+			LOG(LOG_VOODOO, LOG_WARN)("Texture 8-bit w: lod=%d s=%d t=%d data=%08X\n", lod, ts, tt, data);
+		}
+#endif
 
 		/* write the four bytes in little-endian order */
 		dest = t->ram;
@@ -3117,8 +2902,8 @@ INT32 texture_w(UINT32 offset, UINT32 data) {
 		}
 
 		if (changed && v->ogl && v->active) {
-			voodoo_ogl_texture_clear(t->lodoffset[lod],tmunum);
-			voodoo_ogl_texture_clear(t->lodoffset[t->lodmin],tmunum);
+			voodoo_ogl_texture_clear(t->lodoffset[lod], tmunum);
+			voodoo_ogl_texture_clear(t->lodoffset[t->lodmin], tmunum);
 		}
 	}
 
@@ -3127,10 +2912,10 @@ INT32 texture_w(UINT32 offset, UINT32 data) {
 	{
 		int lod, tt, ts;
 		UINT32 tbaseaddr;
-		UINT16 *dest;
+		UINT16* dest;
 
 		/* extract info */
-		// tmunum = (offset >> 19) & 0x03;
+		tmunum = (offset >> 19) & 0x03;
 		lod = (offset >> 15) & 0x0f;
 		tt = (offset >> 7) & 0xff;
 		ts = (offset << 1) & 0xfe;
@@ -3141,15 +2926,15 @@ INT32 texture_w(UINT32 offset, UINT32 data) {
 
 		/* compute the base address */
 		tbaseaddr = t->lodoffset[lod];
-		tbaseaddr += (UINT32)(2l * ((long)tt * (((long)t->wmask >> lod) + 1l) + (long)ts));
-		#if defined(C_DEBUG)
-			if (LOG_TEXTURE_RAM){
-				LOG(LOG_VOODOO,LOG_WARN)("Texture 16-bit w: lod=%d s=%d t=%d data=%08X\n", lod, ts, tt, data);
-			}
-		#endif
+		tbaseaddr += 2 * (tt * ((t->wmask >> lod) + 1) + ts);
+#if defined(C_DEBUG)
+		if (LOG_TEXTURE_RAM) {
+			LOG(LOG_VOODOO, LOG_WARN)("Texture 16-bit w: lod=%d s=%d t=%d data=%08X\n", lod, ts, tt, data);
+		}
+#endif
 
 		/* write the two words in little-endian order */
-		dest = (UINT16 *)t->ram;
+		dest = (UINT16*)t->ram;
 		tbaseaddr &= t->mask;
 		tbaseaddr >>= 1;
 
@@ -3164,8 +2949,8 @@ INT32 texture_w(UINT32 offset, UINT32 data) {
 		}
 
 		if (changed && v->ogl && v->active) {
-			voodoo_ogl_texture_clear(t->lodoffset[lod],tmunum);
-			voodoo_ogl_texture_clear(t->lodoffset[t->lodmin],tmunum);
+			voodoo_ogl_texture_clear(t->lodoffset[lod], tmunum);
+			voodoo_ogl_texture_clear(t->lodoffset[t->lodmin], tmunum);
 		}
 	}
 
@@ -3184,8 +2969,9 @@ UINT32 register_r(UINT32 offset)
 {
 	UINT32 regnum  = (offset) & 0xff;
 
-//	LOG(LOG_VOODOO,LOG_WARN)("Voodoo:read chip %x reg %x (%s)", chips, regnum<<2, voodoo_reg_name[regnum]);
-
+	#ifdef C_DEBUG
+	//LOG(LOG_FXEMU, LOG_NORMAL)("Read Chip Register %x (%s)", regnum << 2, voodoo_reg_name[regnum]);
+	#endif
 	/* first make sure this register is readable */
 	if (!(v->regaccess[regnum] & REGISTER_READ))
 	{
@@ -3201,8 +2987,6 @@ UINT32 register_r(UINT32 offset)
 	switch (regnum)
 	{
 		case status:
-			CPU_Core_Dyn_X86_SaveDHFPUState();
-
 			/* start with a blank slate */
 			result = 0;
 
@@ -3210,9 +2994,10 @@ UINT32 register_r(UINT32 offset)
 			result |= 0x3fu << 0u;
 
 			/* bit 6 is the vertical retrace */
-			//result |= v->fbi.vblank << 6;
+			result |= v->fbi.vblank << 6;
 			result |= (Voodoo_GetRetrace() ? 0x40u : 0u);
-
+			//result |= ((Bit32u)(Voodoo_GetVRetracePosition() * 0x1fff)) & 0x1fff;
+			//result |= (((Bit32u)(Voodoo_GetHRetracePosition() * 0x7ff)) & 0x7ff) << 16;
 
 			/* bit 7 is FBI graphics engine busy */
 			if (v->pci.op_pending)
@@ -3230,30 +3015,24 @@ UINT32 register_r(UINT32 offset)
 			result |= (UINT32)(v->fbi.frontbuf << 10);
 
 			/* bits 27:12 indicate memory FIFO freespace */
+			/*result |= 0xffffu << 12u;*/
 			result |= 0xffffu << 12u;
 
 			/* bits 30:28 are the number of pending swaps */
 			result |= 0u << 28u;
 
 			/* bit 31 is not used */
-
-			CPU_Core_Dyn_X86_RestoreDHFPUState();
-
 			break;
 
 		case hvRetrace:
 			if (v->type < VOODOO_2)
 				break;
-
-			CPU_Core_Dyn_X86_SaveDHFPUState();
-
 			/* start with a blank slate */
 			result = 0;
 
+			/*Geändert*/
 			result |= ((Bit32u)(Voodoo_GetVRetracePosition() * 0x1fff)) & 0x1fff;
 			result |= (((Bit32u)(Voodoo_GetHRetracePosition() * 0x7ff)) & 0x7ff) << 16;
-
-			CPU_Core_Dyn_X86_RestoreDHFPUState();
 			break;
 
 		/* bit 2 of the initEnable register maps this to dacRead */
@@ -3262,7 +3041,7 @@ UINT32 register_r(UINT32 offset)
 				result = v->dac.read_result;
 			break;
 
-/*		case fbiInit3:
+		case fbiInit3:
 			if (INITEN_REMAP_INIT_TO_DAC(v->pci.init_enable))
 				result = 0;
 			break;
@@ -3272,7 +3051,7 @@ UINT32 register_r(UINT32 offset)
 				break;
 			result &= 0xffffe7ff;
 			result |= 0x1000;
-			break; */
+			break;
 
 		/* all counters are 24-bit only */
 		case fbiPixelsIn:
@@ -3281,11 +3060,16 @@ UINT32 register_r(UINT32 offset)
 		case fbiAfuncFail:
 		case fbiPixelsOut:
 			update_statistics(v, true);
-		case fbiTrianglesOut:
+		case fbiTrianglesOut:			
 			result = v->reg[regnum].u & 0xffffff;
 			break;
 
 	}
+
+
+	#ifdef C_DEBUG
+		//LOG(LOG_FXEMU, LOG_NORMAL)("Read Chip Result %d", result);
+	#endif
 
 	return result;
 }
@@ -3310,53 +3094,79 @@ UINT32 lfb_r(UINT32 offset)
 	UINT32 destbuf;
 
 	/* compute X,Y */
+
 	x = (offset << 1) & 0x3fe;
 	y = (offset >> 9) & 0x7ff;//& 0x7ff;//& 0x3ff;
 	//LOG(LOG_VOODOO,LOG_WARN)("%d", y);
 	//LOG_MSG("compute X,Y = %d,%d offset %X",x,y,offset >> 9);
-
+	
+	/*Geändert*/
+	//INT32 w = 0;
+	//INT32 h = 0;
+	//if (sdlVoodoo.fullscreen) {
+	//	w = sdlVoodoo.pciFSW;
+	//	h = sdlVoodoo.pciFSH;
+	//}
+	//else {
+	//	w = sdlVoodoo.pciW;
+	//	h = sdlVoodoo.pciH;
+	//}
+	//ScaleFactorY(h, y);
+	//ScaleFactorX(w, x);
 
 	/* select the target buffer */
 	destbuf = LFBMODE_READ_BUFFER_SELECT(v->reg[lfbMode].u);
+
+	#ifdef C_DEBUG
+	if (sdlVoodoo.count.bDrawPixelLFB0 == true)
+	{
+		sdlVoodoo.count.iDrawPixelLFB0++;
+		LOG(LOG_FXOGL, LOG_NORMAL)("[%d] LFB Read: DrawPixel through Framebuffer [%d][%d]", __LINE__, destbuf, sdlVoodoo.count.iDrawPixelLFB0);
+	}
+	#endif
 	switch (destbuf)
 	{
-		case 0:			/* front buffer */
-			buffer = (UINT16 *)(v->fbi.ram + v->fbi.rgboffs[v->fbi.frontbuf]);
-			bufmax = (v->fbi.mask + 1 - v->fbi.rgboffs[v->fbi.frontbuf]) / 2;
-			break;
+	case 0:			/* front buffer */
+		buffer = (UINT16*)(v->fbi.ram + v->fbi.rgboffs[v->fbi.frontbuf]);
+		bufmax = (v->fbi.mask + 1 - v->fbi.rgboffs[v->fbi.frontbuf]) / 2;
+		//LOG(LOG_FXOGL, LOG_NORMAL)("[%d]LFB Read 0 Ram[%d], RGB[Frontbuf:%d], Buffer: %d, Mask:%d, Max:%d",__LINE__, v->fbi.ram, v->fbi.rgboffs[v->fbi.frontbuf], buffer, v->fbi.mask, bufmax);
+		break;
 
-		case 1:			/* back buffer */
-			buffer = (UINT16 *)(v->fbi.ram + v->fbi.rgboffs[v->fbi.backbuf]);
-			bufmax = (v->fbi.mask + 1 - v->fbi.rgboffs[v->fbi.backbuf]) / 2;
-			break;
+	case 1:			/* back buffer */
+		buffer = (UINT16*)(v->fbi.ram + v->fbi.rgboffs[v->fbi.backbuf]);
+		bufmax = (v->fbi.mask + 1 - v->fbi.rgboffs[v->fbi.backbuf]) / 2;
+		//LOG(LOG_FXOGL, LOG_NORMAL)("[%d]LFB Read 1 Ram[%d], RGB[Frontbuf:%d], Buffer: %d, Mask:%d, Max:%d", __LINE__, v->fbi.ram, v->fbi.rgboffs[v->fbi.frontbuf], buffer, v->fbi.mask, bufmax);
+		break;
 
-		case 2:			/* aux buffer */
-			if (v->fbi.auxoffs == (UINT32)(~0))
-				return 0xffffffff;
-			buffer = (UINT16 *)(v->fbi.ram + v->fbi.auxoffs);
-			bufmax = (v->fbi.mask + 1 - v->fbi.auxoffs) / 2;
-			break;
-
-		default:		/* reserved */
-			LOG_MSG("\n\nVoodoo: Game Handle READ LFB Buffer %d (%d [0x%x])",destbuf,v->reg[lfbMode].u,v->reg[lfbMode].u);
-			LOG_MSG("Voodoo: File %s, Line %d\n\n",__FILE__,__LINE__);			
+	case 2:			/* aux buffer */
+		if (v->fbi.auxoffs == (UINT32)(~0))
 			return 0xffffffff;
+
+		buffer = (UINT16*)(v->fbi.ram + v->fbi.auxoffs);
+		bufmax = (v->fbi.mask + 1 - v->fbi.auxoffs) / 2;
+		//LOG(LOG_FXOGL, LOG_NORMAL)("[%d]LFB Read 2 Ram[%d], RGB[Frontbuf:%d], Buffer: %d, Mask:%d, Max:%d", __LINE__, v->fbi.ram, v->fbi.rgboffs[v->fbi.frontbuf], buffer, v->fbi.mask, bufmax);
+		break;
+
+	default:		/* reserved */
+		//CPU_Core_Dyn_X86_SaveDHFPUState();
+		LOG_MSG("\n\nVoodoo: Game Handle READ LFB Buffer %d (%d [0x%x])", destbuf, v->reg[lfbMode].u, v->reg[lfbMode].u);
+		LOG_MSG("Voodoo: File %s, Line %d\n\n", __FILE__, __LINE__);
+		//CPU_Core_Dyn_X86_RestoreDHFPUState();
+		return 0xffffffff;
 	}
 
 	/* determine the screen Y */
 	scry = y;
-	
-	
-	
+		
 	if (LFBMODE_Y_ORIGIN(v->reg[lfbMode].u)){
-		scry = ((int)v->fbi.yorigin - y);// & 0x3ff;
+		scry = ((int)v->fbi.yorigin - y) & 0x3ff;
 		LOG_MSG("(int)v->fbi.yorigin - y %d", scry);
 	}
 
-	if (v->ogl && v->active) {		
-		
-		data = voodoo_ogl_read_pixel(x, scry+1);		
-		//return data;
+	if (v->ogl && v->active) {	
+		//data = 0xffff;
+		data = voodoo_ogl_read_pixel(x, scry+1);
+		//LOG(LOG_FXOGL, LOG_NORMAL)("[%d]LFB Read Data:%d", __LINE__, data);
 	} else {
 		/* advance pointers to the proper row */
 		bufoffs = (unsigned long)((long)scry * (long)v->fbi.rowpixels + (long)x);
@@ -3512,45 +3322,62 @@ void voodoo_init(int type) {
 	switch (v->type)
 	{
 		case VOODOO_1:
+		{
 			v->regaccess = voodoo_register_access;
-			
+
 			if (num_voodoomem == 0) {
 				fbmemsize = 2;
 				tmumem0 = 2;
-			} else {
+			}
+			else {
 				fbmemsize = num_voodoomem;
-				tmumem0 = num_voodoomem;				
-			}				
-			break;
+				tmumem0 = num_voodoomem;
+			}
+			#if defined(C_DEBUG)
+				LOG(LOG_FXEMU, LOG_NORMAL)("[%d] Init VOODOO 1 (%d), FBMem:%d, TMUMem0:%d ", __LINE__, v->type, fbmemsize, tmumem0);
+			#endif
+		}
+		break;
 
 		case VOODOO_1_DTMU:
+		{
 			v->regaccess = voodoo_register_access;
-			
-			if (num_voodoomem == 0) {			
+
+			if (num_voodoomem == 0) {
 				fbmemsize = 4;
 				tmumem0 = 4;
 				tmumem1 = 4;
-			} else {			
+			}
+			else {
 				fbmemsize = num_voodoomem;
 				tmumem0 = num_voodoomem;
-				tmumem1 = num_voodoomem;				
-			}				
-			break;
+				tmumem1 = num_voodoomem;
+			}
+			#if defined(C_DEBUG)
+				LOG(LOG_FXEMU, LOG_NORMAL)("[%d] Init VOODOO DTMU (%d), FBMem:%d, TMUMem0:%d, TMUMem1:%d ", __LINE__, v->type, fbmemsize, tmumem0, tmumem1);
+			#endif
+		}
+		break;
 
 		case VOODOO_2:
-			//v->regaccess = voodoo2_register_access;
-			if (num_voodoomem == 0) {		
+		{
+			v->regaccess = voodoo2_register_access;
+			if (num_voodoomem == 0) {
 				fbmemsize = 4;
 				tmumem0 = 4;
 				tmumem1 = 4;
-			} else {		
+			}
+			else {
 				fbmemsize = num_voodoomem;
 				tmumem0 = num_voodoomem;
-				tmumem1 = num_voodoomem;				
+				tmumem1 = num_voodoomem;
 			}
 			v->tmu_config |= 0x800;
+			#if defined(C_DEBUG)
+				LOG(LOG_FXEMU, LOG_NORMAL)("[%d] Init VOODOO 2 (%d), FBMem:%d, TMUMem0:%d, TMUMem1:%d ", __LINE__, v->type, fbmemsize, tmumem0, tmumem1);
+			#endif
 			break;
-
+		}
 		default:
 			E_Exit("Unsupported voodoo card in voodoo_start!");
 			break;
@@ -3562,9 +3389,11 @@ void voodoo_init(int type) {
 	v->chipmask = 0x01;
 
 	/* set up the PCI FIFO */
-	v->pci.fifo.size = 64*100;
+	/*Geändert*/
+	v->pci.fifo.size = 64*2/*100*/;
 
 	/* set up frame buffer , Leftshift 20 (x*1024*1024) */
+	/*Geändert*/
 	init_fbi(v, &v->fbi, (int)(fbmemsize << 20));
 
 	v->fbi.rowpixels = v->fbi.width;
@@ -3646,6 +3475,7 @@ void fastfill(voodoo_state *v)
 	int sy = (v->reg[clipLowYHighY].u >> 16) & 0x3ff;
 	int ey = (v->reg[clipLowYHighY].u >> 0) & 0x3ff;
 
+	/*Geändert*/
 	poly_extent extents[64*100];
 	UINT16 dithermatrix[256];
 	UINT16 *drawbuf = NULL;
@@ -3679,8 +3509,8 @@ void fastfill(voodoo_state *v)
 		/* determine the dither pattern */
 		for (y = 0; y < 4; y++)
 		{
-			DECLARE_DITHER_POINTERS_NO_DITHER_VAR;
-			COMPUTE_DITHER_POINTERS_NO_DITHER_VAR(v->reg[fbzMode].u, y);
+			DECLARE_DITHER_POINTERS;
+			COMPUTE_DITHER_POINTERS(v->reg[fbzMode].u, y);
 			for (x = 0; x < 4; x++)
 			{
 				int r = v->reg[color1].rgb.r;
@@ -4018,7 +3848,7 @@ void triangle_create_work_item(voodoo_state *v, UINT16 *drawbuf, int texcount)
 	poly_vertex vert[3];
 
 	/* fill in the vertex data */
-	vert[0].x = (float)v->fbi.ax * (1.0f / 16.0f);
+	vert[0].x = (float)v->fbi.ax * (1.0f / 12.0f);
 	vert[0].y = (float)v->fbi.ay * (1.0f / 16.0f);
 	vert[1].x = (float)v->fbi.bx * (1.0f / 16.0f);
 	vert[1].y = (float)v->fbi.by * (1.0f / 16.0f);
@@ -4081,12 +3911,13 @@ void triangle_create_work_item(voodoo_state *v, UINT16 *drawbuf, int texcount)
 		}
 	}
 
-	extra->texcount = (unsigned int)texcount;
-	extra->r_fbzColorPath = v->reg[fbzColorPath].u;
-	extra->r_fbzMode = v->reg[fbzMode].u;
-	extra->r_alphaMode = v->reg[alphaMode].u;
-	extra->r_fogMode = v->reg[fogMode].u;
-	extra->r_textureMode0 = (INT32)v->tmu[0].reg[textureMode].u;
+	extra->texcount			= (unsigned int)texcount;
+	extra->r_fbzColorPath	= v->reg[fbzColorPath].u;
+	extra->r_fbzMode		= v->reg[fbzMode].u;
+	extra->r_alphaMode		= v->reg[alphaMode].u;
+	extra->r_fogMode		= v->reg[fogMode].u;
+	extra->r_textureMode0	= (INT32)v->tmu[0].reg[textureMode].u;
+
 	if (v->tmu[1].ram != NULL) extra->r_textureMode1 = (INT32)v->tmu[1].reg[textureMode].u;
 
 	info->polys++;
@@ -4213,12 +4044,12 @@ static raster_info *find_rasterizer(voodoo_state *v, int texcount)
     implementation of the 'fastfill' command
 -------------------------------------------------*/
 
-static void raster_fastfill(void *destbase, INT32 y, const poly_extent *extent, const void *extradata)
+static void raster_fastfill(void* destbase, INT32 y, const poly_extent* extent, const void* extradata)
 {
-	
-	const poly_extra_data *extra = (const poly_extra_data *)extradata;
-	voodoo_state *v = extra->state;
-	stats_block *stats = &v->thread_stats[0];
+
+	const poly_extra_data* extra = (const poly_extra_data*)extradata;
+	voodoo_state* v = extra->state;
+	stats_block* stats = &v->thread_stats[0];
 	INT32 startx = extent->startx;
 	INT32 stopx = extent->stopx;
 	int scry, x;
@@ -4226,20 +4057,20 @@ static void raster_fastfill(void *destbase, INT32 y, const poly_extent *extent, 
 	/* determine the screen Y */
 	scry = y;
 	if (FBZMODE_Y_ORIGIN(v->reg[fbzMode].u))
-		scry = ((int)v->fbi.yorigin - y) ;//& 0x3ff;
+		scry = (v->fbi.yorigin - y)/*& 0x3ff*/;
 
 	/* fill this RGB row */
 	if (FBZMODE_RGB_BUFFER_MASK(v->reg[fbzMode].u))
 	{
-		const UINT16 *ditherow = &extra->dither[(y & 3) * 4];
-		UINT64 expanded = *(UINT64 *)ditherow;
-		UINT16 *dest = (UINT16 *)destbase + ((uintptr_t)((long)scry * (long)v->fbi.rowpixels));
+		const UINT16* ditherow = &extra->dither[(y & 3) * 4];
+		UINT64 expanded = *(UINT64*)ditherow;
+		UINT16* dest = (UINT16*)destbase + scry * v->fbi.rowpixels;
 
 		for (x = startx; x < stopx && (x & 3) != 0; x++)
 			dest[x] = ditherow[x & 3];
-		for ( ; x < (stopx & ~3); x += 4)
-			*(UINT64 *)&dest[x] = expanded;
-		for ( ; x < stopx; x++)
+		for (; x < (stopx & ~3); x += 4)
+			*(UINT64*)&dest[x] = expanded;
+		for (; x < stopx; x++)
 			dest[x] = ditherow[x & 3];
 		stats->pixels_out += stopx - startx;
 	}
@@ -4248,19 +4079,19 @@ static void raster_fastfill(void *destbase, INT32 y, const poly_extent *extent, 
 	if (FBZMODE_AUX_BUFFER_MASK(v->reg[fbzMode].u) && v->fbi.auxoffs != (UINT32)(~0))
 	{
 		UINT16 color = (UINT16)(v->reg[zaColor].u & 0xffff);
-		UINT64 expanded = ((UINT64)color << 48ull) | ((UINT64)color << 32ull) | ((UINT64)color << 16ull) | (UINT64)color;
-		UINT16 *dest = (UINT16 *)(v->fbi.ram + v->fbi.auxoffs) + ((uintptr_t)((long)scry * (long)v->fbi.rowpixels));
+		UINT64 expanded = ((UINT64)color << 48) | ((UINT64)color << 32) | (color << 16) | color;
+		UINT16* dest = (UINT16*)(v->fbi.ram + v->fbi.auxoffs) + scry * v->fbi.rowpixels;
 
-		if ((unsigned long)((long)v->fbi.auxoffs + 2l * ((long)scry * (long)v->fbi.rowpixels + (long)stopx)) >= v->fbi.mask) {
-			stopx = ((long)v->fbi.mask - (long)v->fbi.auxoffs) / 2l - (long)scry * (long)v->fbi.rowpixels;
+		if (v->fbi.auxoffs + 2 * (scry * v->fbi.rowpixels + stopx) >= v->fbi.mask) {
+			stopx = (v->fbi.mask - v->fbi.auxoffs) / 2 - scry * v->fbi.rowpixels;
 			if ((stopx < 0) || (stopx < startx)) return;
 		}
 
 		for (x = startx; x < stopx && (x & 3) != 0; x++)
 			dest[x] = color;
-		for ( ; x < (stopx & ~3); x += 4)
-			*(UINT64 *)&dest[x] = expanded;
-		for ( ; x < stopx; x++)
+		for (; x < (stopx & ~3); x += 4)
+			*(UINT64*)&dest[x] = expanded;
+		for (; x < stopx; x++)
 			dest[x] = color;
 	}
 }

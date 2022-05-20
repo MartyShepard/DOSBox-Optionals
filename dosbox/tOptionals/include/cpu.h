@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -46,6 +46,7 @@
 #define CPU_ARCHTYPE_486OLDSLOW		0x40
 #define CPU_ARCHTYPE_486NEWSLOW		0x45
 #define CPU_ARCHTYPE_PENTIUMSLOW	0x50
+#define CPU_ARCHTYPE_PMMXSLOW		0x55
 #define CPU_ARCHTYPE_PPROSLOW   	0x60 // Via Patch
 
 /* CPU Cycle Timing */
@@ -55,6 +56,7 @@ extern Bit32s CPU_CycleMax;
 extern Bit32s CPU_OldCycleMax;
 extern Bit32s CPU_CyclePercUsed;
 extern Bit32s CPU_CycleLimit;
+extern Bit32s CPU_FX_Cycles;		/*3DFX Cycles*/
 extern Bit64s CPU_IODelayRemoved;
 extern bool CPU_CycleAutoAdjust;
 extern bool CPU_SkipCycleAutoAdjust;
@@ -159,6 +161,7 @@ static INLINE void CPU_SW_Interrupt_NoIOPLCheck(Bitu num,Bitu oldeip) {
 
 bool CPU_PrepareException(Bitu which,Bitu error);
 void CPU_Exception(Bitu which,Bitu error=0);
+void CPU_DebugException(Bit32u triggers, Bitu oldeip);
 
 bool CPU_SetSegGeneral(SegNames seg,Bitu value);
 bool CPU_PopSeg(SegNames seg,bool use32);
@@ -173,7 +176,7 @@ void CPU_SetFlags(Bitu word,Bitu mask);
 
 extern bool CPU_Support_MMX;
 
-
+#define EXCEPTION_DB			1
 #define EXCEPTION_UD			6
 #define EXCEPTION_TS			10
 #define EXCEPTION_NP			11
@@ -188,6 +191,14 @@ extern bool CPU_Support_MMX;
 #define CR0_FPUPRESENT			0x00000010
 #define CR0_PAGING				0x80000000
 
+// reasons for triggering a debug exception
+#define DBINT_BP0               0x00000001
+#define DBINT_BP1               0x00000002
+#define DBINT_BP2               0x00000004
+#define DBINT_BP3               0x00000008
+#define DBINT_GD                0x00002000
+#define DBINT_STEP              0x00004000
+#define DBINT_TASKSWITCH        0x00008000
 
 // *********************************************************************
 // Descriptor
@@ -339,6 +350,21 @@ public:
 	PhysPt GetBase (void) { 
 		return (saved.seg.base_24_31<<24) | (saved.seg.base_16_23<<16) | saved.seg.base_0_15; 
 	}
+
+	bool GetExpandDown(void) {
+
+		if (!(saved.seg.type & 0x10)) /* must be storage type descriptor */
+			return false;
+
+		/* type: 1 0 E W A for data */
+		/* type: 1 1 C R A for code */
+		if (saved.seg.type & 0x08)
+			return false;
+
+		/* it's data. return the 'E' bit */
+		return (saved.seg.type & 4) != 0;
+	}
+
 	Bitu GetLimit (void) {
 		Bitu limit = (saved.seg.limit_16_19<<16) | saved.seg.limit_0_15;
 		if (saved.seg.g)	return (limit<<12) | 0xFFF;
@@ -458,6 +484,7 @@ struct CPUBlock {
 	Bitu cpl;							/* Current Privilege */
 	Bitu mpl;
 	Bitu cr0;
+	Bitu cr4;
 	bool pmode;							/* Is Protected mode enabled */
 	GDTDescriptorTable gdt;
 	DescriptorTable idt;

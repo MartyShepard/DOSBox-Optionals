@@ -65,8 +65,13 @@
 #ifndef _INCLUDE_SDL_SOUND_H_
 #define _INCLUDE_SDL_SOUND_H_
 
-#include <SDL.h>
-#include <SDL_endian.h>
+#if defined(_MSC_VER)
+    #include <SDL2\include\SDL.h>
+    #include <SDL2\include\SDL_endian.h>
+#else
+    #include <SDL.h>
+    #include <SDL_endian.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {

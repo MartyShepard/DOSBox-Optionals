@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,22 +16,30 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#include "SDL.h"
+#if defined(_MSC_VER)
+#include <SDL2\include\SDL.h>
+#else
+#include <SDL.h>
+#endif
+
 #include "dosbox.h"
 #include "dos_system.h"
 #include "drives.h"
 #include "mapper.h"
 #include "support.h"
+#include "control.h"
+#include "ide.h"
 
 #include "programs.h" //WriteOut
-#include "..\gui\version.h"
+#include "..\gui\version_optionals.h"
+#include <bios_disk.h>
 
 char sDriveNotify[4096];
 char sDriveLabel[4096];
 char sDskNameA[DOS_NAMELENGTH_ASCII];
 char sDskNameB[DOS_NAMELENGTH_ASCII];
-char sDskNameZ[DOS_NAMELENGTH_ASCII];
-
+char sCDRName1[DOS_NAMELENGTH_ASCII];
+char sCDRName2[DOS_NAMELENGTH_ASCII];
 
 extern void GFX_SetTitle(Bit32s cycles,int frameskip,bool paused);
 
@@ -87,7 +95,6 @@ checkext:
 	}
 	return true;
 }
-
 void Set_Label(char const * const input, char * const output, bool cdrom) {
 	Bitu togo     = 8;
 	Bitu vnamePos = 0;
@@ -118,8 +125,6 @@ void Set_Label(char const * const input, char * const output, bool cdrom) {
 		output[labelPos-1] = 0;
 }
 
-
-
 DOS_Drive::DOS_Drive() {
 	curdir[0]=0;
 	info[0]=0;
@@ -132,96 +137,238 @@ char * DOS_Drive::GetInfo(void) {
 // static members variables
 int DriveManager::currentDrive;
 DriveManager::DriveInfo DriveManager::driveInfos[26];
-
+int  DriveManager::CurrentDisk(int drive)
+{
+	return driveInfos[drive].currentDisk;
+}
+int  DriveManager::DiskCounts(int drive) {
+	return driveInfos[drive].disks.size();
+}
 void DriveManager::AppendDisk(int drive, DOS_Drive* disk) {
 	driveInfos[drive].disks.push_back(disk);
 }
+void DriveManager::ResizeDisk(int drive, DOS_Drive* disk,int num) {
+	driveInfos[drive].disks.resize(num, disk);
+}
+void DriveManager::InsertDisk(int drive, DOS_Drive* disk, int num) {
+	driveInfos[drive].disks.assign(num, disk);
+}
+void DriveManager::ClearDisks(int drive) {
+	driveInfos[drive].disks.clear();
+}
+std::string Get_FDLabel(Bit8u Laufwerk)
+{
+	char const* Buffer;
+	char	    Memory[32];
+	int			x = 0;
 
-void DriveManager__NotifyShowLabel(DOS_Drive* Floppy, int Laufwerk, int Pos, int Max ){
-				
+	if (strlen(Drives[Laufwerk]->GetInfo()) != 0)
+	{
+		Buffer = Drives[Laufwerk]->GetLabel();
+
+		if (strlen(Buffer) == 0) return "KeinName";/*BlankFloppy*/
+		else
+		{ 
+			for (int c = 0; c < strlen(Buffer); c++)
+			{
+				if ((c == 8) && (Buffer[8] == '.'))
+						continue;
+
+				Memory[x] = Buffer[c];
+				x++;
+
+				if (c == strlen(Buffer)-1)
+					Memory[x] = '\0';
+			}
+			Buffer = Memory;
+
+			#if defined(C_DEBUG)
+				LOG(LOG_IMAGE, LOG_NORMAL)("[%d] Disk Label = '%s' [Lenght: %d]\n", __LINE__, Buffer, x);
+			#endif
+
+			return Buffer;
+		}		
+	}
+	return "";
+}
+
+void Notify_SetLabel()
+{
+	memset(&sDriveLabel[0], 0, sizeof(sDriveLabel));
+	strcpy(sDriveLabel, "");
+
+	if (strlen(sDskNameA) != 0)
+	{
+		strcat(sDriveLabel, "[ ");
+		strcat(sDriveLabel, sDskNameA);
+		strcat(sDriveLabel, " ]");
+	}
+
+	if (strlen(sDskNameB) != 0)
+	{
+		strcat(sDriveLabel, "[ ");
+		strcat(sDriveLabel, sDskNameB);
+		strcat(sDriveLabel, " ]");
+	}
+
+	if (strlen(sCDRName1) != 0)
+	{
+		strcat(sDriveLabel, "[ ");
+		strcat(sDriveLabel, sCDRName1);
+		strcat(sDriveLabel, " ]");
+	}
+
+	if (strlen(sCDRName2) != 0)
+	{
+		strcat(sDriveLabel, "[ ");
+		strcat(sDriveLabel, sCDRName2);
+		strcat(sDriveLabel, " ]");
+	}
+}
+
+void DriveManager::NotifyWaitLabel(Bit8u Laufwerk, int Pos, int Max) {
 	/*
 		On Initialize Show the Label
-	*/		
-	Drives[Laufwerk] = Floppy;
-			
-	switch(Laufwerk)
+	*/
+	switch (Laufwerk)
 	{
 		case 0:
 		{
-			strcpy(sDskNameA, "");					
-			if ( strlen( Drives[0]->GetInfo() ) != 0 ){
-				
-				if ( strlen( Drives[0]->GetLabel() ) == 0 ){
-					sprintf(sDskNameA, "%c:Blank",'A');
-					
-				} else { sprintf(sDskNameA, "%c:%s", 'A', Drives[0]->GetLabel());}						 
-			}				
+			memset(&sDskNameA[0], 0, sizeof(sDskNameA));
+			strcpy(sDskNameA, "");
+			sprintf(sDskNameA, "%c:\\..Load..", 'A');
 		}
 		break;
 		case 1:
 		{
-			strcpy(sDskNameB, "");					
-			if ( strlen( Drives[1]->GetInfo() ) != 0 ){
-				
-				if ( strlen( Drives[1]->GetLabel() ) == 0 ){
-					sprintf(sDskNameB, "%c:Blank",'B');
-					
-				} else {sprintf(sDskNameB, "%c:%s",'B', Drives[1]->GetLabel());}						 
-			}				
+			memset(&sDskNameB[0], 0, sizeof(sDskNameB));
+			strcpy(sDskNameB, "");
+			sprintf(sDskNameB, "%c:\\..Load..", 'B');
+		}
+		break;
+	default:
+		{
+			if (Laufwerk > 2)
+			{
+				int CDRomDrives = 0;
+				for (unsigned int idrive = 2; idrive < DOS_DRIVES; idrive++)
+				{
+					if (dynamic_cast<const isoDrive*>(Drives[idrive]) == NULL)
+					{
+						continue;
+					}
+
+					++CDRomDrives;
+					if (idrive == Laufwerk)
+						break;
+				}
+
+				/*
+					Nicht Lauferk C:\
+				*/
+
+				if (CDRomDrives == 1)
+				{
+					memset(&sCDRName1[0], 0, sizeof(sCDRName1));
+					strcpy(sCDRName1, "");
+					sprintf(sCDRName1, "%c:\\..Load..", Laufwerk + 'A');
+				}
+				else if (CDRomDrives == 2)
+				{
+					memset(&sCDRName2[0], 0, sizeof(sCDRName2));
+					strcpy(sCDRName2, "");
+					sprintf(sCDRName2, "%c:\\..Load..", Laufwerk + 'A');
+				}
+
+				#if defined(C_DEBUG)
+					LOG(LOG_IMAGE, LOG_NORMAL)("[%d] LAUFWERK NUMMER='%d/%d'", __LINE__, Laufwerk, CDRomDrives);
+				#endif
+			}
+		}
+	}
+
+	Notify_SetLabel();
+
+	sprintf(sDriveNotify, "\tMount Drive %s (%d of %d is now Active)", sDriveLabel, Pos + 1, Max);
+
+	/* Schreibe in die Log   */
+	LOG_MSG(sDriveNotify);
+
+	/* Aktualisiere das Window Title */
+	GFX_SetTitle(-1, -1, false);
+}
+void DriveManager::NotifyShowLabel(Bit8u Laufwerk, int Pos, int Max ){
+	/*
+		On Initialize Show the Label
+	*/		
+	
+	switch(Laufwerk)
+	{
+		case 0:
+		{	
+			memset(&sDskNameA[0], 0, sizeof(sDskNameA));
+			strcpy (sDskNameA, "");
+			sprintf(sDskNameA, "%c:\\%s", 'A', Get_FDLabel(Laufwerk).c_str());
+		}
+		break;
+		case 1:
+		{
+			memset(&sDskNameB[0], 0, sizeof(sDskNameB));
+			strcpy (sDskNameB, "");
+			sprintf(sDskNameB, "%c:\\%s", 'B', Get_FDLabel(Laufwerk).c_str());
 		}
 		break;
 		default:
 		{
-			if (Laufwerk != 2){
+
+			if (Laufwerk > 2)
+			{
+				int CDRomDrives = 0;
+				for (unsigned int idrive = 2; idrive < DOS_DRIVES; idrive++)
+				{
+					if (dynamic_cast<const isoDrive*>(Drives[idrive]) == NULL)
+					{
+						continue;
+					}
+
+					++CDRomDrives;
+					if (idrive == Laufwerk)
+						break;
+				}
+
 				/*
 					Nicht Lauferk C:\
 				*/
-				strcpy(sDskNameZ, "");					
-				if ( strlen( Drives[Laufwerk]->GetInfo() ) != 0 ){
-					
-					if ( strlen( Drives[Laufwerk]->GetLabel() ) == 0 ){
-						sprintf(sDskNameZ, "%c:Blank",'A'+Laufwerk);
-						
-					} else {sprintf(sDskNameZ, "%c:%s",'A'+Laufwerk, Drives[Laufwerk]->GetLabel());}						 
-				}				
-			}					
+
+				if (CDRomDrives == 1)
+				{
+					memset(&sCDRName1[0], 0, sizeof(sCDRName1));
+					strcpy(sCDRName1, "");
+					sprintf(sCDRName1, "%c:\\%s", Laufwerk + 'A', Get_FDLabel(Laufwerk).c_str());
+				}
+				else if (CDRomDrives == 2)
+				{
+					memset(&sCDRName2[0], 0, sizeof(sCDRName2));
+					strcpy(sCDRName2, "");
+					sprintf(sCDRName2, "%c:\\%s", Laufwerk + 'A', Get_FDLabel(Laufwerk).c_str());
+				}
+
+				#if defined(C_DEBUG)
+					LOG(LOG_IMAGE, LOG_NORMAL)("[%d] LAUFWERK NUMMER='%d/%d'", __LINE__, Laufwerk, CDRomDrives);
+				#endif					
+			}
 		}
 	}
 					
-	if (( strlen( sDskNameA ) != 0 ) &&  ( strlen( sDskNameB ) != 0 ) && ( strlen( sDskNameZ ) != 0 )) {				
-			sprintf(sDriveLabel, "[ %s / %s / %s ]",sDskNameA, sDskNameB, sDskNameZ);										
-	}
-	
-	else if (( strlen( sDskNameA ) != 0 ) &&  ( strlen( sDskNameB ) == 0 ) && ( strlen( sDskNameZ ) != 0 )) {				
-			sprintf(sDriveLabel, "[ %s / %s ]",sDskNameA, sDskNameZ);								
-	}	
-	
-	else if (( strlen( sDskNameA ) == 0 ) &&  ( strlen( sDskNameB ) != 0 ) && ( strlen( sDskNameZ ) != 0 )) {				
-			sprintf(sDriveLabel, "[ %s / %s ]",sDskNameB, sDskNameZ);								
-	}
-	
-	else if (( strlen( sDskNameA ) != 0 ) &&  ( strlen( sDskNameB ) != 0 ) && ( strlen( sDskNameZ ) == 0 )) {				
-			sprintf(sDriveLabel, "[ %s / %s ]",sDskNameA, sDskNameB);								
-	}
-	
-	else if (( strlen( sDskNameA ) == 0 ) &&  ( strlen( sDskNameB ) == 0 ) && ( strlen( sDskNameZ ) != 0 )) {				
-			sprintf(sDriveLabel, "[ %s ]",sDskNameZ);							
-	}
-	
-	else if (( strlen( sDskNameA ) == 0 ) &&  ( strlen( sDskNameB ) != 0 ) && ( strlen( sDskNameZ ) == 0 )) {				
-			sprintf(sDriveLabel, "[ %s ]",sDskNameB);							
-	}	
-	else if (( strlen( sDskNameA ) != 0 ) &&  ( strlen( sDskNameB ) == 0 ) && ( strlen( sDskNameZ ) == 0 )) {				
-			sprintf(sDriveLabel, "[ %s ]",sDskNameA);								
-	}		
-	sprintf(sDriveNotify,"Mount Drive %s (%d of %d is now Active)", sDriveLabel, Pos+1, Max);
+	Notify_SetLabel();
+
+	sprintf(sDriveNotify,"\tMount Drive %s (%d of %d is now Active)", sDriveLabel, Pos+1, Max);
 
 	/* Schreibe in die Log   */
 		LOG_MSG(sDriveNotify);			
 		
 	/* Aktualisiere das Window Title */
-		GFX_SetTitle(-1,-1,false);
-	
+		GFX_SetTitle(-1,-1,false);	
 }
 
 void DriveManager::InitializeDrive(int drive) {
@@ -237,13 +384,16 @@ void DriveManager::InitializeDrive(int drive) {
 		/*
 			On Initialize Show the Label
 		*/			
-		if (driveInfo.disks.size() > 1){
+		if (driveInfo.disks.size() > 0){
 			disk->Activate();
-			DriveManager__NotifyShowLabel(disk, drive,currentDisk, driveInfo.disks.size() );
+			NotifyShowLabel(drive,currentDisk, driveInfo.disks.size() );
 		}
 	}
 }
-
+std::string DriveManager::GetFilePath(int drive, DOS_Drive* disk, int num) {
+	driveInfos[drive].disks[num];
+	return disk->info;
+}
 /*
 void DriveManager::CycleDrive(bool pressed) {
 	if (!pressed) return;
@@ -277,6 +427,50 @@ void DriveManager::CycleDisk(bool pressed) {
 }
 */
 
+INLINE std::string Replace(std::string str, const std::string& from, const std::string& to) {
+	size_t start_pos = 0;
+	while ((start_pos = str.find(from, start_pos)) != std::string::npos) {
+		str.replace(start_pos, from.length(), to);
+		start_pos += to.length(); // Handles case where 'to' is a substring of 'from'
+	}
+	return str;
+}
+
+std::vector<std::string*>DriveManager::Get_CDROM_Paths(std::vector<std::string>& Stacks, int drive)
+{
+	int MaxDisk = (int)driveInfos[drive].disks.size();
+	int Current = (int)driveInfos[drive].currentDisk;
+
+	std::string sFindTxt = "isoDrive ";
+	std::string sReplace = "";
+	std::string FilePath;
+
+	for (int i = 0; i < MaxDisk; i++)
+	{
+		FilePath = Replace(driveInfos[drive].disks[i]->info, sFindTxt, sReplace);
+		Stacks.push_back(FilePath.c_str());
+	}
+}
+
+std::vector<std::string*>DriveManager::Get_FLOPPY_Paths(std::vector<std::string>& Stacks, int drive)
+{
+	int MaxDisk = (int)driveInfos[drive].disks.size();
+	int Current = (int)driveInfos[drive].currentDisk;
+
+	std::string sFindTxt = "fatDrive ";
+	std::string sReplace = "";
+	std::string FilePath;
+
+	for (int i = 0; i < MaxDisk; i++)
+	{
+		FilePath = Replace(driveInfos[drive].disks[i]->info, sFindTxt, sReplace);
+		Stacks.push_back(FilePath.c_str());
+		#if defined(C_DEBUG)
+			LOG(LOG_IMAGE, LOG_NORMAL)("[%d] PushBack: %s", __LINE__, FilePath.c_str());
+		#endif
+	}
+}
+
 void DriveManager::CycleDisks(int drive, bool notify) {
 	int numDisks = (int)driveInfos[drive].disks.size();
 	if (numDisks > 1) {
@@ -294,24 +488,90 @@ void DriveManager::CycleDisks(int drive, bool notify) {
 		//LOG_MSG("%s", Drives[drive]->GetLabel());
 		if (notify){
 
-			DriveManager__NotifyShowLabel(newDisk, drive,currentDisk, numDisks );
+			NotifyShowLabel(drive,currentDisk, numDisks );
 		}
 	}
 
 }
+void DriveManager::CycleImage(int drive, bool notify, int LastDisk) {
+	int numDisks = (int)driveInfos[drive].disks.size();
+	int n = 1;
+	if (isVirtualModus)
+		n = -1;
 
+	if (numDisks > n) {
+		// cycle disk
+		int currentDisk = driveInfos[drive].currentDisk;
+		DOS_Drive* oldDisk = driveInfos[drive].disks[currentDisk];
+		currentDisk = LastDisk;// (currentDisk + LastDisk) % numDisks;
+		DOS_Drive* newDisk = driveInfos[drive].disks[currentDisk];
+		driveInfos[drive].currentDisk = currentDisk;
+
+		// copy working directory, acquire system resources and finally switch to next drive		
+		strcpy(newDisk->curdir, oldDisk->curdir);
+		newDisk->Activate();
+		Drives[drive] = newDisk;
+		//LOG_MSG("%s", Drives[drive]->GetLabel());
+		if (notify == true) {
+
+			NotifyShowLabel(drive, currentDisk, numDisks);
+		}
+		Drives[drive]->EmptyCache();
+		Drives[drive]->MediaChange();
+	}
+
+}
 void DriveManager::CycleAllDisks(void) {
 	/*
 	for (int idrive=0; idrive<DOS_DRIVES; idrive++)CycleDisks(idrive, true);
 	*/
 	for (int idrive=0; idrive<2; idrive++) CycleDisks(idrive, true); 			/* Cycle all DISKS meaning A: and B: */
 }
-
 void DriveManager::CycleAllCDs(void) {
 	for (int idrive=2; idrive<DOS_DRIVES; idrive++) CycleDisks(idrive, true); 	/* Cycle all CDs in C: D: ... Z: */
 }
- 
-int DriveManager::UnmountDrive(int drive) {
+
+void DriveManager::ChangeDisk(int drive, DOS_Drive* disk)
+{
+	DriveInfo& driveInfo = driveInfos[drive];
+	
+	if (Drives[drive] == NULL || disk == NULL || !driveInfo.disks.size())
+		return;
+
+	isoDrive* cdrom = dynamic_cast<isoDrive*>(Drives[drive]);
+	
+	signed char index	= -1;
+	bool slave			= false;
+	
+	if (cdrom)
+		IDE_CDROM_Detach_Ret(index, slave, drive);
+
+	strcpy(disk->curdir, driveInfo.disks[driveInfo.currentDisk]->curdir);
+	disk->Activate();
+	disk->UpdateDPB(currentDrive);
+
+	if (cdrom && isVirtualModus)
+		cdrom->loadImage();
+
+	driveInfo.disks[driveInfo.currentDisk] = disk;
+
+	Drives[drive] = disk;
+	
+	if (cdrom && index > -1)
+		IDE_CDROM_Attach(index, slave, drive);
+
+	Drives[drive]->EmptyCache();
+	Drives[drive]->MediaChange();
+	
+	if (cdrom && !isVirtualModus)
+	{
+		IDE_CDROM_Detach_Ret(index, slave, drive);
+		if (index > -1) IDE_CDROM_Attach(index, slave, drive);
+	}
+
+}
+
+int  DriveManager::UnmountDrive(int drive) {
 	int result = 0;
 	// unmanaged drive
 	if (driveInfos[drive].disks.size() == 0) {

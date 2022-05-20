@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -29,7 +29,7 @@
 #include "int10.h"
 #include "dos_inc.h"
 #include "control.h"
-#include "..\gui\version.h"
+#include "..\gui\version_optionals.h"
 
 #define VESA_SUCCESS          0x00
 #define VESA_FAIL             0x01
@@ -50,6 +50,8 @@ static char string_oem[]="S3 Inc. Trio64 Custom";
 static char string_vendorname[]="DOSBox Development Team";
 static char string_productname[]="DOSBox - The DOS Emulator";
 static char string_productrev[]="DOSBox " VERSION" " DOSBOXREVISION;
+
+int Int10VesaCount = 0;
 
 #ifdef _MSC_VER
 #pragma pack (1)
@@ -224,7 +226,11 @@ foundit:
 					mblock=&ModeTableA_S3_32Bit[3];						
 				}	
 				#if defined(C_DEBUG)
-					LOG_MSG("VGA: Using Vesa VBE 1.2 32Bit Color Modes -- (File %s, Line %d)",__FILE__,__LINE__);				
+					Int10VesaCount++;
+					if (Int10VesaCount == 1) {
+						LOG_MSG("VGA: Using Vesa VBE 1.2 32Bit Color Modes -- (File %s, Line %d)", __FILE__, __LINE__);
+					}			
+
 				#endif
 			}
     /* do not return information on deleted modes */
@@ -808,12 +814,14 @@ void INT10_SetupVESA(void) {
 	int10.bModePatch0x166 = section->Get_bool("S3Screen_Fix_400x300x8");
 	int10.bModePatch0x211 = section->Get_bool("S3Screen_Fix_640x480x16");
 	int10.bModePatch0x110 = section->Get_bool("S3Screen_Fix_640x480x15");	
+	int10.bModePatch0x012 = section->Get_bool("S3Screen_Fix_320x256x8");
 	int10.bVesaPatch32bit = section->Get_bool("VesaVbe1.2_32Bit_Modes");
 				
 	if (int10.bModePatch0x153){	LOG_MSG("VGA: Using S3 Screen Fix 320x240x8  -> 320x200x8\n");	}
 	if (int10.bModePatch0x166){	LOG_MSG("VGA: Using S3 Screen Fix 400x300x8  -> 320x480x8\n");	}	
-	if (int10.bModePatch0x211){	LOG_MSG("VGA: Using S3 Screen Fix 640x480x16 -> 320x480xx16\n");	}	
-	if (int10.bModePatch0x110){	LOG_MSG("VGA: Using S3 Screen Fix 320x480x15 -> 640x480xx16\n");	}
+	if (int10.bModePatch0x211){	LOG_MSG("VGA: Using S3 Screen Fix 640x480x16 -> 320x480x16\n");	}	
+	if (int10.bModePatch0x110){	LOG_MSG("VGA: Using S3 Screen Fix 320x480x15 -> 640x480x16\n");	}
+	if (int10.bModePatch0x012){ LOG_MSG("VGA: Using S3 Screen Fix 640x480x8  -> 320x240x8\n"); }
 	if (int10.bVesaPatch32bit){	LOG_MSG("VGA: Using Vesa 1.2 32Bit Color Modes\n");	}	
 		
 	Section_prop *sRender = static_cast<Section_prop *>(control->GetSection("render"));	

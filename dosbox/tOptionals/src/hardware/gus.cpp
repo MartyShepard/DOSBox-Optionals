@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -2649,12 +2649,12 @@ private:
 public:
 	GUS(Section* configuration):Module_base(configuration){
 
-        gus_enable = false;
+        gus_enable = useSoundGus = false;
         if(!IS_EGAVGA_ARCH) return;
         Section_prop * section=static_cast<Section_prop *>(configuration);
         if(!section->Get_bool("gus")) return;
 
-        gus_enable = true;
+        gus_enable = useSoundGus = true;
         memset(&myGUS,0,sizeof(myGUS));
         memset(GUSRam,0,1024*1024);
 			

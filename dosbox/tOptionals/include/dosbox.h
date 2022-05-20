@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -43,6 +43,9 @@ void DOSBOX_SetNormalLoop();
 void DOSBOX_Init(void);
 
 void Set_Window_HMenu(void);
+
+void MenuBrowseCDImage(char drive, int num);
+void MenuBrowseFDImage(char drive, int num);
 
 class Config;
 extern Config * control;
@@ -93,28 +96,76 @@ extern std::string nCurrent_Disney;
 extern std::string nCurrent_Ps1SND;
 extern std::string nCurrent_Ne2000;
 
-
-
-
 extern bool bVoodooInUse;
 extern bool bVoodooOpen;
 extern bool bVoodooUpdateWinRes;
+extern bool bVoodooUseHighRatio;
+
+/* Menu Bools */
+extern bool useSoundGus;
+extern bool useSoundSB;
+extern bool useSoundAdlib;
+extern bool useSoundMT32;
+extern bool useSoundDisney;
+extern bool useSoundTandy;
+extern bool useSoundSSI2k1;
+extern bool useSoundPS1;
+
+/* Virtueller Modus */
+extern bool isVirtualModus;
+
+/* WarteZeit für das Label */
+extern bool MediaLabelChanged;
 
 /* Vooodoo Structure to Syncronize mit SDL Main */
 struct ExtVoodooMaschine{
-	int  pciH;
-	int  pciW;
-	int  pciFSH;
-	int  pciFSW;
-	int  GL_filtering;
-	int  gl_wrap_s;		
-	int  gl_wrap_t;
-	bool bLFBFixBack;
-	bool bLFBFixFrnt;	
-	bool bForceWindowUpdate;
-	bool bForceFullSnUpdate;	
-};
+	int   pciH;
+	int   pciW;
+	int   pciFSH;
+	int   pciFSW;
+	
+	int   GL_filtering;
+	int   GL_shade;
+	
+	int   gl_wrap_s;		
+	int   gl_wrap_t;
 
+	bool  bLFBFixBack;
+	bool  bLFBFixFrnt;	
+	
+	bool  bForceWindowUpdate;
+	bool  bForceFullSnUpdate;
+	
+	bool  Pic_Alternate;
+	
+	bool  gl_QuadsDraw;
+	
+	bool  bLFBDebugLg;
+	
+	bool  ChacheDelete;
+	bool  Use3DFXCycles;
+	bool  voodoo_aspect;
+	
+	bool  sh_FbzcpCca_Sw2;
+	bool  glP_Smoth_flag;
+	bool  glL_Smoth_flag;
+	bool  glBlendFc_flag;
+	bool  glGMipMap_flag;
+	bool  glPersCor_flag;
+	bool  glG_Smoth_flag;
+	bool  gl_GLFog__flag;
+	
+	bool  compatibleFlag;
+	bool  glScissor_flag;
+	
+	int RGB_Type;
+	int RGB_Format;
+
+	int GLDark;
+	int GLScan;
+
+};
+extern void FX_Menu(int /*Menu*/Option);
 extern void Restart(bool pressed);
 extern void UI_Run(bool);
 

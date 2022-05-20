@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -51,7 +51,7 @@ bool CPUMMXN = false;
 	#define LoadMb(off) mem_readb_inline(off)
 	#define LoadMw(off) mem_readw_inline(off)
 	#define LoadMd(off) mem_readd_inline(off)
-	#define LoadMq(off) ((Bit64u)((Bit64u)mem_readd_inline(off+4)<<32 | (Bit64u)mem_readd_inline(off)))
+	#define LoadMq(off) ((Bit64u)((Bit64u)mem_readd_inline(off + 4) << 32 | (Bit64u)mem_readd_inline(off)))
 	#define SaveMb(off,val)	mem_writeb_inline(off,val)
 	#define SaveMw(off,val)	mem_writew_inline(off,val)
 	#define SaveMd(off,val)	mem_writed_inline(off,val)
@@ -171,11 +171,13 @@ restart_opcode:
 			#include "core_normal/prefix_none.h"
 			#include "core_normal/prefix_0f.h"
 			#include "core_normal/prefix_66.h"
-			#include "core_normal/prefix_66_0f.h"									
+			#include "core_normal/prefix_66_0f.h"
+			/*
 			if ( CPU_Support_MMX == true )
 			{
 				#include "core_normal/prefix_0f_mmx.h"
 			}
+			*/
 		default:
 		illegal_opcode:
 #if defined(C_DEBUG)	
@@ -215,7 +217,7 @@ Bits CPU_Core_Normal_Trap_Run(void) {
 	cpu.trap_skip = false;
 
 	Bits ret=CPU_Core_Normal_Run();
-	if (!cpu.trap_skip) CPU_HW_Interrupt(1);
+	if (!cpu.trap_skip) CPU_DebugException(DBINT_STEP, reg_eip);
 	CPU_Cycles = oldCycles-1;
 	cpudecoder = &CPU_Core_Normal_Run;
 

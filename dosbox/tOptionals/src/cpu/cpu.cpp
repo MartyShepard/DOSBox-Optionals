@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -53,6 +53,7 @@ Bit32s CPU_Cycles 			= 0;
 Bit32s CPU_CycleLeft 		= 3000;
 Bit32s CPU_CycleMax 		= 3000;
 Bit32s CPU_OldCycleMax 		= 3000;
+Bit32s CPU_FX_Cycles		= 3000;		/*3DFX Cycles*/;
 Bit32s CPU_CyclePercUsed 	= 100;
 Bit32s CPU_CycleLimit 		= -1;
 Bit32s CPU_CycleUp 			= 0;
@@ -64,6 +65,7 @@ CPU_Decoder * cpudecoder;
 bool CPU_CycleAutoAdjust 	 = false;
 bool CPU_SkipCycleAutoAdjust = false;
 bool CPU_Support_MMX		 = false;
+bool CPU_Support_MXT		 = false;
 bool CPU_Support_3DNOW		 = false;
 bool CPU_Support_SSE1		 = false;
 bool CPU_Support_SSE2		 = false;
@@ -552,6 +554,11 @@ doexception:
 	return CPU_PrepareException(EXCEPTION_GP,0);
 }
 
+void CPU_DebugException(Bit32u triggers, Bitu oldeip) {
+	cpu.drx[6] = (cpu.drx[6] & 0xFFFF1FF0) | triggers;
+	CPU_Interrupt(EXCEPTION_DB, CPU_INT_EXCEPTION, oldeip);	
+}
+
 void CPU_Exception(Bitu which,Bitu error ) {
 //	LOG_MSG("Exception %d error %x",which,error);
 	cpu.exception.error=error;
@@ -560,6 +567,10 @@ void CPU_Exception(Bitu which,Bitu error ) {
 
 Bit8u lastint;
 void CPU_Interrupt(Bitu num,Bitu type,Bitu oldeip) {
+	if (num == EXCEPTION_DB && (type & CPU_INT_EXCEPTION) == 0) {
+		CPU_DebugException(0, oldeip); // DR6 bits need updating
+		return;		
+	}
 	lastint=num;
 	FillFlags();
 #if defined(C_DEBUG)
@@ -672,7 +683,8 @@ void CPU_Interrupt(Bitu num,Bitu type,Bitu oldeip) {
 						case DESC_DATA_ED_RW_NA:		case DESC_DATA_ED_RW_A:
 							break;
 						default:
-							E_Exit("INT:Inner level:Stack segment not writable.");		// or #TS(ss_sel+EXT)
+							/* E_Exit("INT:Inner level:Stack segment not writable.");		// or #TS(ss_sel+EXT)*/
+							LOG_MSG("[CPU] INT:Inner level : Stack segment not writable (%d). (" __FILE__ ") :%d", n_ss_desc.Type(), __LINE__);
 						}
 						CPU_CHECK_COND(!n_ss_desc.saved.seg.p,
 							"INT:Inner level with nonpresent SS",
@@ -916,7 +928,7 @@ void CPU_IRET(bool use32,Bitu oldeip) {
 			break;
 		default:
 			if ( !n_cs_desc.Type() == 0){
-				E_Exit("IRET:Illegal descriptor type %" sBitfs(X), n_cs_desc.Type());
+				E_Exit("IRET:Illegal descriptor type %\n\n[Source=%s] [Line=%d]" sBitfs(X), n_cs_desc.Type(), __FILE__, __LINE__);
 			}
 		}
 		CPU_CHECK_COND(!n_cs_desc.saved.seg.p,
@@ -970,7 +982,8 @@ void CPU_IRET(bool use32,Bitu oldeip) {
 			case DESC_DATA_ED_RW_NA:		case DESC_DATA_ED_RW_A:
 				break;
 			default:
-				E_Exit("IRET:Outer level:Stack segment not writable");		// or #GP(ss_sel)
+				/*E_Exit("IRET:Outer level:Stack segment not writable");		// or #GP(ss_sel)*/
+				LOG_MSG("[CPU] IRET:Outer level:Stack segment not writable (%d). (" __FILE__ ") :%d", n_ss_desc.Type(), __LINE__);
 			}
 			CPU_CHECK_COND(!n_ss_desc.saved.seg.p,
 				"IRET:Outer level:Stack segment not present",
@@ -1074,7 +1087,7 @@ CODE_jmp:
 			CPU_SwitchTask(selector,TSwitch_JMP,oldeip);
 			break;
 		default:
-			E_Exit("JMP Illegal descriptor type %" sBitfs(X),desc.Type());
+			E_Exit("JMP Illegal descriptor type %" sBitfs(X) "\n\n[Source=%s] [Line=%d]",desc.Type(),__FILE__,__LINE__);
 		}
 	}
 	assert(1);
@@ -2015,7 +2028,102 @@ bool CPU_PopSeg(SegNames seg,bool use32) {
 		reg_esp = new_esp;
 	return false;
 }
+void CPU_CPUID_EXT_SETTINGS(bool CPU_Support_OTPS,
+							bool CPU_Support_3DNOW,
+							bool CPU_Support_SSE1,
+							bool CPU_Support_SSE2,
+							bool CPU_Support_MMX,
+							bool CPU_Support_MXT)
+{
+			/* Only for testing							*/
+		    /* The Most Register Stuff is missing 		*/
 
+			reg_ebx = 0x0;				/* Reset = Not Supported */
+			reg_ecx = 0x0;				/* Reset = No Features */
+
+			if (CPU_Support_OTPS) {
+				reg_ecx |= (1 << 23);		/*  POPCNT */
+				reg_ecx |= (1 << 22);		/*  MOVBE */
+				LOG_MSG("CPU Feature Enabled: POPCNT, MOVBE");
+			}
+
+			/*
+			reg_ecx |= (1 << 20); */	/* SSE4.2 */
+			/*
+			reg_ecx |= (1 << 19); */	/* SSE4.1 */
+			/*
+			reg_ecx |= (1 << 9);  */	/* SSSE3 */
+			/*
+			reg_ecx |= (1 << 0);  */	/* SSE3 */
+
+			reg_ecx |= (1 << 3);  /* MONITOR,MWAIT (SSE3 option) */
+
+			if (CPU_Support_SSE1) {
+				reg_ecx |= (1 << 1);	/*  PCLMULQDQ (SSE option) */
+				//LOG_MSG("CPU Feature Enabled: PCLMULQDQ (SSE option))");
+			}
+
+			if (CPU_Support_OTPS) {
+				reg_ecx |= (1 << 13);	/*  CMPXCHG16B */
+				reg_ecx |= (1 << 12);	/*  FMA (AVX option) */
+				//LOG_MSG("CPU Feature Enabled: CMPXCHG16B, FMA (AVX option)");
+			}
+
+
+			reg_edx = 0x0;				/* No Steppings */
+			if (CPU_Support_3DNOW) {
+				reg_edx |= (1 << 30);	/* 3DNOWEXT */
+				reg_edx |= (1 << 31);	/* 3DNOW */
+				//LOG_MSG("CPU Feature Enabled: 3DNOWEXT, 3DNOW");
+			}
+
+			reg_edx |= (1 << 27);		/* RDTSCP */
+
+			if (CPU_Support_SSE2) {
+				reg_edx |= (1 << 26); 	/* SSE2 */
+				//LOG_MSG("CPU Feature Enabled: SSE2");
+			}
+
+			if (CPU_Support_SSE1) {
+				reg_edx |= (1 << 25);	/* SSE1 */
+				reg_edx |= (1 << 24);	/* FXSAVE, FXRSTOR (always with SSE) */
+				//LOG_MSG("CPU Feature Enabled: SSE1, FXSAVE, FXRSTOR");
+			}
+
+			if (CPU_Support_MMX) {
+				reg_edx |= (1 << 23);	/* MMX */
+				//LOG_MSG("CPU Feature Enabled: MMX");
+			}
+
+			if (CPU_Support_MXT) {
+				reg_edx |= (1 << 22);	/* MMXEXT */
+				//LOG_MSG("CPU Feature Enabled: MMXEXT");
+			}
+
+			if (CPU_Support_SSE2) {
+				reg_edx |= (1 << 19);	/* CLFLUSH (SSE2 option) */
+				//LOG_MSG("CPU Feature Enabled: CLFLUSH (SSE2 option)");
+			}
+
+			reg_edx |= (1 << 15);		/* CMOVcc */
+
+			if (CPU_Support_OTPS) {
+				reg_edx |= (1 << 11);	/* SEP */
+				//LOG_MSG("CPU Feature Enabled: SEP");
+			}
+
+			reg_edx |= (1 << 8);		/* CMPXCHG8B */
+			if (CPU_Support_OTPS) {
+				reg_edx |= (1 << 5);	/* MSR */
+				//LOG_MSG("CPU Feature Enabled: MSR");
+			}
+
+			reg_edx |= (1 << 4);		/* TSC */
+			reg_edx |= (1 << 0);		/* FPU */
+
+			//LOG_MSG("CPU Feature Enabled: CMPXCHG8B, TSC, FPU, RDTSCP");
+			//LOG_MSG("CPU Feature Enabled: CPUID Function %x", reg_edx);
+}
 bool CPU_CPUID(void) {
 	if (CPU_ArchitectureType<CPU_ARCHTYPE_486NEWSLOW) return false;
 	switch (reg_eax) {
@@ -2031,7 +2139,13 @@ bool CPU_CPUID(void) {
 			reg_eax=0x402;		/* intel 486dx */
 			reg_ebx=0;			/* Not Supported */
 			reg_ecx=0;			/* No features */
-			reg_edx=0x00000001;	/* FPU */
+			reg_edx=0x00000001;	/* FPU */			
+		}
+		else if (CPU_ArchitectureType == CPU_ARCHTYPE_PMMXSLOW) {
+			reg_eax = 0x543;		/* intel pentium mmx (PMMX) */
+			reg_ebx = 0;			/* Not Supported */
+			reg_ecx = 0;			/* No features */
+			reg_edx = 0x00800011;	/* FPU+TimeStamp/RDTSC+MMX */
 		} else if (CPU_ArchitectureType==CPU_ARCHTYPE_PENTIUMSLOW) {
 			reg_eax=0x513;		/* intel pentium */
 			reg_ebx=0;			/* Not Supported */
@@ -2043,117 +2157,29 @@ bool CPU_CPUID(void) {
 				/* http://www.cpu-world.com/cgi-bin/CPUID.pl?MANUF=&FAMILY=&MODEL=&SIGNATURE=5425&PART=&ACTION=Filter&STEPPING= */
 				
 				case 513:  {reg_eax=0x513;  }break; /* intel pentium */	
-				case 543:
-				{			
-					/* Only for testing and at most Adding Features for Fake */
-					/* The Most Register Stuff is missing 					*/
-															
-					reg_eax=0x543;				/* intel pentium mmx (P55C) */
-
-					reg_ebx=0x0;				/* Not Supported */
+				case 543:  {reg_eax=0x543;  CPU_CPUID_EXT_SETTINGS(CPU_Support_OTPS, CPU_Support_3DNOW, CPU_Support_SSE1, CPU_Support_SSE2, CPU_Support_MMX, CPU_Support_MXT); }break; /* intel pentium mmx (P55C) */
+				case 610:  {reg_eax=0x610;  CPU_CPUID_EXT_SETTINGS(CPU_Support_OTPS, CPU_Support_3DNOW, CPU_Support_SSE1, CPU_Support_SSE2, CPU_Support_MMX, CPU_Support_MXT); }break; /* intel pentium pro */
+				case 611:  {reg_eax=0x611;  CPU_CPUID_EXT_SETTINGS(CPU_Support_OTPS, CPU_Support_3DNOW, CPU_Support_SSE1, CPU_Support_SSE2, CPU_Support_MMX, CPU_Support_MXT); }break; /* intel pentium pro */
+				case 612:  {reg_eax=0x612;  CPU_CPUID_EXT_SETTINGS(CPU_Support_OTPS, CPU_Support_3DNOW, CPU_Support_SSE1, CPU_Support_SSE2, CPU_Support_MMX, CPU_Support_MXT); }break; /* intel pentium pro */
+				case 616:  {reg_eax=0x616;  CPU_CPUID_EXT_SETTINGS(CPU_Support_OTPS, CPU_Support_3DNOW, CPU_Support_SSE1, CPU_Support_SSE2, CPU_Support_MMX, CPU_Support_MXT); }break; /* intel pentium pro */
+				case 621:  {reg_eax=0x621;  CPU_CPUID_EXT_SETTINGS(CPU_Support_OTPS, CPU_Support_3DNOW, CPU_Support_SSE1, CPU_Support_SSE2, CPU_Support_MMX, CPU_Support_MXT); }break; /* AMD Athlon */
+				case 631:  {reg_eax=0x631;  CPU_CPUID_EXT_SETTINGS(CPU_Support_OTPS, CPU_Support_3DNOW, CPU_Support_SSE1, CPU_Support_SSE2, CPU_Support_MMX, CPU_Support_MXT); }break; /* AMD Duron */
+				case 634:  {reg_eax=0x634;  CPU_CPUID_EXT_SETTINGS(CPU_Support_OTPS, CPU_Support_3DNOW, CPU_Support_SSE1, CPU_Support_SSE2, CPU_Support_MMX, CPU_Support_MXT); }break; /* Intel Pentium II */
+				case 642:  {reg_eax=0x642;  CPU_CPUID_EXT_SETTINGS(CPU_Support_OTPS, CPU_Support_3DNOW, CPU_Support_SSE1, CPU_Support_SSE2, CPU_Support_MMX, CPU_Support_MXT); }break; /* AMD Athlon */
+				case 650:  {reg_eax=0x650;  CPU_CPUID_EXT_SETTINGS(CPU_Support_OTPS, CPU_Support_3DNOW, CPU_Support_SSE1, CPU_Support_SSE2, CPU_Support_MMX, CPU_Support_MXT); }break; /* Intel Pentium II*/
+				case 660:  {reg_eax=0x660;  CPU_CPUID_EXT_SETTINGS(CPU_Support_OTPS, CPU_Support_3DNOW, CPU_Support_SSE1, CPU_Support_SSE2, CPU_Support_MMX, CPU_Support_MXT); }break; /* IIntel Celeron*/
+				case 672:  {reg_eax=0x672;  CPU_CPUID_EXT_SETTINGS(CPU_Support_OTPS, CPU_Support_3DNOW, CPU_Support_SSE1, CPU_Support_SSE2, CPU_Support_MMX, CPU_Support_MXT); }break; /* Intel Pentium III*/
+				case 673:  {reg_eax=0x673;  CPU_CPUID_EXT_SETTINGS(CPU_Support_OTPS, CPU_Support_3DNOW, CPU_Support_SSE1, CPU_Support_SSE2, CPU_Support_MMX, CPU_Support_MXT); }break; /* Intel Pentium III*/
+				case 683:  {reg_eax=0x683;  CPU_CPUID_EXT_SETTINGS(CPU_Support_OTPS, CPU_Support_3DNOW, CPU_Support_SSE1, CPU_Support_SSE2, CPU_Support_MMX, CPU_Support_MXT); }break; /* Intel Celeron / Pentium III / Pentium III Xeon */
+				case 1531: {reg_eax=0x1531; CPU_CPUID_EXT_SETTINGS(CPU_Support_OTPS, CPU_Support_3DNOW, CPU_Support_SSE1, CPU_Support_SSE2, CPU_Support_MMX, CPU_Support_MXT); }break; /* Intel Pentium Overdrive 63MHz */
+				case 1532: {reg_eax=0x1532; CPU_CPUID_EXT_SETTINGS(CPU_Support_OTPS, CPU_Support_3DNOW, CPU_Support_SSE1, CPU_Support_SSE2, CPU_Support_MMX, CPU_Support_MXT); }break; /* Intel Pentium Overdrive 83MHz */
+				case 1543: {reg_eax=0x1543; CPU_CPUID_EXT_SETTINGS(CPU_Support_OTPS, CPU_Support_3DNOW, CPU_Support_SSE1, CPU_Support_SSE2, CPU_Support_MMX, CPU_Support_MXT); }break; /* Intel Pentium MMX Overdrive 200Mhz */
+				case 1544: {reg_eax=0x1544; CPU_CPUID_EXT_SETTINGS(CPU_Support_OTPS, CPU_Support_3DNOW, CPU_Support_SSE1, CPU_Support_SSE2, CPU_Support_MMX, CPU_Support_MXT); }break; /* Intel Pentium MMX Overdrive 166Mhz */
+				case 1632: {reg_eax=0x1632; CPU_CPUID_EXT_SETTINGS(CPU_Support_OTPS, CPU_Support_3DNOW, CPU_Support_SSE1, CPU_Support_SSE2, CPU_Support_MMX, CPU_Support_MXT); }break; /* Intel Pentium II Overdrive	333 Mhz*/
+				case 3847: {reg_eax=0x0F07; CPU_CPUID_EXT_SETTINGS(CPU_Support_OTPS, CPU_Support_3DNOW, CPU_Support_SSE1, CPU_Support_SSE2, CPU_Support_MMX, CPU_Support_MXT); }break; /* Intel Pentium 4 1.3 GHz CPU*/
+				case 10661:{reg_eax=0x10661;CPU_CPUID_EXT_SETTINGS(CPU_Support_OTPS, CPU_Support_3DNOW, CPU_Support_SSE1, CPU_Support_SSE2, CPU_Support_MMX, CPU_Support_MXT); }break; /* Intel Celeron */
+				case 20650:{reg_eax=0x20650;CPU_CPUID_EXT_SETTINGS(CPU_Support_OTPS, CPU_Support_3DNOW, CPU_Support_SSE1, CPU_Support_SSE2, CPU_Support_MMX, CPU_Support_MXT); }break; /* Intel Core i7 Mobile*/
 					
-					reg_ecx=0x0;				/* No Features */	
-
-					if (CPU_Support_OTPS){	
-						reg_ecx |= (1 << 23);		/*  POPCNT */											
-						reg_ecx |= (1 << 22);		/*  MOVBE */
-						LOG_MSG("CPU Feature Enabled: POPCNT, MOVBE");
-					}
-					
-					/*
-					reg_ecx |= (1 << 20); */	/* SSE4.2 */										
-					/* 
-					reg_ecx |= (1 << 19); */	/* SSE4.1 */										
-					/* 
-					reg_ecx |= (1 << 9);  */	/* SSSE3 */									
-					/* 
-					reg_ecx |= (1 << 0);  */	/* SSE3 */					
-					/*
-					reg_ecx |= (1 << 3);  */	/* MONITOR,MWAIT (SSE3 option) */
-					
-					if (CPU_Support_SSE1){	 
-						reg_ecx |= (1 << 1);	/*  PCLMULQDQ (SSE option) */	
-						LOG_MSG("CPU Feature Enabled: PCLMULQDQ (SSE option))");						
-					}
-					
-					if (CPU_Support_OTPS){					
-						reg_ecx |= (1 << 13);	/*  CMPXCHG16B */											
-						reg_ecx |= (1 << 12);	/*  FMA (AVX option) */	
-						LOG_MSG("CPU Feature Enabled: CMPXCHG16B, FMA (AVX option)");						
-					}
-
-
-					reg_edx  = 0x0;				/* No Steppings */
-					if (CPU_Support_3DNOW){						
-						reg_edx |= (1 << 30);	/* 3DNOWEXT */						
-						reg_edx |= (1 << 31);	/* 3DNOW */
-						LOG_MSG("CPU Feature Enabled: 3DNOWEXT, 3DNOW");						
-					}
-										
-					reg_edx |= (1 << 27);		/* RDTSCP */	
-										
-					if (CPU_Support_SSE2){										
-						reg_edx |= (1 << 26); 	/* SSE2 */						
-						LOG_MSG("CPU Feature Enabled: SSE2");
-					}
-							
-					if (CPU_Support_SSE1){								
-						reg_edx |= (1 << 25);	/* SSE1 */	
-						reg_edx |= (1 << 24);	/* FXSAVE, FXRSTOR (always with SSE) */
-						LOG_MSG("CPU Feature Enabled: SSE1, FXSAVE, FXRSTOR");						
-					}				
-										
-					if (CPU_Support_MMX) {						
-						reg_edx |= (1 << 23);	/* MMX */																					
-						reg_edx |= (1 << 22);	/* MMXEXT */
-						LOG_MSG("CPU Feature Enabled: MMX, MMXEXT");						
-					}					
-					
-					if (CPU_Support_SSE2){						
-						reg_edx |= (1 << 19);	/* CLFLUSH (SSE2 option) */
-						LOG_MSG("CPU Feature Enabled: CLFLUSH (SSE2 option)");						
-					}
-					
-					reg_edx |= (1 << 15);		/* CMOVcc */
-					
-					if (CPU_Support_OTPS){						
-						reg_edx |= (1 << 11);	/* SEP */
-						LOG_MSG("CPU Feature Enabled: SEP");	
-					}
-					
-					reg_edx |= (1 << 8);		/* CMPXCHG8B */
-					if (CPU_Support_OTPS){	
-						reg_edx |= (1 << 5);	/* MSR */	
-						LOG_MSG("CPU Feature Enabled: MSR");
-					}
-					
-					reg_edx |= (1 << 4);		/* TSC */											
-					reg_edx |= (1 << 0);		/* FPU */
-
-					LOG_MSG("CPU Feature Enabled: CMPXCHG8B, TSC, FPU, RDTSCP");					
-																		
-					break;
-				}				
-				case 610:  {reg_eax=0x610;  }break; /* intel pentium pro */				
-				case 611:  {reg_eax=0x611;  }break; /* intel pentium pro */				
-				case 612:  {reg_eax=0x612;  }break; /* intel pentium pro */
-				case 616:  {reg_eax=0x616;  }break; /* intel pentium pro */
-				case 621:  {reg_eax=0x621;  }break; /* AMD Athlon */	
-				case 631:  {reg_eax=0x631;  }break; /* AMD Duron */	
-				case 634:  {reg_eax=0x634;  }break; /* Intel Pentium II */					
-				case 642:  {reg_eax=0x642;  }break; /* AMD Athlon */
-				case 650:  {reg_eax=0x650;  }break; /* Intel Pentium II*/		
-				case 660:  {reg_eax=0x660;  }break; /* IIntel Celeron*/
-				case 672:  {reg_eax=0x672;  }break; /* Intel Pentium III*/					
-				case 673:  {reg_eax=0x673;  }break; /* Intel Pentium III*/					
-				case 683:  {reg_eax=0x683;  }break; /* Intel Celeron / Pentium III / Pentium III Xeon */		
-				case 1531: {reg_eax=0x1531; }break; /* Intel Pentium Overdrive 63MHz */		
-				case 1532: {reg_eax=0x1532; }break; /* Intel Pentium Overdrive 83MHz */			
-				case 1543: {reg_eax=0x1543; }break; /* Intel Pentium MMX Overdrive 200Mhz */		
-				case 1544: {reg_eax=0x1544; }break; /* Intel Pentium MMX Overdrive 166Mhz */					
-				case 1632: {reg_eax=0x1632; }break; /* Intel Pentium II Overdrive	333 Mhz*/		
-				case 10661:{reg_eax=0x10661;}break; /* Intel Celeron */				
-				case 20650:{reg_eax=0x20650;}break; /* Intel Core i7 Mobile*/
 
 				//case 50651:{reg_eax=0x50651;}break; /* Intel Xeon 1,5Ghz*/					
 				
@@ -2404,6 +2430,14 @@ public:
 							std::istringstream stream(str);
 							stream >> cyclimit;
 							if (cyclimit>0) CPU_CycleLimit=cyclimit;
+						}
+					}else if ((str == "fxsst") && (bVoodooUseHighRatio)){	/* 3DFX Cycles*/
+						cmdnum++;
+						if (cmd.FindCommand(cmdnum, str)) {
+							int FxCycles = 0;
+							std::istringstream stream(str);
+							stream >> FxCycles;
+							if (FxCycles > 0) CPU_FX_Cycles = FxCycles;
 						}
 					}
 				}
@@ -2690,9 +2724,16 @@ public:
 			CPU_ArchitectureType = CPU_ARCHTYPE_PPROSLOW;			
 		}
 
+		else if (cputype == "pentium_mmx_slow")
+		{
+			CPU_ArchitectureType = CPU_ARCHTYPE_PMMXSLOW;
+			nCurrentCPUType = "Intel(R) Pentium(R) Pro MMX";
+		}
+
 		CPU_Kennung = section->Get_int("cpuident");
 		
-		CPU_Support_MMX   = section->Get_bool("Enable-MMX");		
+		CPU_Support_MMX   = section->Get_bool("Enable-MMX");	
+		CPU_Support_MXT   = section->Get_bool("Enable-MXT");
 		CPU_Support_3DNOW = section->Get_bool("Enable-3DNOW");
 		CPU_Support_SSE1  = section->Get_bool("Enable-SSE1");
 		CPU_Support_SSE2  = section->Get_bool("Enable-SSE2");
@@ -2748,61 +2789,54 @@ void init_vm86_fake_io() {
 
 	/* read */
 	vm86_fake_io_offs[0] = vm86_fake_io_off + wo;
-	phys_writeb(phys+wo+0x00,(Bit8u)0xEC);	/* IN AL,DX */
-	phys_writeb(phys+wo+0x01,(Bit8u)0xCB);	/* RETF */
+	phys_writeb((PhysPt)(phys + wo + 0x00), (uint8_t)0xEC);	/* IN AL,DX */
+	phys_writeb((PhysPt)(phys + wo + 0x01), (uint8_t)0xCB);	/* RETF */
 	wo += 2;
 
 	vm86_fake_io_offs[1] = vm86_fake_io_off + wo;
-	phys_writeb(phys+wo+0x00,(Bit8u)0xED);	/* IN AX,DX */
-	phys_writeb(phys+wo+0x01,(Bit8u)0xCB);	/* RETF */
+	phys_writeb((PhysPt)(phys + wo + 0x00), (uint8_t)0xED);	/* IN AX,DX */
+	phys_writeb((PhysPt)(phys + wo + 0x01), (uint8_t)0xCB);	/* RETF */
 	wo += 2;
 
 	vm86_fake_io_offs[2] = vm86_fake_io_off + wo;
-	phys_writeb(phys+wo+0x00,(Bit8u)0x66);	/* IN EAX,DX */
-	phys_writeb(phys+wo+0x01,(Bit8u)0xED);
-	phys_writeb(phys+wo+0x02,(Bit8u)0xCB);	/* RETF */
+	phys_writeb((PhysPt)(phys + wo + 0x00), (uint8_t)0x66);	/* IN EAX,DX */
+	phys_writeb((PhysPt)(phys + wo + 0x01), (uint8_t)0xED);
+	phys_writeb((PhysPt)(phys + wo + 0x02), (uint8_t)0xCB);	/* RETF */
 	wo += 3;
 
 	/* write */
 	vm86_fake_io_offs[3] = vm86_fake_io_off + wo;
-	phys_writeb(phys+wo+0x00,(Bit8u)0xEE);	/* OUT DX,AL */
-	phys_writeb(phys+wo+0x01,(Bit8u)0xCB);	/* RETF */
+	phys_writeb((PhysPt)(phys + wo + 0x00), (uint8_t)0xEE);	/* OUT DX,AL */
+	phys_writeb((PhysPt)(phys + wo + 0x01), (uint8_t)0xCB);	/* RETF */
 	wo += 2;
 
 	vm86_fake_io_offs[4] = vm86_fake_io_off + wo;
-	phys_writeb(phys+wo+0x00,(Bit8u)0xEF);	/* OUT DX,AX */
-	phys_writeb(phys+wo+0x01,(Bit8u)0xCB);	/* RETF */
+	phys_writeb((PhysPt)(phys + wo + 0x00), (uint8_t)0xEF);	/* OUT DX,AX */
+	phys_writeb((PhysPt)(phys + wo + 0x01), (uint8_t)0xCB);	/* RETF */
 	wo += 2;
 
 	vm86_fake_io_offs[5] = vm86_fake_io_off + wo;
-	phys_writeb(phys+wo+0x00,(Bit8u)0x66);	/* OUT DX,EAX */
-	phys_writeb(phys+wo+0x01,(Bit8u)0xEF);
-	phys_writeb(phys+wo+0x02,(Bit8u)0xCB);	/* RETF */
-	wo += 3;
+	phys_writeb((PhysPt)(phys + wo + 0x00), (uint8_t)0x66);	/* OUT DX,EAX */
+	phys_writeb((PhysPt)(phys + wo + 0x01), (uint8_t)0xEF);
+	phys_writeb((PhysPt)(phys + wo + 0x02), (uint8_t)0xCB);	/* RETF */
 }
 
-Bitu CPU_ForceV86FakeIO_In(Bitu port,Bitu len) {
-	static const char suffix[4] = {'B','W','?','D'};
-	Bitu old_ax,old_dx,ret;
+Bitu CPU_ForceV86FakeIO_In(Bitu port, Bitu len) {
+	uint32_t old_ax, old_dx, ret;
 
 	/* save EAX:EDX and setup DX for IN instruction */
 	old_ax = reg_eax;
 	old_dx = reg_edx;
 
-	reg_edx = port;
-
-	/* DEBUG */
-	//	fprintf(stderr,"CPU virtual 8086 mode: Forcing CPU to execute 'IN%c 0x%04x so OS can trap it. ",suffix[len-1],port);
-	//	fflush(stderr);
+	reg_edx = (uint32_t)port;
 
 	/* make the CPU execute that instruction */
-	CALLBACK_RunRealFar(vm86_fake_io_seg,vm86_fake_io_offs[(len==4?2:(len-1))+0]);
+	CALLBACK_RunRealFar((uint16_t)vm86_fake_io_seg, (uint16_t)vm86_fake_io_offs[(len == 4 ? 2 : (len - 1)) + 0]);
 
 	/* take whatever the CPU or OS v86 trap left in EAX and return it */
 	ret = reg_eax;
 	if (len == 1) ret &= 0xFF;
 	else if (len == 2) ret &= 0xFFFF;
-	//	fprintf(stderr," => v86 result 0x%02x\n",ret);
 
 	/* then restore EAX:EDX */
 	reg_eax = old_ax;
@@ -2811,24 +2845,20 @@ Bitu CPU_ForceV86FakeIO_In(Bitu port,Bitu len) {
 	return ret;
 }
 
-void CPU_ForceV86FakeIO_Out(Bitu port,Bitu val,Bitu len) {
-	static const char suffix[4] = {'B','W','?','D'};
-	Bitu old_ax,old_dx;
+void CPU_ForceV86FakeIO_Out(Bitu port, Bitu val, Bitu len) {
+	uint32_t old_eax, old_edx;
 
 	/* save EAX:EDX and setup DX/AX for OUT instruction */
-	old_ax = reg_eax;
-	old_dx = reg_edx;
+	old_eax = reg_eax;
+	old_edx = reg_edx;
 
-	reg_edx = port;
-	reg_eax = val;
-
-	/* DEBUG */
-//	fprintf(stderr,"CPU virtual 8086 mode: Forcing CPU to execute 'OUT%c 0x%04x,0x%02x so OS can trap it.\n",suffix[len-1],port,val);
+	reg_edx = (uint32_t)port;
+	reg_eax = (uint32_t)val;
 
 	/* make the CPU execute that instruction */
-	CALLBACK_RunRealFar(vm86_fake_io_seg,vm86_fake_io_offs[(len==4?2:(len-1))+3]);
+	CALLBACK_RunRealFar((uint16_t)vm86_fake_io_seg, (uint16_t)vm86_fake_io_offs[(len == 4 ? 2 : (len - 1)) + 3]);
 
 	/* then restore EAX:EDX */
-	reg_eax = old_ax;
-	reg_edx = old_dx;
+	reg_eax = old_eax;
+	reg_edx = old_edx;
 }

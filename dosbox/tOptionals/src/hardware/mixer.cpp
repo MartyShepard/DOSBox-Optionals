@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -35,7 +35,11 @@
 #include <mmsystem.h>
 #endif
 
-#include "SDL.h"
+#if defined(_MSC_VER)
+#include "SDL2/include/SDL.h"
+#else
+#include "SDL2/SDL.h"
+#endif
 #include "mem.h"
 #include "pic.h"
 #include "dosbox.h"
@@ -61,7 +65,7 @@ extern void GFX_SetTitle(Bit32s cycles ,int frameskip,bool paused);
 #define FREQ_NEXT ( 1 << FREQ_SHIFT)
 #define FREQ_MASK ( FREQ_NEXT -1 )
 
-#define TICK_SHIFT 14
+#define TICK_SHIFT 24
 #define TICK_NEXT ( 1 << TICK_SHIFT)
 #define TICK_MASK (TICK_NEXT -1)
 
@@ -69,6 +73,9 @@ Bit32s MixerVolDownUpKeysL = 0;
 Bit32s MixerVolDownUpKeysR = 0;
 Bit32s MixerVolMuteSaveL   = 0;
 Bit32s MixerVolMuteSaveR   = 0;
+
+Bit32s MixerVolDownUpCDA_L = 0;
+Bit32s MixerVolDownUpCDA_R = 0;
 
 static INLINE Bit16s MIXER_CLIP(Bits SAMP) {
 	if (SAMP < MAX_AUDIO) {
@@ -122,7 +129,7 @@ MixerChannel * MIXER_AddChannel(MIXER_Handler handler,Bitu freq,const char * nam
 MixerChannel * MIXER_FindChannel(const char * name) {
 	MixerChannel * chan=mixer.channels;
 	while (chan) {
-		if (!strcasecmp(chan->name,name)) break;
+		if (!_stricmp(chan->name,name)) break;
 		chan=chan->next;
 	}
 	return chan;
@@ -519,8 +526,8 @@ void MixerChannel::FillUp(void) {
 
 extern bool ticksLocked;
 static inline bool Mixer_irq_important(void) {
-	/* In some states correct timing of the irqs is more important then
-	 * non stuttering audo */
+	/* In some states correct timing of the irqs is more important than
+	 * non stuttering audio */
 	return (ticksLocked || (CaptureState & (CAPTURE_WAVE|CAPTURE_VIDEO)));
 }
 
@@ -603,15 +610,17 @@ static void MIXER_Mix_NoSound(void) {
 	mixer.tick_counter &= TICK_MASK;
 	mixer.done=0;
 }
+#define INDEX_SHIFT_LOCAL 14
 
-static void SDLCALL MIXER_CallBack(void * userdata, Uint8 *stream, int len) {
+static void SDLCALL MIXER_CallBack(void* /*userdata*/, Uint8* stream, int len) {
 	memset(stream, 0, int(len));
 	Bitu need=(Bitu)len/MIXER_SSIZE;
 	Bit16s * output=(Bit16s *)stream;
 	Bitu reduce;
 	Bitu pos;
 	//Local resampling counter to manipulate the data when sending it off to the callback
-	Bitu index, index_add;
+	Bitu index_add = (1 << INDEX_SHIFT_LOCAL);
+	Bitu index = (index_add % need) ? need : 0;
 	Bits sample;
 	/* sample accurate mode */
 	if (mixer.sampleaccurate) {
@@ -624,10 +633,10 @@ static void SDLCALL MIXER_CallBack(void * userdata, Uint8 *stream, int len) {
 	/* Enough room in the buffer ? */
 	else if (mixer.done < need) {
 //		LOG_MSG("Full underrun need %d, have %d, min %d", need, mixer.done, mixer.min_needed);
-		if((need - mixer.done) > (need >>7) ) //Max 1 procent stretch.
+		if ((need - mixer.done) > (need >> 7)) //Max 1 percent stretch.
 			return;
 		reduce = mixer.done;
-		index_add = (reduce << TICK_SHIFT) / need;
+		index_add = (reduce << INDEX_SHIFT_LOCAL) / need;
 		mixer.tick_add = calc_tickadd(mixer.freq+mixer.min_needed);
 	} else if (mixer.done < mixer.max_needed) {
 		Bitu left = mixer.done - need;
@@ -643,10 +652,10 @@ static void SDLCALL MIXER_CallBack(void * userdata, Uint8 *stream, int len) {
 			}
 //			LOG_MSG("needed underrun need %d, have %d, min %d, left %d", need, mixer.done, mixer.min_needed, left);
 			reduce = need - left;
-			index_add = (reduce << TICK_SHIFT) / need;
+			index_add = (reduce << INDEX_SHIFT_LOCAL) / need;
 		} else {
 			reduce = need;
-			index_add = (1 << TICK_SHIFT);
+			index_add = (1 << INDEX_SHIFT_LOCAL);
 //			LOG_MSG("regular run need %d, have %d, min %d, left %d", need, mixer.done, mixer.min_needed, left);
 
 			/* Mixer tick value being updated:
@@ -671,7 +680,7 @@ static void SDLCALL MIXER_CallBack(void * userdata, Uint8 *stream, int len) {
 			index_add = MIXER_BUFSIZE - 2*mixer.min_needed;
 		else
 			index_add = mixer.done - 2*mixer.min_needed;
-		index_add = (index_add << TICK_SHIFT) / need;
+		index_add = (index_add << INDEX_SHIFT_LOCAL) / need;
 		reduce = mixer.done - 2* mixer.min_needed;
 		mixer.tick_add = calc_tickadd(mixer.freq-(mixer.min_needed/5));
 	}
@@ -689,10 +698,9 @@ static void SDLCALL MIXER_CallBack(void * userdata, Uint8 *stream, int len) {
 	mixer.needed -= reduce;
 	pos = mixer.pos;
 	mixer.pos = (mixer.pos + reduce) & MIXER_BUFMASK;
-	index = 0;
 	if(need != reduce) {
 		while (need--) {
-			Bitu i = (pos + (index >> TICK_SHIFT )) & MIXER_BUFMASK;
+			Bitu i = (pos + (index >> INDEX_SHIFT_LOCAL)) & MIXER_BUFMASK;
 			index += index_add;
 			sample=mixer.work[i][0]>>MIXER_VOLSHIFT;
 			*output++=MIXER_CLIP(sample);
@@ -720,7 +728,9 @@ static void SDLCALL MIXER_CallBack(void * userdata, Uint8 *stream, int len) {
 	}
 }
 
-static void MIXER_Stop(Section* sec) {
+#undef INDEX_SHIFT_LOCAL
+
+static void MIXER_Stop(Section* /*sec*/) {
 }
 
 class MIXER : public Program {
@@ -810,7 +820,7 @@ MixerObject::~MixerObject(){
 
 static void MIXER_UpdateVol(float delta) {
 	for (int i=0;i<2;i++) {
-		mixer.mastervol[i] += delta;
+		mixer.mastervol[i] += delta;	
 		if (mixer.mastervol[i] < 0.0f) mixer.mastervol[i] = 0.0f;
 		else if (mixer.mastervol[i] > 1.0f) mixer.mastervol[i] = 1.0f;
 	}
@@ -828,6 +838,47 @@ static void MIXER_VolUp(bool pressed) {
 
 static void MIXER_VolMute(bool pressed) {
 	/* Todo Volume Mute */
+}
+
+void MIXER_UpdateVolCD(float delta, bool manual, const char* channame) {
+
+	MixerChannel* chan = mixer.channels;	
+	while (chan) {
+		if (strcmp(chan->name, channame) == 0) {
+			for (int i = 0; i < 2; i++) {
+
+				if (manual) {
+					chan->volmain[i] += delta;
+				}
+				else {
+					chan->volmain[i] = delta;
+				}
+
+				if (chan->volmain[i] < 0.0f) {
+					chan->volmain[i] = 0.0f;						
+				}
+				else if (chan->volmain[i] > 1.0f) {
+					chan->volmain[i] = 1.0f;
+				}
+			}
+			chan->UpdateVolume();
+			MixerVolDownUpCDA_L = chan->volmain[0] * 100;
+			MixerVolDownUpCDA_R = chan->volmain[1] * 100;
+			LOG_MSG("Volume Command: -----------------");
+			LOG_MSG("Volume Command: MIXER %s %2d:%2d", chan->name, MixerVolDownUpCDA_L, MixerVolDownUpCDA_R);
+			LOG_MSG("Volume Command: -----------------\n");
+			break;
+		}			
+		chan = chan->next;
+	}
+}
+
+static void MIXER_VolDownCD(bool pressed) {
+	MIXER_UpdateVolCD(-0.01f, true, "CDAUDIO");
+}
+
+static void MIXER_VolUpCD(bool pressed) {
+	MIXER_UpdateVolCD(+0.01f, true, "CDAUDIO");
 }
 
 
@@ -879,7 +930,7 @@ void MIXER_Init(Section* sec) {
 		mixer.tick_add=calc_tickadd(mixer.freq);
 		TIMER_AddTickHandler(MIXER_Mix_NoSound);
 	} else {
-		if((mixer.freq != obtained.freq) || (mixer.blocksize != obtained.samples))
+		if ((mixer.freq != static_cast<Bit32u>(obtained.freq)) || (mixer.blocksize != obtained.samples))
 			LOG_MSG("MIXER: Got different values from SDL: freq %d, blocksize %d",obtained.freq,obtained.samples);
 		
 			mixer.freq=(unsigned int)obtained.freq;
@@ -902,6 +953,8 @@ void MIXER_Init(Section* sec) {
 	if (mixer.work_wrap <= mixer.blocksize) E_Exit("blocksize too large");
 
     {
+		mixer.tick_counter = (mixer.freq % 125) ? TICK_NEXT : 0;
+
         int ms = section->Get_int("prebuffer");
 	
 		if (ms < 0){
@@ -938,13 +991,16 @@ void MIXER_Init(Section* sec) {
 			
 	if ( (section->Get_bool("UseMediaKeys") == false ) ){
 		MAPPER_AddHandler(MIXER_VolDown,MK_f9,MMOD2,"volumedown","Vol Down");
-		MAPPER_AddHandler(MIXER_VolUp,MK_f10,MMOD2,"volumeup","Vol Up");	
+		MAPPER_AddHandler(MIXER_VolUp,MK_f10,MMOD2,"volumeup","Vol Up");
 	}else{
 		/* Volume Media Keys */
 		MAPPER_AddHandler(MIXER_VolDown,MK_ACVD,0,"volumedown","Vol Down");
 		MAPPER_AddHandler(MIXER_VolUp,MK_ACVU,0,"volumeup","Vol Up");
 		MAPPER_AddHandler(MIXER_VolMute,MK_ACVM,0,"volumemute","Vol Mute");	
 	}	
-	
+	/* TODO
+	MAPPER_AddHandler(MIXER_VolDownCD, MK_f10,MMOD2, "volumedowncd", "Vol Down (CD)");
+	MAPPER_AddHandler(MIXER_VolUpCD, MK_f10, MMOD1|MMOD2, "volumeupcd", "Vol Up (CD)");
+	*/
 	PROGRAMS_MakeFile("MIXER.COM",MIXER_ProgramStart);
 }

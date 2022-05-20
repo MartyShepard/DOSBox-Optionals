@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,7 +50,7 @@ static FILE* debuglog;
 
 extern int old_cursor_state;
 
-
+bool show_errors;
 
 void DEBUG_ShowMsg(char const* format,...) {
 	
@@ -114,8 +114,19 @@ void LOG::operator() (char const* format, ...){
 	vsprintf(buf,format,msg);
 	va_end(msg);
 
-	if (d_type>=LOG_MAX) return;
-	if ((d_severity!=LOG_ERROR) && (!loggrp[d_type].enabled)) return;
+	if (d_type >= LOG_MAX)
+	{
+		return;
+	}
+	if ((d_severity == LOG_ERROR) && (show_errors == true) )
+	{
+		return;
+	}
+	if ((d_severity != LOG_ERROR) && (!loggrp[d_type].enabled))
+	{
+		return;
+	}
+	
 	DEBUG_ShowMsg("%10u: %s:%s\n",static_cast<Bit32u>(cycle_count),loggrp[d_type].front,buf);
 }
 
@@ -221,6 +232,9 @@ static void LOG_Init(Section * sec) {
 		lowcase(buf);
 		loggrp[i].enabled=sect->Get_bool(buf);
 	}
+	show_errors = false;
+	show_errors = sect->Get_bool("show_errors");
+
 }
 
 
@@ -230,6 +244,8 @@ void LOG_StartUp(void) {
 	loggrp[LOG_VGA].		front="VGA";
 	loggrp[LOG_VGAGFX].		front="VGAGFX";
 	loggrp[LOG_VGAMISC].	front="VGAMISC";
+	loggrp[LOG_RENDER].		front="RENDERER";
+	
 	loggrp[LOG_INT10].		front="INT10";
 	loggrp[LOG_SB].			front="SBLASTER";
 	loggrp[LOG_DMACONTROL].	front="DMA_CONTROL";
@@ -254,22 +270,44 @@ void LOG_StartUp(void) {
 	loggrp[LOG_GUI].		front="GUI";
 	loggrp[LOG_MISC].		front="MISC";
 	loggrp[LOG_MSCDEX].		front="MSCDEX";
+	loggrp[LOG_IMAGE].		front="IMAGE";
+	loggrp[LOG_CHD].		front="CHD";
 
 	loggrp[LOG_IO].			front="IO";
 	loggrp[LOG_PCI].		front="PCI";
-	
-	loggrp[LOG_VOODOO].		front="SST";	
+	loggrp[LOG_PNP].		front="PNP";
+	loggrp[LOG_IDE].		front="IDE";
+
+	loggrp[LOG_REELMAGIC].	front = "REELMAGIC";
+
+	loggrp[LOG_VOODOO].		front="SST";
+	loggrp[LOG_FXEMU].		front="FXEmu";
+	loggrp[LOG_FXOGL].		front="FXOpenGL";
+	loggrp[LOG_FXTEX].		front="FXTexture";
+	loggrp[LOG_FXDAT].		front="FXData";
+	loggrp[LOG_FXLFB].		front="FXLFB";
+	loggrp[LOG_FXSHADER].	front="FXShader";
+	loggrp[LOG_FXINTERFACE].front="FXInterface";
+	loggrp[LOG_FXTEXFORMAT].front="FXTxFormat";
+
 	/* Register the log section */
 	Section_prop * sect=control->AddSection_prop("log",LOG_Init);
 	Prop_string* Pstring = sect->Add_string("logfile",Property::Changeable::Always,"");
-	Pstring->Set_help("file where the log messages will be saved to");
+	Pstring->Set_help("================================================================================================\n"
+		"file where the log messages will be saved to");
+
 	char buf[64];
 	for (Bitu i = LOG_ALL + 1;i < LOG_MAX;i++) {
 		safe_strncpy(buf,loggrp[i].front, sizeof(buf));
 		lowcase(buf);
 		Prop_bool* Pbool = sect->Add_bool(buf,Property::Changeable::Always,true);
-		Pbool->Set_help("Enable/Disable logging of this type.");
+		Pbool->Set_help("================================================================================================\n"
+			"Enable/Disable logging of this type.");
 	}
+
+	Prop_bool* Pbool = sect->Add_bool("show_errors", Property::Changeable::Always, true);
+	Pbool->Set_help("================================================================================================\n"
+		"Filter to show in Debug Window Errors");
 //	MSG_Add("LOG_CONFIGFILE_HELP","Logging related options for the debugger.\n");
 }
 

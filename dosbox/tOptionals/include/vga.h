@@ -1,5 +1,5 @@
  /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -64,6 +64,18 @@ enum VGAModes {
 
 #define S3_CLOCK_REF	14318	/* KHz */
 #define S3_CLOCK(_M,_N,_R)	((S3_CLOCK_REF * ((_M) + 2)) / (((_N) + 2) * (1 << (_R))))
+
+/* Modifed kHz Clocks */
+#define S3_CLOCK_REF_x2	28636	/* KHz */
+#define S3_CLOCK_REF_x4	57272	/* KHz */
+#define S3_CLOCK_REF_x6	85908	/* KHz */
+#define S3_CLOCK_REF_x8	114544	/* KHz */
+#define S3_CLOCK_x2(_M,_N,_R)	((S3_CLOCK_REF_x2 * ((_M) + 2)) / (((_N) + 2) * (1 << (_R))))
+#define S3_CLOCK_x4(_M,_N,_R)	((S3_CLOCK_REF_x4 * ((_M) + 2)) / (((_N) + 2) * (1 << (_R))))
+#define S3_CLOCK_x6(_M,_N,_R)	((S3_CLOCK_REF_x6 * ((_M) + 2)) / (((_N) + 2) * (1 << (_R))))
+#define S3_CLOCK_x8(_M,_N,_R)	((S3_CLOCK_REF_x8 * ((_M) + 2)) / (((_N) + 2) * (1 << (_R))))
+/* Modifed kHz Clocks - END */
+
 #define S3_MAX_CLOCK	150000	/* KHz */
 
 #define S3_XGA_1024		0x00
@@ -79,6 +91,8 @@ enum VGAModes {
 #define S3_XGA_16BPP 0x10
 #define S3_XGA_32BPP 0x30
 #define S3_XGA_CMASK (S3_XGA_8BPP|S3_XGA_16BPP|S3_XGA_32BPP)
+
+extern int OverDriveOC;
 
 typedef struct {
 	bool attrindex;

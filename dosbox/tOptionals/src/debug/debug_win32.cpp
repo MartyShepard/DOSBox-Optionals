@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -125,8 +125,11 @@ static void ResizeConsole( HANDLE hConsole, SHORT x, SHORT y, SHORT xSize, SHORT
 void WIN32_Console() {
 	AllocConsole();
 	SetConsoleTitle("DOSBox Debugger");
-	ResizeConsole(GetStdHandle(STD_OUTPUT_HANDLE),  0,  0,  80, 150);
+	ResizeConsole(GetStdHandle(STD_OUTPUT_HANDLE),  0,  0,  100, 150);
 	SetWindowPos(GetConsoleHwnd(), HWND_TOPMOST, 1, 1, 0, 0, SWP_NOZORDER);
+	HWND hWnd = GetConsoleWindow();
+	SetWindowLong(hWnd, GWL_STYLE, GetWindowLong(hWnd, GWL_STYLE) &
+		~(WS_SIZEBOX | WS_MAXIMIZEBOX | WS_VSCROLL | WS_HSCROLL));
 }
 #endif
 #endif

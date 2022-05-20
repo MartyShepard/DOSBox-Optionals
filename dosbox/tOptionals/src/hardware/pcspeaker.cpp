@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -752,11 +752,11 @@ public:
 		
 		if(!section->Get_bool("pcspeaker")) return;
 		const char * pcmode = section->Get_string("pcspeaker.mode");
-		if (!strcasecmp(pcmode,"old")){
+		if (!_stricmp(pcmode,"old")){
 			PC_Speaker_Patch=false;
 			LOG_MSG("PCS: PC-Speaker Mode Old (DOSBox Default)\n");
 		
-		}else if (!strcasecmp(pcmode,"new")){
+		}else if (!_stricmp(pcmode,"new")){
 			PC_Speaker_Patch=true;
 			LOG_MSG("PCS: PC-Speaker Mode New\n");
 		}

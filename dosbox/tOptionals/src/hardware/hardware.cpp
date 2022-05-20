@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -30,9 +30,16 @@
 #include "render.h"
 #include "cross.h"
 #include "video.h"
+#include "control.h"
 
-#include "SDL.h"
+#if defined(_MSC_VER)
+#include "SDL2/include/SDL.h"
+#include "SDL2/include/SDL_opengl.h"
+#else
+#include "SDL2/SDL.h"
 #include "SDL2\SDL_opengl.h"
+#endif
+
 #include "..\misc\savepng.h"
 
 
@@ -731,10 +738,38 @@ static void CAPTURE_VideoEvent(bool pressed) {
 }
 #endif
 
+void CAPTURE_VideoStart() {
+	#if (C_SRECORD)
+		if (CaptureState & CAPTURE_VIDEO) {
+		LOG_MSG("Already capturing video.");		
+	}
+		else {
+		CAPTURE_VideoEvent(true);		
+	}
+	#else
+		LOG_MSG("Avi capturing has not been compiled in");
+	#endif		
+}
+
+void CAPTURE_VideoStop() {
+	#if (C_SRECORD)
+		if (CaptureState & CAPTURE_VIDEO) {
+		CAPTURE_VideoEvent(true);		
+	}
+		else {
+		LOG_MSG("Not capturing video.");		
+	}
+	#else
+		LOG_MSG("Avi capturing has not been compiled in");
+	#endif
+}
+
 void CAPTURE_AddImage(Bitu width, Bitu height, Bitu bpp, Bitu pitch, Bitu flags, float fps, const Bit8u * data, const Bit8u * pal) {
+#if (C_SSHOT) || (C_SRECORD)
 	Bitu i;
 	Bit8u doubleRow[SCALER_MAXWIDTH*4];
 	Bitu countWidth = width;
+#endif
 
 	if (flags & CAPTURE_FLAG_DBLH)
 		height *= 2;
@@ -1045,10 +1080,43 @@ skip_video:
 
 
 #if (C_SSHOT)
+#if defined(_MSC_VER)
+	#include <SDL2\include\SDL.h>
+	#include <SDL2\include\SDL_syswm.h>
+#else
+	#include ".\SDL2\SDL.h"
+	#include ".\SDL2\SDL_syswm.h"
+#endif
 extern void CAPTURE_ScreenShotEvent(bool pressed) {
-	if (!pressed)
-		return;
-	CaptureState |= CAPTURE_IMAGE;
+	
+	Section_prop* sectsdl = static_cast<Section_prop*>(control->GetSection("sdl"));
+
+	const char* output	  = sectsdl->Get_string("output");
+	if (_stricmp(output, "opengl") == 0 || _stricmp(output, "openglnb") == 0 || _stricmp(output, "vulkan") == 0)
+	{			
+		Uint32		    ScreenId;
+		SDL_Rect		displayDimensions;
+		SDL_Renderer*	CopyFromRenderer;
+		SDL_Window*		CopyFromWindow;
+
+		/* SDL_Surface*	CopyFromSurface;*/
+
+		ScreenId		= GFX_GetSDLVideo();
+		CopyFromWindow	= SDL_GetWindowFromID(ScreenId);
+		CopyFromRenderer= SDL_GetRenderer(CopyFromWindow);
+
+		SDL_GetWindowSize(CopyFromWindow, &displayDimensions.w, &displayDimensions.h);
+		
+		if (!pressed)
+			return;
+		CaptureOGLScreenShot(0, 0, displayDimensions.w, displayDimensions.h, ".png");
+	}
+	else {
+
+		if (!pressed)
+			return;
+		CaptureState |= CAPTURE_IMAGE;
+	}
 }
 #endif
 

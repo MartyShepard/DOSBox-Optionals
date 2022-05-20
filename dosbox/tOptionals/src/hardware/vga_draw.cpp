@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -29,6 +29,8 @@
 #include "control.h"
 #include "..\ints\int10.h"
 #include "pinhacks.h"
+/* Reelmagic */
+#include "vga_reelmagic_override.h"
 
 //#undef C_DEBUG
 //#define C_DEBUG 1
@@ -512,6 +514,7 @@ static Bit8u * VGA_TEXT_Draw_Line(Bitu vidstart, Bitu line) {
 	Bits font_addr;
 	Bit32u * draw=(Bit32u *)TempLine;
 	const Bit8u* vidmem = VGA_Text_Memwrap(vidstart);
+	
 	for (Bitu cx=0;cx<vga.draw.blocks;cx++) {
 		Bitu chr=vidmem[cx*2];
 		Bitu col=vidmem[cx*2+1];
@@ -523,6 +526,43 @@ static Bit8u * VGA_TEXT_Draw_Line(Bitu vidstart, Bitu line) {
 		*draw++=(fg&mask1) | (bg&~mask1);
 		*draw++=(fg&mask2) | (bg&~mask2);
 	}
+	
+	//assert(FontMask[0] == 0xffffffff);
+	//[PATCH 1 / 4] Bit - twiddling in VGA text rendering instead of LUT
+	/*
+	if (FontMask[1] == 0) {
+		for (Bitu cx = 0; cx < vga.draw.blocks; cx++) {
+			Bitu chr = vidmem[cx * 2];
+			Bitu col = vidmem[cx * 2 + 1];
+			Bitu font = vga.draw.font_tables[(col >> 3) & 1][chr * 32 + line];
+			Bit32u font_mask = (((Bit32s)col) << 24) >> 31;
+			font_mask = ~font_mask;
+			Bit32u mask1 = TXT_Font_Table[font >> 4] & font_mask;
+			Bit32u mask2 = TXT_Font_Table[font & 0xf] & font_mask;
+			Bit32u fg = TXT_FG_Table[col & 0xf];
+			Bit32u bg = TXT_BG_Table[col >> 4];
+			*draw++ = (fg & mask1) | (bg & ~mask1);
+			*draw++ = (fg & mask2) | (bg & ~mask2);
+			
+		}
+	}
+	else
+	{
+		//assert(FontMask[1] == 0xffffffff);
+		for (Bitu cx = 0; cx < vga.draw.blocks; cx++) {
+			Bitu chr = vidmem[cx * 2];
+			Bitu col = vidmem[cx * 2 + 1];
+			Bitu font = vga.draw.font_tables[(col >> 3) & 1][chr * 32 + line];
+			Bit32u mask1 = TXT_Font_Table[font >> 4];
+			Bit32u mask2 = TXT_Font_Table[font & 0xf];
+			Bit32u fg = TXT_FG_Table[col & 0xf];
+			Bit32u bg = TXT_BG_Table[col >> 4];
+			*draw++ = (fg & mask1) | (bg & ~mask1);
+			*draw++ = (fg & mask2) | (bg & ~mask2);
+		}
+	}
+	*/
+	//[PATCH 1 / 4] Bit - twiddling in VGA text rendering instead of LUT END
 	if (!vga.draw.cursor.enabled || !(vga.draw.cursor.count&0x10)) goto skip_cursor;
 	font_addr = (vga.draw.cursor.address-vidstart) >> 1;
 	if (font_addr>=0 && font_addr<(Bits)vga.draw.blocks) {
@@ -1344,10 +1384,8 @@ void VGA_SetupDrawing(Bitu /*val*/) {
 		vga.draw.delay.hdend = hdend*1000.0/clock; //in milliseconds
 	}
 #if defined(C_DEBUG)
-	LOG(LOG_VGA,LOG_NORMAL)("\n\n");
-	LOG(LOG_VGA,LOG_NORMAL)("h total %d end %d blank (%d/%d) retrace (%d/%d)",htotal, hdend, hbstart, hbend, hrstart, hrend );
-	LOG(LOG_VGA,LOG_NORMAL)("v total %d end %d blank (%d/%d) retrace (%d/%d)",vtotal, vdend, vbstart, vbend, vrstart, vrend );
-	LOG(LOG_VGA,LOG_NORMAL)("File %s --- Line %d\n\n",__FILE__,__LINE__);
+	LOG(LOG_VGA,LOG_NORMAL)("h total %d end %d blank (%d/%d) retrace (%d/%d) [File: %s/ Line: %d]",htotal, hdend, hbstart, hbend, hrstart, hrend, __FILE__, __LINE__);
+	LOG(LOG_VGA,LOG_NORMAL)("v total %d end %d blank (%d/%d) retrace (%d/%d) [File: %s/ Line: %d]",vtotal, vdend, vbstart, vbend, vrstart, vrend, __FILE__, __LINE__);
 #endif
 	if (!htotal) return;
 	if (!vtotal) return;
@@ -1859,10 +1897,8 @@ case M_VGA:
 	}
 
 #if defined(C_DEBUG)
-	LOG(LOG_VGA,LOG_NORMAL)("\n\n");
-	LOG(LOG_VGAMISC,LOG_NORMAL)("h total %2.5f (%3.2fkHz) blank(%02.5f/%02.5f) retrace(%02.5f/%02.5f)",	vga.draw.delay.htotal,(1.0/vga.draw.delay.htotal),vga.draw.delay.hblkstart,vga.draw.delay.hblkend,vga.draw.delay.hrstart,vga.draw.delay.hrend);
-	LOG(LOG_VGAMISC,LOG_NORMAL)("v total %2.5f (%3.2fHz) blank(%02.5f/%02.5f) retrace(%02.5f/%02.5f)",	vga.draw.delay.vtotal,(1000.0/vga.draw.delay.vtotal),vga.draw.delay.vblkstart,vga.draw.delay.vblkend,vga.draw.delay.vrstart,vga.draw.delay.vrend);
-	LOG(LOG_VGA,LOG_NORMAL)("File %s --- Line %d\n\n",__FILE__,__LINE__);
+	LOG(LOG_VGAMISC,LOG_NORMAL)("h total %2.5f (%3.2fkHz) blank(%02.5f/%02.5f) retrace(%02.5f/%02.5f) [File: %s/ Line: %d]",vga.draw.delay.htotal,(1.0/vga.draw.delay.htotal),vga.draw.delay.hblkstart,vga.draw.delay.hblkend,vga.draw.delay.hrstart,vga.draw.delay.hrend, __FILE__, __LINE__);
+	LOG(LOG_VGAMISC,LOG_NORMAL)("v total %2.5f (%3.2fHz)  blank(%02.5f/%02.5f) retrace(%02.5f/%02.5f) [File: %s/ Line: %d]",vga.draw.delay.vtotal,(1000.0/vga.draw.delay.vtotal),vga.draw.delay.vblkstart,vga.draw.delay.vblkend,vga.draw.delay.vrstart,vga.draw.delay.vrend, __FILE__, __LINE__);
 #endif
 
 	if (machine == MCH_EGA || svgaCard == SVGA_None){				
@@ -1992,8 +2028,8 @@ case M_VGA:
 		if (doubleheight) vga.draw.lines_scaled=2;
 		else vga.draw.lines_scaled=1;
 #if defined(C_DEBUG)
-		LOG(LOG_VGA,LOG_NORMAL)("Width %d, Height %d, fps %f",width,height,fps);
-		LOG(LOG_VGA,LOG_NORMAL)("%s width, %s height aspect %f",doublewidth ? "double":"normal",doubleheight ? "double":"normal",aspect_ratio);
+		LOG(LOG_VGA,LOG_NORMAL)("Width %d, Height %d, FPS %f",width,height,fps);
+		LOG(LOG_VGA,LOG_NORMAL)("Width is %s, Height is %s, Aspect Ratio %f",doublewidth ? "double":"normal",doubleheight ? "double":"normal",aspect_ratio);
 #endif
 	
 		if (int10.bExtraVGA_Debug){

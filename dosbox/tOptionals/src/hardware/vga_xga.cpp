@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -693,8 +693,12 @@ void XGA_DrawWait(Bitu val, Bitu len) {
 									srcval = xga.forecolor;
 									break;
 								default:
-									LOG_MSG("VGA XGA: DrawBlitWait: Unsupported src %x",
-										(mixmode >> 5) & 0x03);
+									#if defined(C_DEBUG)
+										LOG(LOG_VGA, LOG_NORMAL)("[%d] XGA: DrawBlitWait: Unsupported src %x", __LINE__, (mixmode >> 5) & 0x03);
+									#endif
+									/*
+									 *LOG_MSG("VGA XGA: DrawBlitWait: Unsupported src %x",(mixmode >> 5) & 0x03);
+									 */
 									srcval=0;
 									break;
 							}
@@ -713,12 +717,22 @@ void XGA_DrawWait(Bitu val, Bitu len) {
 					break;
 
 				default:
-					LOG_MSG("VGA XGA: DrawBlitWait: Unhandled mixmode: %d", mixmode);
+					/*
+					 *LOG_MSG("VGA XGA: DrawBlitWait: Unhandled mixmode: %d", mixmode);
+					 */
+					#if defined(C_DEBUG)
+						LOG(LOG_VGA, LOG_NORMAL)("[%d] XGA: DrawBlitWait: Unhandled mixmode: %d", __LINE__, mixmode);
+					#endif
 					break;
 			} // switch mixmode
 			break;
 		default:
-			LOG_MSG("VGA XGA: Unhandled draw command %x", xga.waitcmd.cmd);
+			/*
+			 *LOG_MSG("VGA XGA: Unhandled draw command %x", xga.waitcmd.cmd);
+			 */
+			#if defined(C_DEBUG)
+				LOG(LOG_VGA, LOG_NORMAL)("[%d] XGA: Unhandled draw command %x", __LINE__, xga.waitcmd.cmd);
+			#endif
 			break;
 	}
 }
@@ -864,10 +878,8 @@ void XGA_DrawPattern(Bitu val) {
 
 			if(mixselect == 0x3) {
 				// TODO lots of guessing here but best results this way
-				/*if(srcdata == xga.forecolor)*/ mixmode = xga.foremix;
-				// else 
-				if(srcdata == xga.backcolor || srcdata == 0) 
-					mixmode = xga.backmix;
+				if (srcdata) mixmode = xga.foremix;
+				else mixmode = xga.backmix;
 			}
 
 			switch((mixmode >> 5) & 0x03) {
@@ -973,7 +985,12 @@ void XGA_DrawCmd(Bitu val, Bitu len) {
 			XGA_DrawPattern(val);
 			break;
 		default:
+			/*
 			LOG_MSG("VGA XGA: Unhandled draw command %x", cmd);
+			*/
+			#if defined(C_DEBUG)
+				LOG(LOG_VGA, LOG_NORMAL)("[%d] XGA: Unhandled draw command %x", __LINE__, cmd);
+			#endif
 			break;
 	}
 }
@@ -1176,7 +1193,14 @@ void XGA_Write(Bitu port, Bitu val, Bitu len) {
 				XGA_DrawWait(val, len);
 				
 			}
-			else LOG_MSG("VGA XGA: Wrote to port %x with %x, len %x", port, val, len);
+			#if defined(C_DEBUG)
+			else
+			{
+				LOG(LOG_VGA, LOG_NORMAL)("[%d] XGA: Wrote to port %x with %x, len %x", __LINE__, port, val, len);
+				//else LOG_MSG("VGA XGA: Wrote to port %x with %x, len %x", port, val, len);
+			}
+			#endif
+			
 			break;
 	}
 }

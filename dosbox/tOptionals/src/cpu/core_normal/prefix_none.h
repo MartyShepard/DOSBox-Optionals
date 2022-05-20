@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -492,9 +492,10 @@
 		}
 	CASE_W(0x8d)												/* LEA Gw */
 		{
+			GetRMrw;
+			if (rm >= 0xc0) goto illegal_opcode;
 			//Little hack to always use segprefixed version
 			BaseDS=BaseSS=0;
-			GetRMrw;
 			if (TEST_PREFIX_ADDR) {
 				*rmrw=(Bit16u)(*EATable[256+rm])();
 			} else {
@@ -1105,7 +1106,7 @@
 			case 0x05:					
 				break;
 			default:
-				E_Exit("Illegal GRP4 Call %d",(rm>>3) & 7);
+				E_Exit("Illegal GRP4 Call %d\n\n[Source=%s] [Line=%d]",(rm>>3) & 7, __FILE__, __LINE__);
 				break;
 			}
 			break;

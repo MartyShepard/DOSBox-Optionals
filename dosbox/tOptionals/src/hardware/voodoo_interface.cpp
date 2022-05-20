@@ -119,10 +119,18 @@ void Voodoo_PageHandler::writed(PhysPt addr,Bitu val) {
 	}
 }
 
+static INLINE float PIC_TickIndex_Voodoo(void) {
+	return (/*CPU_CycleMax*/0xfffffffffffffff - CPU_CycleLeft - /*CPU_Cycles*/0) / (float)0xfffffffffffffff/*CPU_CycleMax*/;
+}
+static INLINE double PIC_FullIndex_Voodoo(void) {
+	return /*PIC_Ticks*/0.001;// +(double)PIC_TickIndex_Voodoo();
+	
+
+}
 
 static void Voodoo_VerticalTimer(Bitu /*val*/) {
-	vdraw.frame_start = PIC_FullIndex();
-	PIC_AddEvent( Voodoo_VerticalTimer, vdraw.vfreq );
+	vdraw.frame_start = PIC_FullIndex_Voodoo();
+	PIC_AddEvent( Voodoo_VerticalTimer, 1.0f/*vdraw.vfreq*/);
 
 	if (v->fbi.vblank_flush_pending) {
 		voodoo_vblank_flush();
@@ -141,10 +149,13 @@ static void Voodoo_VerticalTimer(Bitu /*val*/) {
 
 		// draw all lines at once
 		Bit16u *viewbuf = (Bit16u *)(v->fbi.ram + v->fbi.rgboffs[v->fbi.frontbuf]);
-		for(Bitu i = 0; i < v->fbi.height; i++) {
+		//CPU_Core_Dyn_X86_SaveDHFPUState();
+		for(Bitu i = 0; i < v->fbi.height; i++)
+		{
 			RENDER_DrawLine((Bit8u*) viewbuf);
 			viewbuf += v->fbi.rowpixels;
 		}
+		//CPU_Core_Dyn_X86_RestoreDHFPUState();
 		RENDER_EndUpdate(false);
 	} else {
 		// ???
@@ -154,29 +165,48 @@ static void Voodoo_VerticalTimer(Bitu /*val*/) {
 
 bool Voodoo_GetRetrace() {
 	// TODO proper implementation
-	double time_in_frame = PIC_FullIndex() - vdraw.frame_start;
-	double vfreq = vdraw.vfreq;
-	if (vfreq <= 0.0) return false;
-	if (v->clock_enabled && v->output_on) {
-		if ((time_in_frame/vfreq) > 0.95) return true;
-	} else if (v->output_on) {
+	double time_in_frame = /*PIC_FullIndex()*/PIC_FullIndex_Voodoo() - vdraw.frame_start;
+	double vfreq = vdraw.vfreq*2;
+	if (vfreq <= 0.0)
+	{
+		return false;
+	}
+	if (v->clock_enabled && v->output_on)
+	{
+		if ((time_in_frame / vfreq) > 0.95)
+		{
+			return true;
+		}
+
+	}
+	else if (v->output_on)
+	{
 		double rtime = time_in_frame/vfreq;
-		rtime = fmod(rtime, 1.0);
-		if (rtime > 0.95) return true;
+		rtime		 = fmod(rtime, 1.0);
+		if (rtime > 0.95)
+		{
+			return true;
+		}
 	}
 	return false;
 }
 
 double Voodoo_GetVRetracePosition() {
 	// TODO proper implementation
-	double time_in_frame = PIC_FullIndex() - vdraw.frame_start;
+	double time_in_frame = /*PIC_FullIndex()*/PIC_FullIndex_Voodoo() - vdraw.frame_start;
 	double vfreq = vdraw.vfreq;
-	if (vfreq <= 0.0) return 0.0;
-	if (v->clock_enabled && v->output_on) {
+	if (vfreq <= 0.0)
+	{
+		return 0.0;
+	}
+	if (v->clock_enabled && v->output_on)
+	{
 		return time_in_frame/vfreq;
-	} else if (v->output_on) {
+	}
+	else if (v->output_on)
+	{
 		double rtime = time_in_frame/vfreq;
-		rtime = fmod(rtime, 1.0);
+		rtime		 = fmod(rtime, 1.0);
 		return rtime;
 	}
 	return 0.0;
@@ -184,14 +214,20 @@ double Voodoo_GetVRetracePosition() {
 
 double Voodoo_GetHRetracePosition() {
 	// TODO proper implementation
-	double time_in_frame = PIC_FullIndex() - vdraw.frame_start;
+	double time_in_frame = /*PIC_FullIndex()*/PIC_FullIndex_Voodoo() - vdraw.frame_start;
 	double hfreq = vdraw.vfreq*100.0;
-	if (hfreq <= 0.0) return 0.0;
-	if (v->clock_enabled && v->output_on) {
+	if (hfreq <= 0.0)
+	{
+		return 0.0;
+	}
+	if (v->clock_enabled && v->output_on)
+	{
 		return time_in_frame/hfreq;
-	} else if (v->output_on) {
+	}
+	else if (v->output_on)
+	{
 		double rtime = time_in_frame/hfreq;
-		rtime = fmod(rtime, 1.0);
+		rtime		 = fmod(rtime, 1.0);
 		return rtime;
 	}
 	return 0.0;
@@ -215,7 +251,8 @@ static void Voodoo_UpdateScreen(void) {
 		PIC_RemoveEvents(Voodoo_VerticalTimer); // shouldn't be needed
 		
 		// TODO proper implementation of refresh rates and timings
-		vdraw.vfreq = 1000.0f/60.0f;
+		//vdraw.vfreq = 1000.0f/360.0f;
+		vdraw.vfreq = 0.0f;
 		VGA_SetOverride(true);
 		vdraw.override_on=true;
 
@@ -254,7 +291,7 @@ static void Voodoo_CheckScreenUpdate(Bitu /*val*/) {
 	if (vdraw.screen_update_requested) {
 		vdraw.screen_update_pending = true;
 		Voodoo_UpdateScreen();
-		PIC_AddEvent(Voodoo_CheckScreenUpdate, 100.0f);
+		PIC_AddEvent(Voodoo_CheckScreenUpdate,0.01f/*100.0f*/);
 	}
 }
 
@@ -300,8 +337,8 @@ void Voodoo_Initialize(Bits emulation_type, Bits card_type, bool max_voodoomem) 
 	v->ogl = false;
 	if (emulation_type == 2) v->ogl = true;
 
-	vdraw.vfreq = 1000.0f/60.0f;
-
+	//vdraw.vfreq  1000.0f/360.0f;
+	vdraw.vfreq = 0.0f;
 	voodoo_init(board);
 }
 
@@ -328,7 +365,7 @@ void Voodoo_PCI_InitEnable(Bitu val) {
   At Dosbox r4260 has removed the CPU_Core_Dyn_X86_ Args
   I put the Commands here */
   
-#if defined(X86_DYNFPU_DH_ENABLED)
+#if 0
 Bit32u fpu_state[0x37F];
 
 	void CPU_Core_Dyn_X86_SaveDHFPUState(void) {
@@ -371,10 +408,10 @@ Bit32u fpu_state[0x37F];
 		}
 	}
 
-#else
+//#else
+
 	/* Only a Test */
 	Bit32u fpu_state[0x37F];
-	
 	void CPU_Core_Dyn_X86_SaveDHFPUState(void) {
 	#if defined (_MSC_VER)
 			__asm {
@@ -412,9 +449,9 @@ Bit32u fpu_state[0x37F];
 
 void Voodoo_PCI_Enable(bool enable) {
 	v->clock_enabled = enable;
-	CPU_Core_Dyn_X86_SaveDHFPUState();
+	//CPU_Core_Dyn_X86_SaveDHFPUState();
 	Voodoo_UpdateScreenStart();
-	CPU_Core_Dyn_X86_RestoreDHFPUState();
+	//CPU_Core_Dyn_X86_RestoreDHFPUState();
 }
 
 PageHandler* Voodoo_GetPageHandler() {

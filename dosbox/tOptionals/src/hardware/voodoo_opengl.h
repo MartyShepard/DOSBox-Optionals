@@ -29,7 +29,7 @@
 
 
 #if C_OPENGL
-
+#include "SDL2\GL\glu.h"
 #include "voodoo_vogl.h"
 #include "voodoo_types.h"
 

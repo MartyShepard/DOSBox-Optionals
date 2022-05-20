@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@ static Bitu call_stop,call_idle,call_default;
 Bitu call_priv_io;
 
 static Bitu illegal_handler(void) {
-	E_Exit("Illegal CallBack Called");
+	E_Exit("Illegal CallBack Called\n\n[Source=%s] [Line=%d]", __FILE__, __LINE__);
 	return 1;
 }
 
@@ -48,7 +48,7 @@ Bitu CALLBACK_Allocate(void) {
 			return i;
 		}
 	}
-	E_Exit("CALLBACK:Can't allocate handler.");
+	E_Exit("CALLBACK:Can't allocate handler.\n\n[Source=%s] [Line=%d]", __FILE__, __LINE__);
 	return 0;
 }
 

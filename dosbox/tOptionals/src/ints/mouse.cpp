@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -32,6 +32,7 @@
 #include "int10.h"
 #include "bios.h"
 #include "dos_inc.h"
+#include "control.h"
 
 static Bitu call_int33,call_int74,int74_ret_callback,call_mouse_bd;
 static Bit16u ps2cbseg,ps2cbofs;
@@ -43,6 +44,7 @@ static Bit16s oldmouseX, oldmouseY;
 void WriteMouseIntVector(void);
 
 bool en_int33=false;
+bool bDelayReaded = false;
 
 struct button_event {
 	Bit8u type;
@@ -129,6 +131,7 @@ static struct {
 	bool in_UIR;
 	Bit8u mode;
 	Bit16s gran_x,gran_y;
+	float mousedelay;
 } mouse;
 
 bool Mouse_SetPS2State(bool use) {
@@ -203,11 +206,22 @@ Bitu PS2_Handler(void) {
 #define MOUSE_MIDDLE_RELEASED 64
 #define MOUSE_DELAY 5.0
 
+float MOUSE_SetDelay()
+{
+	if ( bDelayReaded == false ) {
+		Section_prop *section  = static_cast<Section_prop *>(control->GetSection("sdl"));	
+		mouse.mousedelay = section ->Get_float("mousedelay");
+		bDelayReaded     = true;
+	}
+	//LOG_MSG("SDL : Mouse Delay %f",mouse.mousedelay);
+	return mouse.mousedelay;
+}
+
 void MOUSE_Limit_Events(Bitu /*val*/) {
 	mouse.timer_in_progress = false;
 	if (mouse.events) {
 		mouse.timer_in_progress = true;
-		PIC_AddEvent(MOUSE_Limit_Events,MOUSE_DELAY);
+		PIC_AddEvent(MOUSE_Limit_Events,MOUSE_SetDelay());
 		PIC_ActivateIRQ(MOUSE_IRQ);
 	}
 }
@@ -229,7 +243,7 @@ INLINE void Mouse_AddEvent(Bit8u type) {
 	}
 	if (!mouse.timer_in_progress) {
 		mouse.timer_in_progress = true;
-		PIC_AddEvent(MOUSE_Limit_Events,MOUSE_DELAY);
+		PIC_AddEvent(MOUSE_Limit_Events,MOUSE_SetDelay());
 		PIC_ActivateIRQ(MOUSE_IRQ);
 	}
 }
@@ -490,7 +504,7 @@ void Mouse_CursorMoved(float xrel,float yrel,float x,float y,bool emulate) {
 	} else {
 		if (CurMode->type == M_TEXT) {
 			mouse.x = x*real_readw(BIOSMEM_SEG,BIOSMEM_NB_COLS)*8;
-			mouse.y = y*(real_readb(BIOSMEM_SEG,BIOSMEM_NB_ROWS)+1)*8;
+			mouse.y = y * (IS_EGAVGA_ARCH ? (real_readb(BIOSMEM_SEG, BIOSMEM_NB_ROWS) + 1) : 25) * 8;
 		} else if ((mouse.max_x < 2048) || (mouse.max_y < 2048) || (mouse.max_x != mouse.max_y)) {
 			if ((mouse.max_x > 0) && (mouse.max_y > 0)) {
 				mouse.x = x*mouse.max_screen_x;
@@ -633,7 +647,7 @@ void Mouse_AfterNewVideoMode(bool setmode) {
 	mouse.inhibit_draw = false;
 	/* Get the correct resolution from the current video mode */
 	Bit8u mode = mem_readb(BIOS_VIDEO_MODE);
-	if (setmode && mode == mouse.mode) LOG(LOG_MOUSE,LOG_NORMAL)("New video mode is the same as the old");
+	if (setmode && mode == mouse.mode)// LOG(LOG_MOUSE,LOG_NORMAL)("New video mode is the same as the old");
 	mouse.gran_x = (Bit16s)0xffff;
 	mouse.gran_y = (Bit16s)0xffff;
 	switch (mode) {
@@ -644,7 +658,7 @@ void Mouse_AfterNewVideoMode(bool setmode) {
 	case 0x07: {
 		mouse.gran_x = (mode<2)?0xfff0:0xfff8;
 		mouse.gran_y = (Bit16s)0xfff8;
-		Bitu rows = real_readb(BIOSMEM_SEG,BIOSMEM_NB_ROWS);
+		Bitu rows = IS_EGAVGA_ARCH ? real_readb(BIOSMEM_SEG, BIOSMEM_NB_ROWS) : 24;
 		if ((rows == 0) || (rows > 250)) rows = 25 - 1;
 		mouse.max_y = 8*(rows+1) - 1;
 		break;
@@ -670,7 +684,7 @@ void Mouse_AfterNewVideoMode(bool setmode) {
 		mouse.max_y = 479;
 		break;
 	default:
-		LOG(LOG_MOUSE,LOG_ERROR)("Unhandled videomode %X on reset",mode);
+		//LOG(LOG_MOUSE,LOG_ERROR)("Unhandled videomode %X on reset",mode);
 		mouse.inhibit_draw = true;
 		return;
 	}
@@ -824,7 +838,7 @@ static Bitu INT33_Handler(void) {
 			if(mouse.x < mouse.min_x) mouse.x = mouse.min_x;
 			/* Or alternatively this: 
 			mouse.x = (mouse.max_x - mouse.min_x + 1)/2;*/
-			LOG(LOG_MOUSE,LOG_NORMAL)("Define Hortizontal range min:%d max:%d",min,max);
+			//LOG(LOG_MOUSE,LOG_NORMAL)("Define Hortizontal range min:%d max:%d",min,max);
 			
 			/*
 				DOSBox-X backport cursor range tweaks for some DOS games #232
@@ -858,7 +872,7 @@ static Bitu INT33_Handler(void) {
 
 					if (mouse.max_screen_x != nval) {
 						mouse.max_screen_x = nval;
-						LOG(LOG_MOUSE, LOG_NORMAL)("Define Horizontal range min:%d max:%d defines the bounds of the screen", min, max);
+						//LOG(LOG_MOUSE, LOG_NORMAL)("Define Horizontal range min:%d max:%d defines the bounds of the screen", min, max);
 					}
 				}
 			}			
@@ -878,7 +892,7 @@ static Bitu INT33_Handler(void) {
 			if(mouse.y < mouse.min_y) mouse.y = mouse.min_y;
 			/* Or alternatively this: 
 			mouse.y = (mouse.max_y - mouse.min_y + 1)/2;*/
-			LOG(LOG_MOUSE,LOG_NORMAL)("Define Vertical range min:%d max:%d",min,max);
+			//LOG(LOG_MOUSE,LOG_NORMAL)("Define Vertical range min:%d max:%d",min,max);
 			
 			/* 
 				DOSBox-X backport cursor range tweaks for some DOS games #232
@@ -920,7 +934,7 @@ static Bitu INT33_Handler(void) {
 
 					if (mouse.max_screen_y != nval) {
 						mouse.max_screen_y = nval;
-						LOG(LOG_MOUSE, LOG_NORMAL)("Define Vertical range min:%d max:%d defines the bounds of the screen", min, max);
+						//LOG(LOG_MOUSE, LOG_NORMAL)("Define Vertical range min:%d max:%d defines the bounds of the screen", min, max);
 					}
 				}
 			}			
@@ -945,10 +959,14 @@ static Bitu INT33_Handler(void) {
 		mouse.textXorMask = reg_dx;
 		if (reg_bx) {
 			INT10_SetCursorShape(reg_cl,reg_dl);
-			LOG(LOG_MOUSE,LOG_NORMAL)("Hardware Text cursor selected");
+			//LOG(LOG_MOUSE,LOG_NORMAL)("Hardware Text cursor selected");
 		}
 		DrawCursor();
 		break;
+	case 0x27:	/* Get Screen/Cursor Masks and Mickey Counts */
+		reg_ax = mouse.textAndMask;
+		reg_bx = mouse.textXorMask;
+		/* FALLTHROUGH */
 	case 0x0b:	/* Read Motion Data */
 		reg_cx=static_cast<Bit16s>(mouse.mickey_x);
 		reg_dx=static_cast<Bit16s>(mouse.mickey_y);
@@ -999,14 +1017,14 @@ static Bitu INT33_Handler(void) {
 		break;
 	case 0x16: /* Save driver state */
 		{
-			LOG(LOG_MOUSE,LOG_WARN)("Saving driver state...");
+			//LOG(LOG_MOUSE,LOG_WARN)("Saving driver state...");
 			PhysPt dest = SegPhys(es)+reg_dx;
 			MEM_BlockWrite(dest, &mouse, sizeof(mouse));
 		}
 		break;
 	case 0x17: /* load driver state */
 		{
-			LOG(LOG_MOUSE,LOG_WARN)("Loading driver state...");
+			//LOG(LOG_MOUSE,LOG_WARN)("Loading driver state...");
 			PhysPt src = SegPhys(es)+reg_dx;
 			MEM_BlockRead(src, &mouse, sizeof(mouse));
 		}
@@ -1015,14 +1033,14 @@ static Bitu INT33_Handler(void) {
 		// ToDo : double mouse speed value
 		Mouse_SetSensitivity(reg_bx,reg_cx,reg_dx);
 
-		LOG(LOG_MOUSE,LOG_WARN)("Set sensitivity used with %d %d (%d)",reg_bx,reg_cx,reg_dx);
+		//LOG(LOG_MOUSE,LOG_WARN)("Set sensitivity used with %d %d (%d)",reg_bx,reg_cx,reg_dx);
 		break;
 	case 0x1b:	/* Get mouse sensitivity */
 		reg_bx = mouse.senv_x_val;
 		reg_cx = mouse.senv_y_val;
 		reg_dx = mouse.dspeed_val;
 
-		LOG(LOG_MOUSE,LOG_WARN)("Get sensitivity %d %d",reg_bx,reg_cx);
+		//LOG(LOG_MOUSE,LOG_WARN)("Get sensitivity %d %d",reg_bx,reg_cx);
 		break;
 	case 0x1c:	/* Set interrupt rate */
 		/* Can't really set a rate this is host determined */
@@ -1088,7 +1106,7 @@ static Bitu INT33_Handler(void) {
 		reg_dx=(Bit16u)mouse.max_y;
 		break;
 	default:
-		LOG(LOG_MOUSE,LOG_ERROR)("Mouse Function %04X not implemented!",reg_ax);
+		//LOG(LOG_MOUSE,LOG_ERROR)("Mouse Function %04X not implemented!",reg_ax);
 		break;
 	}
 	return CBRET_NONE;
@@ -1202,7 +1220,7 @@ Bitu INT74_Ret_Handler(void) {
 	if (mouse.events) {
 		if (!mouse.timer_in_progress) {
 			mouse.timer_in_progress = true;
-			PIC_AddEvent(MOUSE_Limit_Events,MOUSE_DELAY);
+			PIC_AddEvent(MOUSE_Limit_Events,/*MOUSE_DELAY*/MOUSE_SetDelay());
 		}
 	}
 	return CBRET_NONE;
@@ -1214,6 +1232,9 @@ Bitu UIR_Handler(void) {
 }
 
 void MOUSE_Init(Section* /*sec*/) {
+		
+
+	
 	// Callback for mouse interrupt 0x33
 	call_int33=CALLBACK_Allocate();
 //	RealPt i33loc=RealMake(CB_SEG+1,(call_int33*CB_SIZE)-0x10);

@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -77,41 +77,50 @@ Bit32u MEM_get_address_bits() {
 
 HostPt MemBase;
 
-
 class IllegalPageHandler : public PageHandler {
 public:
-	IllegalPageHandler() { flags=PFLAG_INIT|PFLAG_NOCODE;
+	IllegalPageHandler()
+	{
+		flags=PFLAG_INIT|PFLAG_NOCODE;
 	}
-	Bitu readb(PhysPt addr) {
-#if defined(C_DEBUG)
-		static Bits lcount=0;
-		if (lcount<100) {
-			lcount++;
-			LOG(LOG_CPU,LOG_NORMAL)("MEM: Illegal read from %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
-		}		
-#else
-		static Bits lcount=0;
-		if (lcount<10) {
-			lcount++;
-			LOG_MSG("MEM: Illegal read from %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
-		}
-#endif
-		return 0xff;
-	} 
-	void writeb(PhysPt addr,Bitu val) {
-#if defined(C_DEBUG)
-		static Bits lcount=0;
-		if (lcount<100) {
-			lcount++;
-			LOG(LOG_CPU,LOG_NORMAL)("MEM: Illegal write to %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
-		}		
-#else
-		static Bits lcount=0;
-		if (lcount<10) {
-			lcount++;
-			LOG_MSG("MEM: Illegal write to %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
-		}
-#endif
+
+	Bitu readb(PhysPt addr)
+		{
+	
+		#if defined(C_DEBUG)
+			static Bits lcount=0;
+			if (lcount<100) {
+				lcount++;
+				LOG(LOG_CPU,LOG_NORMAL)("MEM: Illegal read from %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
+			}		
+		#else
+			static Bits lcount=0;
+			if (lcount<10)
+			{
+				lcount++;
+				LOG_MSG("MEM: Illegal read from %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
+			}
+		#endif
+			return 0xff;
+		} 
+	
+	void writeb(PhysPt addr,Bitu val)
+	{
+
+		#if defined(C_DEBUG)
+			static Bits lcount=0;
+			if (lcount<100) {
+				lcount++;
+				LOG(LOG_CPU,LOG_NORMAL)("MEM: Illegal write to %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
+			}		
+		#else
+			static Bits lcount=0;
+			if (lcount<10)
+			{
+				lcount++;
+				LOG_MSG("MEM: Illegal write to %x, CS:IP %8x:%8x",addr,SegValue(cs),reg_eip);
+			}
+		#endif
 	}
 };
 

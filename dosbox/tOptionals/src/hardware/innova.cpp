@@ -79,12 +79,14 @@ private:
 public:
 	INNOVA(Section* configuration):Module_base(configuration) {
 		Section_prop * section=static_cast<Section_prop *>(configuration);
-			
+		
+		useSoundSSI2k1 = false;
 		if(!section->Get_bool("innova"))
 			return;
 		
 		nCurrentInnovtn = "1989 Innovation Computer Corporation (SSI2001/SID)";
-		
+		useSoundSSI2k1	= true;
+
 		innova.rate 			= section->Get_int("samplerate");
 		innova.basePort 		= section->Get_hex("sidbase");
 		

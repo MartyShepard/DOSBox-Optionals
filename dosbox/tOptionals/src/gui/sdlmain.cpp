@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -36,13 +36,22 @@
 	#include <winuser.h>
 	#include "Shellapi.h"	// for shellexecute
 	#include "shell.h"		// for shellexecute
+
+	#if defined(_MSC_VER)
+	#include "SDL2/include/SDL_mixer.h"
+	#include "SDL2/include/SDL_syswm.h"
+	#else
 	#include "SDL2/SDL_mixer.h"
 	#include "SDL2/SDL_syswm.h"
+	#endif
 #endif
 
 #include "cross.h"
-#include "SDL2/SDL.h"
-
+#if defined(_MSC_VER)
+	#include "SDL2/include/SDL.h"
+#else
+	#include "SDL2/SDL.h"
+#endif
 #include "dosbox.h"
 #include "video.h"
 #include "ide.h"
@@ -62,7 +71,7 @@
 #include "joystick.h"
 #include "bios_disk.h"
 #include "hardware.h"
-#include "version.h"
+#include "version_optionals.h"
 
 
 #define MAPPERFILE "KeyMap.map"
@@ -74,14 +83,24 @@
 
 #if C_OPENGL
 	#define GLEW_STATIC
-	#include <GL/glew.h>
+	#if defined(_MSC_VER)
+		#include <GL/glew.h>
+	#else
+		#include <GL/glew.h>
+	#endif
 	#define C_OPENGL_USE_SHADERS 1
 	
 	#ifdef C_OPENGL_USE_SHADERS
 	#define GL_GLEXT_PROTOTYPES
 	#define GL_SGIX_fragment_lighting
 #endif
-	#include "SDL_opengl.h"
+	#if defined(_MSC_VER)
+		#include "SDL2/Include/SDL_opengl.h"
+		#include "SDL2/Include/SDL_version.h"
+	#else
+		#include "SDL_opengl.h"
+		#include "SDL_version.h"
+	#endif
 #endif //C_OPENGL
 
 #include "../hardware/voodoo_emu.h"
@@ -93,7 +112,10 @@
 	#ifndef WIN32_LEAN_AND_MEAN
 		#define WIN32_LEAN_AND_MEAN
 	#endif
+	#if defined(_MSC_VER)
+	#else
 	#include <windows.h>
+	#endif
 	#if C_DDRAW
 		#include <ddraw.h>
 		struct private_hwdata {
@@ -355,13 +377,29 @@ static void SDL_Quit_Wrapper(void)
 
 	extern void MAPPER_RunEvent(Bitu /*val*/);
 
+	extern Bit32s MixerVolDownUpCDA_L;
+	extern Bit32s MixerVolDownUpCDA_R;
 
 /*	Globals for keyboard initialisation */
 	bool startup_state_numlock	= true;
 	bool startup_state_capslock	= false;
 
 	const char* strPriority;
-	
+
+	bool useSoundGus		= false;
+	bool useSoundSB			= false;
+	bool useSoundAdlib		= false;
+	bool useSoundMT32		= false;
+	bool useSoundDisney		= false;
+	bool useSoundTandy		= false;
+	bool useSoundSSI2k1		= false;
+	bool useSoundPS1		= false;
+
+	bool isVirtualModus		= false;
+	bool MediaLabelChanged	= false;
+
+	bool SDLInfoStringShowed= false;
+
 	/*
 		Init the HWND Value for the DOSbox Icon (Left top) 
 	*/
@@ -408,7 +446,8 @@ static void PrefsEditDirect(HWND hwnd, std::string prgEdit) {
 			SDL_SysWMinfo wminfo;
 			SDL_VERSION(&wminfo.version);
 			
-			if (SDL_GetWindowWMInfo(sdl.window, &wminfo) == 1) {
+			if (SDL_GetWindowWMInfo(sdl.window, &wminfo) == 1)
+			{
 				
 				/*	Getting the current HWND				*/
 				HWND DosboxHwndIcon = wminfo.info.win.window;
@@ -425,7 +464,11 @@ static void PrefsEditDirect(HWND hwnd, std::string prgEdit) {
 /* ----------------------------------------------------------------------------------------------------- */
 
 /****** Block Key ***************************************************************************************************/
+#if defined(_MSC_VER)
+	#include <windows.h>
+#else
 #include <windows.h>
+#endif
 //link against user32.lib when compiling in MSVC
 #ifdef _MSC_VER
 	#pragma comment(lib, "User32.lib")
@@ -462,17 +505,17 @@ public:
 					return 1;
 				}
 				 
-				if (p->vkCode == VK_ESCAPE && p->flags & LLKHF_ALTDOWN)
+				else if (p->vkCode == VK_ESCAPE && p->flags & LLKHF_ALTDOWN)
 				{
 					return 1;
 				}
 				
-				if (p->vkCode == VK_SPACE && p->flags & LLKHF_ALTDOWN)
+				else if (p->vkCode == VK_SPACE && p->flags & LLKHF_ALTDOWN)
 				{
 					return 1;
 				}
 				
-				if (p->vkCode == VK_PRINT && p->flags & LLKHF_ALTDOWN)
+				else if (p->vkCode == VK_PRINT && p->flags & LLKHF_ALTDOWN)
 				{
 					return 1;
 				}				
@@ -510,7 +553,9 @@ public:
 					 case VK_PRINT:
 						KEYBOARD_AddKey(KBD_printscreen, true);
 						KEYBOARD_AddKey(KBD_printscreen, false);					
-						return 1;						
+						return 1;
+					 default:
+						 LOG_MSG("[%d] Key Pressed: ", p->vkCode);
 					}
 				 
 				 
@@ -553,14 +598,16 @@ public:
 private:
     HHOOK mHKeyboardHook;
 };
-DisableKeys DisableKeys;
+DisableKeys disableKeys;
 
 /****** Block Key ***************************************************************************************************/
 
+
 void GFX_SetTitle(Bit32s cycles,int frameskip,bool paused){
-	char strWinTitle  [256];	
-	char title        [200]={0};
-	char strDriveLabel[256]="";
+	char strWinTitle  [128] = {0};
+	char title        [256] = {0};
+	char strDriveLabel[256] = {0};
+
 	
 	static Bit32s internal_cycles	=0;
 	static Bit32s internal_frameskip=0;
@@ -572,22 +619,22 @@ void GFX_SetTitle(Bit32s cycles,int frameskip,bool paused){
 
 	bool showFrameSkip = false;										// Kann Später noch in die Config
 		
-		if(strcmp(GFX_Type, (const char*)"hercules"	 	) == 0){ strcpy(strWinTitle,"Hercules"			);}
-		if(strcmp(GFX_Type, (const char*)"cga"		 	) == 0){ strcpy(strWinTitle,"CGA"				);}
-		if(strcmp(GFX_Type, (const char*)"cga_mono"	 	) == 0){ strcpy(strWinTitle,"CGA Mono"			);}		
-		if(strcmp(GFX_Type, (const char*)"tandy"	 	) == 0){ strcpy(strWinTitle,"Tandy"				);}		
-		if(strcmp(GFX_Type, (const char*)"pcjr"		 	) == 0){ strcpy(strWinTitle,"PCJr"				);}
-		if(strcmp(GFX_Type, (const char*)"ega"		 	) == 0){ strcpy(strWinTitle,"EGA"				);}
-		if(strcmp(GFX_Type, (const char*)"svga_s3"	 	) == 0){ strcpy(strWinTitle,"S3 Trio"			);}
-		if(strcmp(GFX_Type, (const char*)"vesa_nolfb"	) == 0){ strcpy(strWinTitle,"S3 Trio - NoLFB"	);}
-		if(strcmp(GFX_Type, (const char*)"vesa_oldvbe"	) == 0){ strcpy(strWinTitle,"S3 Trio - Old VBE"	);}
-		if(strcmp(GFX_Type, (const char*)"svga_et4000"	) == 0){ strcpy(strWinTitle,"Tseng ET4000"		);}
-		if(strcmp(GFX_Type, (const char*)"svga_et3000"	) == 0){ strcpy(strWinTitle,"Tseng ET3000"		);}	
-		if(strcmp(GFX_Type, (const char*)"svga_paradise") == 0){ strcpy(strWinTitle,"Paradise"			);}
-		if(strcmp(GFX_Type, (const char*)"vgaonly"		) == 0){ strcpy(strWinTitle,"VGA"				);}
-		if(strcmp(GFX_Type, (const char*)"vga"			) == 0){ strcat(strWinTitle,"VGA"				);}
-		if(strcmp(GFX_Type, (const char*)"svga"			) == 0){ strcat(strWinTitle,"S3 Trio"			);}			
-
+			 if(strcmp(GFX_Type, (const char*)"hercules"	) == 0){ strcpy(strWinTitle,"Hercules"			);}
+		else if(strcmp(GFX_Type, (const char*)"cga"		 	) == 0){ strcpy(strWinTitle,"CGA"				);}
+		else if(strcmp(GFX_Type, (const char*)"cga_mono"	) == 0){ strcpy(strWinTitle,"CGA Mono"			);}		
+		else if(strcmp(GFX_Type, (const char*)"tandy"	 	) == 0){ strcpy(strWinTitle,"Tandy"				);}
+		else if(strcmp(GFX_Type, (const char*)"pcjr"		) == 0){ strcpy(strWinTitle,"PCJr"				);}
+		else if(strcmp(GFX_Type, (const char*)"ega"		 	) == 0){ strcpy(strWinTitle,"EGA"				);}
+		else if(strcmp(GFX_Type, (const char*)"svga_s3"	 	) == 0){ strcpy(strWinTitle,"S3 Trio"			);}
+		else if(strcmp(GFX_Type, (const char*)"vesa_nolfb"	) == 0){ strcpy(strWinTitle,"S3 Trio - NoLFB"	);}
+		else if(strcmp(GFX_Type, (const char*)"vesa_oldvbe"	) == 0){ strcpy(strWinTitle,"S3 Trio - Old VBE"	);}
+		else if(strcmp(GFX_Type, (const char*)"svga_et4000"	) == 0){ strcpy(strWinTitle,"Tseng ET4000"		);}
+		else if(strcmp(GFX_Type, (const char*)"svga_et3000"	) == 0){ strcpy(strWinTitle,"Tseng ET3000"		);}
+		else if(strcmp(GFX_Type, (const char*)"svga_paradise") == 0){ strcpy(strWinTitle,"Paradise"			);}
+		else if(strcmp(GFX_Type, (const char*)"vgaonly"		) == 0){ strcpy(strWinTitle,"VGA"				);}
+		else if(strcmp(GFX_Type, (const char*)"vga"			) == 0){ strcat(strWinTitle,"VGA"				);}
+		else if(strcmp(GFX_Type, (const char*)"svga"		) == 0){ strcat(strWinTitle,"S3 Trio"			);}
+			
 		if (strlen(sDriveLabel) != 0){
 			sprintf(strDriveLabel,"%s, ",sDriveLabel);
 		}
@@ -643,21 +690,21 @@ void GFX_SetTitle(Bit32s cycles,int frameskip,bool paused){
 		}
 	
 		
-		if(strcmp(GFX_Type, (const char*)"hercules"		) == 0){ strcat(strWinTitle,"/ Hercules)"					);}
-		if(strcmp(GFX_Type, (const char*)"cga"			) == 0){ strcat(strWinTitle,"/ CGA)"						);}
-		if(strcmp(GFX_Type, (const char*)"cga_mono"		) == 0){ strcat(strWinTitle,"/ CGA Mono)"					);}		
-		if(strcmp(GFX_Type, (const char*)"tandy"		) == 0){ strcat(strWinTitle,"/ Tandy)"						);}		
-		if(strcmp(GFX_Type, (const char*)"pcjr"			) == 0){ strcat(strWinTitle,"/ PCJr)"						);}
-		if(strcmp(GFX_Type, (const char*)"ega"			) == 0){ strcat(strWinTitle,"/ EGA)"						);}
-		if(strcmp(GFX_Type, (const char*)"svga_s3"		) == 0){ strcat(strWinTitle,"/ S3 Trio)"					);}
-		if(strcmp(GFX_Type, (const char*)"vesa_nolfb"	) == 0){ strcat(strWinTitle,"/ S3 Trio - Vesa 2.0 Patch)"	);}
-		if(strcmp(GFX_Type, (const char*)"vesa_oldvbe"	) == 0){ strcat(strWinTitle,"/ S3 Trio - Old VBE)"			);}
-		if(strcmp(GFX_Type, (const char*)"svga_et4000"	) == 0){ strcat(strWinTitle,"/ Tseng ET4000)"				);}
-		if(strcmp(GFX_Type, (const char*)"svga_et3000"	) == 0){ strcat(strWinTitle,"/ Tseng ET3000)"				);}	
-		if(strcmp(GFX_Type, (const char*)"svga_paradise") == 0){ strcat(strWinTitle,"/ Paradise)"					);}
-		if(strcmp(GFX_Type, (const char*)"vgaonly"		) == 0){ strcat(strWinTitle,"/ VGA)"						);}
-		if(strcmp(GFX_Type, (const char*)"vga"			) == 0){ strcat(strWinTitle,"/ VGA)"						);}
-		if(strcmp(GFX_Type, (const char*)"svga"			) == 0){ strcat(strWinTitle,"/ S3 Trio)"					);}		
+		if(strcmp(GFX_Type, (const char*)"hercules"			) == 0){ strcat(strWinTitle,"/ Hercules)"					);}
+		else if(strcmp(GFX_Type, (const char*)"cga"			) == 0){ strcat(strWinTitle,"/ CGA)"						);}
+		else if(strcmp(GFX_Type, (const char*)"cga_mono"	) == 0){ strcat(strWinTitle,"/ CGA Mono)"					);}
+		else if(strcmp(GFX_Type, (const char*)"tandy"		) == 0){ strcat(strWinTitle,"/ Tandy)"						);}
+		else if(strcmp(GFX_Type, (const char*)"pcjr"		) == 0){ strcat(strWinTitle,"/ PCJr)"						);}
+		else if(strcmp(GFX_Type, (const char*)"ega"			) == 0){ strcat(strWinTitle,"/ EGA)"						);}
+		else if(strcmp(GFX_Type, (const char*)"svga_s3"		) == 0){ strcat(strWinTitle,"/ S3 Trio)"					);}
+		else if(strcmp(GFX_Type, (const char*)"vesa_nolfb"	) == 0){ strcat(strWinTitle,"/ S3 Trio - Vesa 2.0 Patch)"	);}
+		else if(strcmp(GFX_Type, (const char*)"vesa_oldvbe"	) == 0){ strcat(strWinTitle,"/ S3 Trio - Old VBE)"			);}
+		else if(strcmp(GFX_Type, (const char*)"svga_et4000"	) == 0){ strcat(strWinTitle,"/ Tseng ET4000)"				);}
+		else if(strcmp(GFX_Type, (const char*)"svga_et3000"	) == 0){ strcat(strWinTitle,"/ Tseng ET3000)"				);}
+		else if(strcmp(GFX_Type, (const char*)"svga_paradise")== 0){ strcat(strWinTitle,"/ Paradise)"					);}
+		else if(strcmp(GFX_Type, (const char*)"vgaonly"		) == 0){ strcat(strWinTitle,"/ VGA)"						);}
+		else if(strcmp(GFX_Type, (const char*)"vga"			) == 0){ strcat(strWinTitle,"/ VGA)"						);}
+		else if(strcmp(GFX_Type, (const char*)"svga"		) == 0){ strcat(strWinTitle,"/ S3 Trio)"					);}
 			
 		strcat(strWinTitle,", [ Volume %2d% (Ctrl+Alt+F9/10) ], [ %s ], %s (Program: %4s)");		
 																																						 
@@ -716,7 +763,7 @@ static void GFX_SetIcon() {
 static void KillSwitch(bool pressed) {
 	
 	if (sdl.SystemKeysLocked == true)
-		DisableKeys.Unblock();
+		disableKeys.Unblock();
 	
 	if (!pressed)
 		return;
@@ -1838,14 +1885,14 @@ dosurface:
 		retFlags = GFX_CAN_32 | GFX_SCALING;
 		retFlags |= GFX_HARDWARE;
 						
-		if (bOpenGLStartupInfo == 0);
+		if (SDLInfoStringShowed == false);
 		{
 		LOG_MSG("SDL : OpenGL\n"
 		        "      Vendor  : %s\n"
 				"      Renderer: %s\n"
 				"      Version : %s\n"
 				"      Shader  : %s\n\n", glGetString(GL_VENDOR), glGetString(GL_RENDERER), glGetString(GL_VERSION), glGetString(GL_SHADING_LANGUAGE_VERSION));
-		bOpenGLStartupInfo +1;
+		SDLInfoStringShowed = true;
 		}
 		
 		SDL_ShowWindow(sdl.window);			
@@ -1886,13 +1933,15 @@ void GFX_CaptureMouse(void) {
 	if (sdl.mouse.locked)
 	{
 		SDL_SetRelativeMouseMode(SDL_TRUE);		
-		SDL_ShowCursor(SDL_DISABLE);		
-		if (sdl.desktop.fullscreen){
+		SDL_ShowCursor(SDL_DISABLE);
+
+		if (sdl.desktop.fullscreen)
+		{
 			SDL_SetWindowGrab(sdl.window, SDL_TRUE);
 		}
 	
-		if (sdl.SystemKeyDisable == true)	
-			DisableKeys.Block();
+		if ((sdl.SystemKeyDisable == true) || ((isVirtualModus == true) && (sdl.desktop.fullscreen == true)))
+			disableKeys.Block();
 		
 	} else {
 
@@ -1906,8 +1955,8 @@ void GFX_CaptureMouse(void) {
 		{
 			SDL_ShowCursor(SDL_ENABLE);
 			
-			if (sdl.SystemKeyDisable == true)
-				DisableKeys.Unblock();
+			if ((sdl.SystemKeyDisable == true) || ((isVirtualModus == true) && (!sdl.desktop.fullscreen == true)))
+				disableKeys.Unblock();
 		}
 	}
     mouselocked=sdl.mouse.locked;		
@@ -1981,14 +2030,16 @@ void GFX_SwitchFullScreen(void) {
 	
 	sdl.desktop.fullscreen=!sdl.desktop.fullscreen;
 	
-	if (sdl.desktop.fullscreen) {		
-		if (!sdl.mouse.locked){
+	if (sdl.desktop.fullscreen)
+	{		
+		if (!sdl.mouse.locked)
+		{
 			GFX_CaptureMouse();	
 			sticky_keys(false); //disable sticky keys in fullscreen mode			
 		}
-
 	} else {
-		if (autoclocked == 1){
+		if (autoclocked == 1)
+		{
 			GFX_CaptureMouse();			
 		} 
 		sticky_keys(true); //restore sticky keys to default state in windowed mode.
@@ -2292,7 +2343,14 @@ static void GUI_StartUp(Section * sec) {
 	/*
 		Voodoo Struct Inits
 	*/
-	extVoodoo.GL_filtering = 999;	
+	extVoodoo.GL_filtering	= 999;
+	extVoodoo.GL_shade		= 999;
+	extVoodoo.gl_wrap_s		= 999;
+	extVoodoo.gl_wrap_t		= 999;
+	extVoodoo.RGB_Format	= 999;
+	extVoodoo.RGB_Type		= 999;
+	extVoodoo.GLDark		= 999;
+	extVoodoo.GLScan		= 999;
 	
 	
 	sec->AddDestroyFunction(&GUI_ShutDown);
@@ -2691,7 +2749,7 @@ void GFX_LosingFocus(void) {
 	MAPPER_LosingFocus();
 	
 	if (sdl.SystemKeysLocked == true)	
-		DisableKeys.Unblock();
+		disableKeys.Unblock();
 }
 
 void GFX_HandleVideoResize(int width, int height) {
@@ -2768,17 +2826,21 @@ void GFX_Events() {
 	while (SDL_PollEvent(&event)) {
 
 #if SDL_XORG_FIX
-		/* Special code for broken SDL with Xorg 1.20.1,
-		   where pairs of inputfocus gain and loss events are generated
-		   when locking the mouse in windowed mode. */
-		
+		// Special code for broken SDL with Xorg 1.20.1, where pairs of inputfocus gain and loss events are generated
+		// when locking the mouse in windowed mode.
+		// This also seems to give wrong key up events in fullscreen mode.
+		// sdl-1.2 has a fix in hg, but this shouldn't interfere with that fix.
 		if (event.type == SDL_ACTIVEEVENT && event.active.state == SDL_APPINPUTFOCUS && event.active.gain == 0) {
-			
 			SDL_Event test; //Check if the next event would undo this one.
-			
-			if (SDL_PeepEvents(&test,1,SDL_PEEKEVENT,SDL_ACTIVEEVENTMASK) == 1 && test.active.state == SDL_APPINPUTFOCUS && test.active.gain == 1) {
+			if (SDL_PeepEvents(&test, 1, SDL_PEEKEVENT, SDL_ACTIVEEVENTMASK) == 1 && test.active.state == SDL_APPINPUTFOCUS && test.active.gain == 1) {
 				// Skip both events.
-				SDL_PeepEvents(&test,1,SDL_GETEVENT,SDL_ACTIVEEVENTMASK);
+				SDL_PeepEvents(&test, 1, SDL_GETEVENT, SDL_ACTIVEEVENTMASK);
+				// Look for KEY UP events and check their validity.
+				while (SDL_PeepEvents(&test, 1, SDL_PEEKEVENT, SDL_KEYUPMASK) == 1) {
+					const Uint8 * kstate = SDL_GetKeyState(NULL);
+					if (kstate[test.key.keysym.sym] != SDL_PRESSED) break;
+					SDL_PeepEvents(&test, 1, SDL_GETEVENT, SDL_KEYUPMASK);						
+				}
 				continue;
 			}
 		}
@@ -3033,6 +3095,7 @@ void Config_Add_SDL() {
 	Prop_bool* Pbool;
 	Prop_string* Pstring;
 	Prop_int* Pint;
+	Prop_float* Pfloat;
 	Prop_multival* Pmulti;
 
 	Pbool = sdl_sec->Add_bool("fullscreen",Property::Changeable::Always,false);
@@ -3124,6 +3187,12 @@ void Config_Add_SDL() {
 	Pmulti->Set_help(   "================================================================================================\n"
 	                  "Mouse sensitivity. The optional second parameter specifies vertical sensitivity (e.g. 100,-50).");
 
+	Pfloat = sdl_sec->Add_float("mousedelay", Property::Changeable::OnlyAtStart,5.0);
+	Pfloat->SetMinMax(0.001,1000.0);
+	Pfloat->Set_help(   "================================================================================================\n"
+	                  "Mouse Delay. Set Internal Pic Delay Parameter. in Emulated Windows 9x it need to configure 30.0 or\n"
+					  "or higher. If you hear Crackling Sounds at mousemoves set this value higher. Default 5.0");
+					  
 	Pbool = sdl_sec->Add_bool("DisableSystemKeys",Property::Changeable::Always,false);
 	Pbool->Set_help(   "================================================================================================\n"
 					   "Lock System Keys in Windows 95/98 Mode (ALT-Tab, ALT-Esc, CTRL-Esc, Win-Keys) if Mouse is Captured.");
@@ -3522,32 +3591,6 @@ int main(int argc, char* argv[]) {
 		/* Init the configuration system and add default values */
 		Config_Add_SDL();
 		DOSBOX_Init();
-
-		std::string editor;
-		if(control->cmdline->FindString("-editconf",editor,false)) launcheditor();
-		if(control->cmdline->FindString("-opencaptures",editor,true)) launchcaptures(editor);
-		if(control->cmdline->FindExist("-eraseconf")) eraseconfigfile();
-		if(control->cmdline->FindExist("-resetconf")) eraseconfigfile();
-		if(control->cmdline->FindExist("-erasemapper")) erasemapperfile();
-		if(control->cmdline->FindExist("-resetmapper")) erasemapperfile();
-
-
-		
-		if (control->cmdline->FindExist("-version") || control->cmdline->FindExist("--version") ) {
-			if (AllocConsole())
-				{		
-				OpenConsole(GetStdHandle(STD_OUTPUT_HANDLE),80,40,0);
-				SetConsoleTitle("DOSBox: Status Window - Version");
-				printf("\n");
-				printf("%s\n\n",gDosboxFullVersion);
-				printf("Features Compiled: %s\n\n",gDOSBoxFeatures);
-				printf("\n%s\n\n",gDosboxCopyright);			
-				printf("%s\n",gDosboxTeamText);			
-				/*Can take SDL_Delay. Don't Close Immedeatly the Window, Wait for User too*/
-				SDL_Delay(1000000);
-			}
-			return 0;
-		}	
 		
 #if defined(WIN32) && !defined(C_DEBUG)
 		/* Can't disable the console with debugger enabled */
@@ -3585,8 +3628,81 @@ int main(int argc, char* argv[]) {
 		}
 #endif
 	
-		
-		if(control->cmdline->FindExist("-printconf")) printconfiglocation();
+		std::string editor;
+		if (control->cmdline->FindString("-editconf", editor, false)) launcheditor();
+		if (control->cmdline->FindString("-opencaptures", editor, true)) launchcaptures(editor);
+
+		if (control->cmdline->FindExist("-eraseconf")) eraseconfigfile();
+		if (control->cmdline->FindExist("-resetconf")) eraseconfigfile();
+		if (control->cmdline->FindExist("-erasemapper")) erasemapperfile();
+		if (control->cmdline->FindExist("-resetmapper")) erasemapperfile();
+		if (control->cmdline->FindExist("-printconf")) printconfiglocation();
+
+		if (control->cmdline->FindExist("-version") || control->cmdline->FindExist("--version")) {
+			if (AllocConsole())
+			{
+				OpenConsole(GetStdHandle(STD_OUTPUT_HANDLE), 80, 40, 0);
+				SetConsoleTitle("DOSBox: Status Window - Version");
+				printf("\n");
+				printf("%s\n\n", gDosboxFullVersion);
+				printf("Features Compiled: %s\n\n", gDOSBoxFeatures);
+				printf("\n%s\n\n", gDosboxCopyright);
+				printf("%s\n", gDosboxTeamText);
+				/*Can take SDL_Delay. Don't Close Immedeatly the Window, Wait for User too*/
+				SDL_Delay(10000000);
+			}
+			exit(0);
+		}
+
+		if (control->cmdline->FindExist("-help") || control->cmdline->FindExist("--help")) {
+			if (AllocConsole())
+			{
+				OpenConsole(GetStdHandle(STD_OUTPUT_HANDLE), 105, 48, 0);
+				SetConsoleTitle("DOSBox: Help Window");
+				printf("\n");
+				printf("%s\n\n", gDosboxFullVersion);
+				printf("  -help, --help                     Show this screen\n\n");
+				printf("  -console                          Show logging console\n");
+				printf("  -version, --version               Display version information\n");
+				printf("  -fullscreen                       Start in fullscreen mode\n\n");
+				printf("  -conf <configfile>                Start the specific (multiple) configuration file(s).\n");
+				printf("                                    eq: \"dosbox.exe -conf config1.conf -conf config2.conf\"\n\n");
+				printf("  -editconf <editor>                Edit the config file with the specific editor\n");
+				printf("  -printconf                        Print config file location\n");
+				printf("  -eraseconf (or -resetconf)        Erase loaded config file (or user config file and exit)\n");
+				printf("  -erasemapper (or -resetmapper)    Erase loaded mapper file (or user mapper file and exit)\n");
+				printf("  -opencaptures <param>             Launch captures\n");
+				printf("  -startmapper                      Start the Key/Joystick mapper editor\n");
+				printf("  -socket <socketnum>               Specify the socket number for null-modem emulation\n");
+				printf("  -lang <message file>              Use specific message file instead of language= setting\n");
+				printf("  -securemode                       Enable secure mode (no drive mounting etc)\n\n");
+				printf("  -c <command string>               Execute this command in addition to AUTOEXEC.BAT.\n");
+				printf("                                    eq: dosbox.exe -c \"mount c .\\Game\\\" -c \"c:\" -c \"bond.exe\"\n\n");
+				printf("  -exit                             Exit after executing AUTOEXEC.BAT\n");
+				printf("  -machine <machinetype>            Use Specific machine type. choices are:\n");
+				printf("                                    hercules\n");
+				printf("                                    amstrad\n");
+				printf("                                    tandy\n");
+				printf("                                    pcjr\n");
+				printf("                                    cga,        cga_mono,    ega,          vga,         vgaonly\n");
+				printf("                                    svga,       svga_s3,     svga_et3000,  svga_et4000, svga_paradise\n");
+				printf("                                    vesa_nolfb, vesa_oldvbe, vesa_no24bpp, vesa_nolfb_no24bpp\n\n");
+				printf("  -scaler <type>                    Use Specific scaler render. choices are:\n");
+				printf("                                    none       , supereagle\n");
+				printf("                                    normal2x   , normal3x\n");
+				printf("                                    advmame2x  , advmame3x\n");
+				printf("                                    advinterp2x, advinterp3x\n");
+				printf("                                    hq2x       , hq3x\n");
+				printf("                                    2xsai      , super2xsai\n");
+				printf("                                    tv2x       , tv3x,\n");
+				printf("                                    rgb2x      , rgb3x\n");
+				printf("                                    scan2x     , scan3x.\n");
+				printf("  -forcescaler                      force usage of the specified scaler even if it might not fit.");
+				/*Can take SDL_Delay. Don't Close Immedeatly the Window, Wait for User too*/
+				SDL_Delay(10000000);
+			}
+			exit(0);
+		}
 
 #if defined(C_DEBUG)
 		DEBUG_SetupConsole();

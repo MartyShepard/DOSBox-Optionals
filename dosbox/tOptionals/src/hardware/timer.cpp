@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -332,10 +332,10 @@ static void write_p43(Bitu /*port*/,Bitu val,Bitu /*iolen*/) {
 	
 	Section_prop *section = static_cast<Section_prop *>(control->GetSection("speaker"));
 	const char * pcmode = section->Get_string("pcspeaker.mode");
-	if (!strcasecmp(pcmode,"old")){
+	if (!_stricmp(pcmode,"old")){
 		PCSpeakerPatch=false;
 		
-	}else if (!strcasecmp(pcmode,"new")){
+	}else if (!_stricmp(pcmode,"new")){
 		PCSpeakerPatch=true;
 	}	
 //LOG(LOG_PIT,LOG_ERROR)("port 43 %X",val);

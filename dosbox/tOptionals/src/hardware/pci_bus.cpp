@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -29,7 +29,7 @@
 #include "..\ints\int10.h"
 #include "voodoo.h"						  				  
 
-#if defined(PCI_FUNCTIONALITY_ENABLED)
+//#if defined(PCI_FUNCTIONALITY_ENABLED)
 
 static Bit32u pci_caddress=0;			// current PCI addressing
 static Bitu pci_devices_installed=0;	// number of registered PCI devices
@@ -276,6 +276,8 @@ public:
 
 	// set up port handlers and configuration data
 	void InitializePCI(void) {
+
+		LOG(LOG_MISC, LOG_NORMAL)("[%d] InitializePCI(): reinitializing PCI bus emulation [%s]",__LINE__,__FILE__);
 		// install PCI-addressing ports
 		PCI_WriteHandler[0].Install(0xcf8,write_pci_addr,IO_MD);
 		PCI_ReadHandler[0].Install(0xcf8,read_pci_addr,IO_MD);
@@ -489,7 +491,7 @@ void PCI_Init(Section* sec) {
 	pci_interface = new PCI(sec);
 	sec->AddDestroyFunction(&PCI_ShutDown,false);
 }
-
+/*
 #else
 
 void PCI_AddSVGAS3_Device(void) {
@@ -505,3 +507,4 @@ void PCI_RemoveSST_Device(void) {
 }
 
 #endif
+*/

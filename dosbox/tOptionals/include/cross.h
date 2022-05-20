@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -65,6 +65,10 @@
 #define ftruncate(blah,blah2) chsize(blah,blah2)
 #endif
 */
+
+#if defined (WIN32) && !defined (__MINGW32__)
+#define ftruncate(blah,blah2) _chsize(blah,blah2)
+#endif
 
 //Solaris maybe others
 #if defined (DB_HAVE_NO_POWF)

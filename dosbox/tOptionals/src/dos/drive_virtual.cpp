@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,6 +16,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,6 +26,7 @@
 #include "drives.h"
 #include "support.h"
 #include "cross.h"
+
 
 struct VFILE_Block {
 	const char * name;
@@ -37,6 +39,29 @@ struct VFILE_Block {
 
 
 static VFILE_Block * first_file;	
+
+void VFILE_SaveFake(const char* name, Bit8u* data, Bit32u size) {
+	
+	char filename[MAX_PATH];
+
+	::GetEnvironmentVariable("TEMP", filename, MAX_PATH);
+	
+	size_t filenameLength = strlen(filename);
+
+	if (filename[filenameLength - 1] == '\\')
+		strcat(filename, name);
+	else
+	{
+		strcat(filename, "\\");
+		strcat(filename, name);
+	}
+
+	HANDLE hFile = ::CreateFile(filename, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+
+	DWORD written;
+	::WriteFile(hFile, data, size, &written, NULL);
+	::CloseHandle(hFile);
+}
 
 void VFILE_Register(const char * name,Bit8u * data,Bit32u size) {
 	VFILE_Block * new_file=new VFILE_Block;
@@ -144,7 +169,7 @@ bool Virtual_Drive::FileOpen(DOS_File * * file,char * name,Bit32u flags) {
 /* Scan through the internal list of files */
 	VFILE_Block * cur_file=first_file;
 	while (cur_file) {
-		if (strcasecmp(name,cur_file->name)==0) {
+		if (_stricmp(name,cur_file->name)==0) {
 		/* We have a match */
 			*file=new Virtual_File(cur_file->data,cur_file->size);
 			(*file)->flags=flags;
@@ -180,7 +205,7 @@ bool Virtual_Drive::TestDir(char * dir) {
 bool Virtual_Drive::FileStat(const char* name, FileStat_Block * const stat_block){
 	VFILE_Block * cur_file=first_file;
 	while (cur_file) {
-		if (strcasecmp(name,cur_file->name)==0) {
+		if (_stricmp(name,cur_file->name)==0) {
 			stat_block->attr=DOS_ATTR_ARCHIVE;
 			stat_block->size=cur_file->size;
 			stat_block->date=DOS_PackDate(2002,10,1);
@@ -195,7 +220,7 @@ bool Virtual_Drive::FileStat(const char* name, FileStat_Block * const stat_block
 bool Virtual_Drive::FileExists(const char* name){
 	VFILE_Block * cur_file=first_file;
 	while (cur_file) {
-		if (strcasecmp(name,cur_file->name)==0) return true;
+		if (_stricmp(name,cur_file->name)==0) return true;
 		cur_file=cur_file->next;
 	}
 	return false;
@@ -241,7 +266,7 @@ bool Virtual_Drive::SetFileAttr(char * name,Bit16u attr) {
 bool Virtual_Drive::GetFileAttr(char * name,Bit16u * attr) {
 	VFILE_Block * cur_file=first_file;
 	while (cur_file) {
-		if (strcasecmp(name,cur_file->name)==0) { 
+		if (_stricmp(name,cur_file->name)==0) {
 			*attr = DOS_ATTR_ARCHIVE;	//Maybe readonly ?
 			return true;
 		}

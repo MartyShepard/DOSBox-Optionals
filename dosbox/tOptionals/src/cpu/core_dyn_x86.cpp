@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -115,12 +115,10 @@ enum BlockReturn {
 	BR_Cycles,
 	BR_Link1,BR_Link2,
 	BR_Opcode,
-#if defined(C_DEBUG)
-	BR_OpcodeFull,
-#endif
 	BR_Iret,
 	BR_CallBack,
-	BR_SMCBlock
+	BR_SMCBlock,
+	BR_Trap
 };
 
 #define SMC_CURRENT_BLOCK	0xffff
@@ -134,7 +132,6 @@ enum BlockReturn {
 #define DYNFLG_ACTIVE		0x20	//Register has an active value
 
 class GenReg;
-class CodePageHandler;
 
 struct DynReg {
 	Bitu flags;
@@ -161,7 +158,11 @@ static struct {
 
 #define IllegalOption(msg) E_Exit("DYNX86: illegal option in " msg)
 
-#include "core_dyn_x86/cache.h" 
+#define dyn_return(a, b) gen_return(a);
+#include "../cpu/dyn_cache.h"
+
+typedef CacheBlockDynRec CacheBlock;
+typedef CodePageHandlerDynRec CodePageHandler;
 
 static struct {
 	Bitu callback;
@@ -349,12 +350,6 @@ run_block:
 		CPU_CycleLeft+=CPU_Cycles;
 		CPU_Cycles=1;
 		return CPU_Core_Normal_Run();
-#if defined(C_DEBUG)
-	case BR_OpcodeFull:
-		CPU_CycleLeft+=CPU_Cycles;
-		CPU_Cycles=1;
-		return CPU_Core_Full_Run();
-#endif
 	case BR_Link1:
 	case BR_Link2:
 		{
@@ -368,6 +363,17 @@ run_block:
 			}
 		}
 		goto restart_core;
+	case BR_Trap:
+		// trapflag is set, switch to the trap-aware decoder
+		#if C_DEBUG
+			#if C_HEAVY_DEBUG
+			if (DEBUG_HeavyIsBreakpoint()) {
+				return debugCallback;			
+			}
+			#endif
+		#endif
+		cpudecoder = CPU_Core_Dyn_X86_Trap_Run;
+		return CBRET_NONE;
 	}
 	return CBRET_NONE;
 }
@@ -378,7 +384,7 @@ Bits CPU_Core_Dyn_X86_Trap_Run(void) {
 	cpu.trap_skip = false;
 
 	Bits ret=CPU_Core_Normal_Run();
-	if (!cpu.trap_skip) CPU_HW_Interrupt(1);
+	if (!cpu.trap_skip) CPU_DebugException(DBINT_STEP, reg_eip);
 	CPU_Cycles = oldCycles-1;
 	cpudecoder = &CPU_Core_Dyn_X86_Run;
 
@@ -473,6 +479,56 @@ void CPU_Core_Dyn_X86_SetFPUMode(bool dh_fpu) {
 #if defined(X86_DYNFPU_DH_ENABLED)
 	dyn_dh_fpu.dh_fpu_enabled=dh_fpu;
 #endif
+}
+
+uint32_t fpu_state[32];
+
+void CPU_Core_Dyn_X86_SaveDHFPUState(void) {
+	if (dyn_dh_fpu.dh_fpu_enabled) {		
+		if (dyn_dh_fpu.state_used != 0) {
+		#if defined (_MSC_VER)
+			__asm {
+			__asm	fsave	fpu_state[0]
+			__asm	finit
+			}
+		#else
+			__asm__ volatile (
+			"fsave		%0			\n"
+			"finit					\n"
+			:	"=m" (fpu_state[0])
+			:
+			: "memory"
+			);
+		#endif
+		}
+	}
+}
+
+void CPU_Core_Dyn_X86_RestoreDHFPUState(void) {
+	if (dyn_dh_fpu.dh_fpu_enabled) {
+		if (dyn_dh_fpu.state_used != 0) {
+		#if defined (_MSC_VER)
+			__asm {
+			__asm	frstor	fpu_state[0]
+			}
+		#else
+			__asm__ volatile (
+			"frstor		%0			\n"
+			:
+			: "m" (fpu_state[0])
+			:
+			);
+		#endif
+		}
+	}
+}
+
+#else
+
+void CPU_Core_Dyn_X86_SaveDHFPUState(void) {
+}
+
+void CPU_Core_Dyn_X86_RestoreDHFPUState(void) {
 }
 
 #endif

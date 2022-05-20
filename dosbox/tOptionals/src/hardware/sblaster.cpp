@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2002-2019  The DOSBox Team
+ *  Copyright (C) 2002-2021  The DOSBox Team
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -1954,11 +1954,13 @@ static void DSP_DoCommand(void) {
 		break;
 	case 0x75:	/* 075h : Single Cycle 4-bit ADPCM Reference */
 		sb.adpcm.haveref=true;
+		/* FALLTHROUGH */
 	case 0x74:	/* 074h : Single Cycle 4-bit ADPCM */	
 		DSP_PrepareDMA_Old(DSP_DMA_4,sb.dma.force_autoinit,false,false);
 		break;
 	case 0x77:	/* 077h : Single Cycle 3-bit(2.6bit) ADPCM Reference*/
 		sb.adpcm.haveref=true;
+		/* FALLTHROUGH */
 	case 0x76:  /* 074h : Single Cycle 3-bit(2.6bit) ADPCM */
 		DSP_PrepareDMA_Old(DSP_DMA_3,sb.dma.force_autoinit,false,false);
 		break;
@@ -1979,6 +1981,7 @@ static void DSP_DoCommand(void) {
 		break;		
 	case 0x17:	/* 017h : Single Cycle 2-bit ADPCM Reference*/
 		sb.adpcm.haveref=true;
+		/* FALLTHROUGH */
 	case 0x16:  /* 074h : Single Cycle 2-bit ADPCM */
 		DSP_PrepareDMA_Old(DSP_DMA_2,sb.dma.force_autoinit,false,false);
 		break;
@@ -3330,38 +3333,42 @@ private:
 		
 		sb.vibra 			= false;
 		sb.ess_extended_mode= false;		
-				
+		useSoundSB			= false;
 
 		LOG_MSG("\n"); /* Blank Return */
 		
 		const char * sbtype=config->Get_string("sbtype");
 		
-		if 		(!strcasecmp(sbtype,"sb1"))
+		if 		(!_stricmp(sbtype,"sb1"))
 		{		
 			type=SBT_1;
 			nCurrent_SBType = "1989 Sound Blaster 1.0";
+			useSoundSB		= true;
 			LOG_MSG("SB  :Initialization Sound Blaster 1 Emulation");
 		}
-		else if (!strcasecmp(sbtype,"sb2")) 
+		else if (!_stricmp(sbtype,"sb2"))
 		{
 			type=SBT_2;
 			nCurrent_SBType = "1991 Sound Blaster 2.0 (CT1350)";
+			useSoundSB		= true;
 			LOG_MSG("SB  :Initialization Sound Blaster 2 Emulation");
 		}
-		else if (!strcasecmp(sbtype,"sbpro1"))
+		else if (!_stricmp(sbtype,"sbpro1"))
 		{
 			type=SBT_PRO1;
 			nCurrent_SBType = "1991 Sound Blaster Pro (CT1330)";			
+			useSoundSB		= true;
 			LOG_MSG("SB  :Initialization Sound Blaster Pro 1 Emulation");
 		}			
-		else if (!strcasecmp(sbtype,"sbpro2"))
+		else if (!_stricmp(sbtype,"sbpro2"))
 		{
 			type=SBT_PRO2;
 			
 			nCurrent_SBType = "1992 Sound Blaster Pro 2 (CT1600)";	
+			useSoundSB		= true;
 			LOG_MSG("SB  :Initialization Sound Blaster Pro 2 Emulation");
 		}
-		else if (!strcasecmp(sbtype,"sb16vibra"))			
+		else if (!_stricmp(sbtype,"sb16vibra"))
 		{ 	
 			/* SB16 Vibra cards are Plug & Play */
 			type	= SBT_16;
@@ -3369,25 +3376,29 @@ private:
 			
 			ISA_PNP_devreg(new ViBRA_PnP());
 			nCurrent_SBType = "1992 Sound Blaster 16 VibraC (CT2505)";				
+			useSoundSB		= true;
 			LOG_MSG("SB  :Initialization Sound Blaster Vibra16C (CT2505) Emulation");
 		}		
-		else if (!strcasecmp(sbtype,"sb16"))
+		else if (!_stricmp(sbtype,"sb16"))
 		{
 			type=SBT_16;
 			nCurrent_SBType = "1994 Creative Sound Blaster 16";				
+			useSoundSB		= true;
 			LOG_MSG("SB  :Initialization Sound Blaster 16 Emulation");
 		}
-		else if (!strcasecmp(sbtype,"gb"))
+		else if (!_stricmp(sbtype,"gb"))
 		{
  			type=SBT_GB;
 			nCurrent_SBType = "1988 Creative Game Blaster";				
+			useSoundSB		= true;
 			LOG_MSG("SB  :Initialization Gameblaster Emulation");
 		}
-		else if (!strcasecmp(sbtype,"none"))
+		else if (!_stricmp(sbtype,"none"))
 		{
 			type=SBT_NONE; 
+			useSoundSB = false;
 		}
-		else if (!strcasecmp(sbtype,"ess688"))
+		else if (!_stricmp(sbtype,"ess688"))
 		{
 			type		= SBT_PRO2;
 			sb.ess_type	= ESS_688;			
@@ -3396,7 +3407,7 @@ private:
 					"    * ESS 688 Emulation is EXPERIMENTAL at this time\n"
 			        "    * and should not yet be used for normal gaming.\n");
 		}
-		else if (!strcasecmp(sbtype,"reveal_sc400"))
+		else if (!_stricmp(sbtype,"reveal_sc400"))
 		{
 			type			 = SBT_PRO2;
 			sb.reveal_sc_type= RSC_SC400;
@@ -3412,6 +3423,7 @@ private:
 		else
 		{
 			type=SBT_16;
+			useSoundSB = true;
 		}
 		
 	/* ======================================================================================================================== */
@@ -3436,7 +3448,7 @@ private:
 		/* OPL/CMS Init */
 		const char * omode=config->Get_string("oplmode");
 		
-		if 		(!strcasecmp(omode,"none"))
+		if 		(!_stricmp(omode,"none"))
 		{
 			opl_mode = OPL_none;	
 			if ( type == SBT_NONE )
@@ -3445,7 +3457,7 @@ private:
 			}
 		}
 		
-		else if (!strcasecmp(omode,"cms"))
+		else if (!_stricmp(omode,"cms"))
 		{
 			opl_mode = OPL_cms;
 						
@@ -3460,7 +3472,7 @@ private:
 			}
 		}
 		
-		else if (!strcasecmp(omode,"opl2"))
+		else if (!_stricmp(omode,"opl2"))
 		{
 			opl_mode = OPL_opl2;
 			
@@ -3470,7 +3482,7 @@ private:
 				LOG_MSG("SB  : + OPL2 Emulation");
 		}
 		
-		else if (!strcasecmp(omode,"dualopl2"))
+		else if (!_stricmp(omode,"dualopl2"))
 		{
 			opl_mode = OPL_dualopl2;
 			
@@ -3480,7 +3492,7 @@ private:
 				LOG_MSG("SB  : + DUAL-OPL2 Emulation");
 		}
 		
-		else if (!strcasecmp(omode,"opl3"))
+		else if (!_stricmp(omode,"opl3"))
 		{
 			opl_mode = OPL_opl3;
 			
@@ -3490,7 +3502,7 @@ private:
 				LOG_MSG("SB  : + OPL3 Emulation");
 		}
 		
-		else if (!strcasecmp(omode,"opl3gold"))
+		else if (!_stricmp(omode,"opl3gold"))
 		{ 
 			opl_mode = OPL_opl3gold;
 			
@@ -4097,6 +4109,7 @@ public:
 			
 			autoexecline.Install(temp.str());
 		}
+
 
 	/* ======================================================================================================================== */	
 		/* Auto-pick busy cycle */
