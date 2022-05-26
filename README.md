@@ -9,7 +9,7 @@ Based on the OpenGL3 FORK 4006 from dugan
 
 * All libraries integrated in the code. There is only "DOSBox.exe" single file.
 * Most Enhanced Community Edition Patches (ECE) are included
-* Program backend: SDL 2 (2.0.10)
+* Program backend: SDL 2 (2.0.20)
 * Video Backend: Surface, OpenGL, OpenGL3 with Shader support (*vert, *.frag)
 * Extended 3DFX support. Depending on the DOSBox resolution up to 8k.
 * Multi-monitor support. For Example, DOSBox can now also start on the third monitor.
