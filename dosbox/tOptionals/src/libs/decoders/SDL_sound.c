@@ -35,7 +35,7 @@
 // #include <stdio.h>
 // #include <stdlib.h>
 // #include <string.h>
-// #include <ctype.h>
+ #include <ctype.h>
 
 #include <SDL.h>
 #include <SDL_thread.h>
@@ -426,7 +426,7 @@ static int init_sample(const Sound_DecoderFunctions *funcs,
     internal->funcs = funcs;
     if (!funcs->open(sample, ext))
     {
-        SDL_RWseek(internal->rw, pos, SEEK_SET);  /* set for next try... */
+        SDL_RWseek(internal->rw, pos, RW_SEEK_SET);  /* set for next try... */
         return(0);
     } /* if */
 
@@ -455,7 +455,7 @@ static int init_sample(const Sound_DecoderFunctions *funcs,
     {
         __Sound_SetError(SDL_GetError());
         funcs->close(sample);
-        SDL_RWseek(internal->rw, pos, SEEK_SET);  /* set for next try... */
+        SDL_RWseek(internal->rw, pos, RW_SEEK_SET);  /* set for next try... */
         return(0);
     } /* if */
 
@@ -466,7 +466,7 @@ static int init_sample(const Sound_DecoderFunctions *funcs,
         if (rc == NULL)
         {
             funcs->close(sample);
-            SDL_RWseek(internal->rw, pos, SEEK_SET);  /* set for next try... */
+            SDL_RWseek(internal->rw, pos, RW_SEEK_SET);  /* set for next try... */
             return(0);
         } /* if */
 

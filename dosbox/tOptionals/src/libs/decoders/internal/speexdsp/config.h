@@ -77,7 +77,7 @@
 #define PACKAGE_NAME "speexdsp"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "speexdsp 1.2.0"
+#define PACKAGE_STRING "speexdsp 1.2.1"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "speexdsp"
@@ -86,7 +86,7 @@
 #define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "1.2.0"
+#define PACKAGE_VERSION "1.2.1"
 
 /* Resample with full SINC table (no interpolation) */
 /* #undef RESAMPLE_FULL_SINC_TABLE */

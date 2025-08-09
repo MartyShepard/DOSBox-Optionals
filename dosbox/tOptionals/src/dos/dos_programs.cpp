@@ -640,47 +640,34 @@ INLINE bool MenuBrowse_Sub_DoubleCheck(char drive, char* ImageFile)
 
 	LOG_MSG("%d TEST", __LINE__);
 	int SwapMax = DriveManager::DiskCounts (drive - 'A');
-	LOG_MSG("%d TEST", __LINE__);
 	if (SwapMax == 0)
 		return false;
-
-	LOG_MSG("%d TEST", __LINE__);
 	LadeName = ImageFileName.substr(ImageFileName.find_last_of("/\\") + 1);
-
-	LOG_MSG("%d TEST", __LINE__);
 	if (SwapMax > 0)
 	{
-		LOG_MSG("%d TEST", __LINE__);
 		for (int x = 1; x < SwapMax; x++)
 		{
-			LOG_MSG("%d TEST Swap=%d", __LINE__,x);
 			DriveManager::CycleImage(drive - 'A', false, x);
 
-			LOG_MSG("%d TEST", __LINE__);
 			FilePath = std::string(Drives[drive - 'A']->GetInfo() + 9);
 			FileName = FilePath.substr(FilePath.find_last_of("/\\") + 1);
 
-			LOG_MSG("%d TEST", __LINE__);
 			#if defined(C_DEBUG)
 				LOG(LOG_IMAGE, LOG_NORMAL)("[%d] Add to List: '%s'\n"
 										   "     List Found : '%s'\n\n", __LINE__, LadeName.c_str(), FileName.c_str());
 			#endif
 
-			LOG_MSG("%d TEST", __LINE__);
 			if (strcmp(FileName.c_str(), LadeName.c_str()) == 0)
 			{
-				LOG_MSG("%d TEST", __LINE__);
 				DriveManager::NotifyShowLabel(drive - 'A', x, SwapMax);
 				/*
 				MessageBoxFD_InUse(drive, x, GetHWND());
 				*/
-				LOG_MSG("%d TEST", __LINE__);
 				GFX_CaptureMouse_Mousecap_on();				
 				return true;
 			}
 		}
 	}
-	LOG_MSG("%d TEST", __LINE__);
 	return false;
 }
 /*
@@ -1389,7 +1376,7 @@ public:
 		WriteOut(MSG_Get("PROGRAM_BOOT_START_DRIVE"));
 		while(i<cmd->GetCount()) {
 			if(cmd->FindCommand(i+1, temp_line)) {
-				if((temp_line == "-l") || (temp_line == "-L")) {
+				if((temp_line == "-l") || (temp_line == "-L") || (temp_line == "-cdrom")) {
 					/* Specifying drive... next argument then is the drive */
 					i++;
 					if(cmd->FindCommand(i+1, temp_line)) {
@@ -2031,6 +2018,7 @@ restart_int:
 		std::string MBRecord;
 		std::string fatcop;
 		std::string fatspc;
+		std::string morehelp;		
 
 
 		Bitu c, h, s, sectors;
@@ -2053,6 +2041,12 @@ restart_int:
 			return;
 		}
 
+
+		if(cmd->FindExist("-morehelp")) {
+			printHelp2();
+			return;
+		}
+		
 /*
 		this stuff is too frustrating
 
@@ -2090,7 +2084,7 @@ restart_int:
 */
 
 #ifdef WIN32
-		// read from real floppy?
+		// read from real floppy?				
 		if(cmd->FindString("-source",src,true)) {
 			Bits retries = 10;
 			cmd->FindInt("-retries",retries,true);
@@ -2129,6 +2123,8 @@ restart_int:
 			return;
 		}
 #endif
+
+		
 		// disk type
 		if (!(cmd->FindString("-t",disktype,true))) {
 			printHelp();
@@ -2271,12 +2267,12 @@ restart_int:
 			}
 		}
 
-		/*	temp_line is the given filename		*/
-		if ( !( cmd->FindCommand(1, temp_line) ) ) {
+			if ( !( cmd->FindCommand(1, temp_line) ) ) {
 			/*
 				No given Filename, use default Dosbox Folder and create
 			*/
-			temp_line = sCurrentWorkingPath() + "\\DosboxHDD.IMG\0";
+			WriteOut("No Filename given...");
+			return;
 		}
 	
 		FILE* f = fopen( temp_line.c_str(),"r" );
@@ -2765,7 +2761,8 @@ restart_int:
 
 
 		// write VHD footer if requested, largely copied from RAW2VHD program, no license was included
-		if ((mediadesc == 0xF8) && (temp_line.find(".vhd")) != std::string::npos) {
+		if ( (mediadesc == 0xF8) && ( (temp_line.find(".vhd") || temp_line.find(".img") ) ) != std::string::npos )
+		{
 			int i;
 			Bit8u footer[512];
 			// basic information
@@ -2839,8 +2836,10 @@ restart_int:
 	{ // maybe hint parameter?
 		WriteOut(MSG_Get("PROGRAM_IMGMOUNT_SYNTAX"));
 	}
-	
-
+	void printHelp2()
+	{ // maybe hint parameter?
+		WriteOut(MSG_Get("PROGRAM_IMGMOUNT_SYNTAX2"));
+	}
 };
 
 static void IMGMAKE_ProgramStart(Program * * make) {
@@ -2980,6 +2979,10 @@ public:
 			WriteOut(MSG_Get("PROGRAM_INTRO_SPECIAL"));
 			return;
 		}
+		if(cmd->FindExist("maschines",false)) {
+			WriteOut(MSG_Get("PROGRAM_INTRO_SPECIAL_MASCHINES"));
+			return;
+		}		
 		/* Default action is to show all pages */
 		WriteOut(MSG_Get("PROGRAM_INTRO"));
 		Bit8u c;Bit16u n=1;
@@ -2989,6 +2992,8 @@ public:
 		WriteOut(MSG_Get("PROGRAM_INTRO_CDROM"));
 		DOS_ReadFile (STDIN,&c,&n);
 		WriteOut(MSG_Get("PROGRAM_INTRO_SPECIAL"));
+		DOS_ReadFile (STDIN,&c,&n);
+		WriteOut(MSG_Get("PROGRAM_INTRO_SPECIAL_MASCHINES"));		
 	}
 };
 
@@ -3042,7 +3047,7 @@ class imageDiskElToritoFloppy : public imageDisk {
 public:
 	/* Read_Sector and Write_Sector take care of geometry translation for us,
 	 * then call the absolute versions. So, we override the absolute versions only */
-	virtual Bit8u Read_AbsoluteSector(Bit32u sectnum, void * data) {
+	virtual  uint8_t Read_AbsoluteSector(uint32_t sectnum, void * data) {
 		unsigned char buffer[2048];
 
 		bool GetMSCDEXDrive(unsigned char drive_letter,CDROM_Interface **_cdrom);
@@ -3056,15 +3061,15 @@ public:
 		memcpy(data,buffer+((sectnum&3)*512),512);
 		return 0x00;
 	}
-	virtual Bit8u Write_AbsoluteSector(Bit32u sectnum, void * data) {
-		return 0x05; /* fail, read only */
+	virtual uint8_t Write_AbsoluteSector(uint32_t sectnum,const void * data) {
+        (void)sectnum;//UNUSED
+        (void)data;//UNUSED
+        return 0x05; /* fail, read only */
 	}
-	imageDiskElToritoFloppy(unsigned char new_CDROM_drive,unsigned long new_cdrom_sector_offset,unsigned char floppy_emu_type) : imageDisk(NULL,NULL,0,false) {
-		diskimg = NULL;
-		sector_size = 512;
-		CDROM_drive = new_CDROM_drive;
-		cdrom_sector_offset = new_cdrom_sector_offset;
-		class_id = ID_EL_TORITO_FLOPPY;
+	imageDiskElToritoFloppy(unsigned char new_CDROM_drive,unsigned long new_cdrom_sector_offset,unsigned char floppy_emu_type) : imageDisk((FILE *)NULL,NULL,0,false), CDROM_drive(new_CDROM_drive), cdrom_sector_offset(new_cdrom_sector_offset), floppy_type(floppy_emu_type) {
+        diskimg = NULL;
+        sector_size = 512;
+        class_id = ID_EL_TORITO_FLOPPY;
 
 		if (floppy_emu_type == 1) { /* 1.2MB */
 			heads = 2;
@@ -3088,6 +3093,7 @@ public:
 			fprintf(stderr,"BUG! unsupported floppy_emu_type in El Torito floppy object\n");
 		}
 
+		diskSizeK = ((uint64_t)heads * cylinders * sectors * sector_size) / 1024;
 		active = true;
 	}
 	virtual ~imageDiskElToritoFloppy() {
@@ -3095,6 +3101,8 @@ public:
 
 	unsigned long cdrom_sector_offset;
 	unsigned char CDROM_drive;
+	unsigned char floppy_type;
+	uint64_t diskSizeK = 0;
 /*
 	int class_id;
 
@@ -3214,6 +3222,9 @@ public:
 		/************************************************************************************* EL_TORITO */		
 		cmd->FindString("-el-torito",el_torito,true);
 		if (el_torito != "") {
+			el_torito_floppy_base = ~0UL;
+			el_torito_floppy_type = 0xFF;
+			
 			unsigned char entries[2048],*entry,ent_num=0;
 			int header_platform = -1,header_count=0;
 			bool header_final = false;
@@ -3222,24 +3233,24 @@ public:
 			el_torito_cd_drive = toupper(el_torito[0]);
 
 			/* must be valid drive letter, C to Z */
-			if (!isalpha(el_torito_cd_drive) || el_torito_cd_drive < 'C')
-			{		
+			if (!isalpha(el_torito_cd_drive) || el_torito_cd_drive < 'C') {
 				WriteOut(MSG_Get("PROGRAM_BOOT_ELCD_REQUIRES"));																			
 				return;
 			}
 
 			/* drive must not exist (as a hard drive) */
-			if (!imageDiskList[el_torito_cd_drive-'C'] != 0)
+			
+			if (imageDiskList[el_torito_cd_drive - 'A'] != NULL)
 			{
 				WriteOut(MSG_Get("PROGRAM_BOOT_ELCD_ALREADY_EXISTS"),el_torito_cd_drive);
 				return;				
 			}
-
+			
 			bool GetMSCDEXDrive(unsigned char drive_letter,CDROM_Interface **_cdrom);
 
 			/* get the CD-ROM drive */
 			CDROM_Interface *src_drive=NULL;
-			if (!GetMSCDEXDrive(el_torito_cd_drive-'A',&src_drive))						
+			if (!GetMSCDEXDrive(el_torito_cd_drive - 'A', &src_drive))			
 			{
 				WriteOut(MSG_Get("PROGRAM_BOOT_ELCD_NOT_CDROM"),el_torito_cd_drive);				
 				return;
@@ -3255,7 +3266,7 @@ public:
 
 			/* Okay. Step #1: Scan the volume descriptors for the Boot Record. */
 			unsigned long el_torito_base = 0,boot_record_sector = 0;
-			if (!ElTorito_ScanForBootRecord(src_drive,boot_record_sector,el_torito_base))
+			if (!ElTorito_ScanForBootRecord(src_drive, boot_record_sector, el_torito_base))
 			{
 				WriteOut(MSG_Get("PROGRAM_BOOT_ELCD_NO_BOOTRECORD"));			
 				return;
@@ -3266,7 +3277,7 @@ public:
 				
 
 			/* Step #2: Parse the records. Each one is 32 bytes long */
-			if (!src_drive->ReadSectorsHost(entries,false,el_torito_base,1))
+			if (!src_drive->ReadSectorsHost(entries, false, el_torito_base, 1))
 			{
 				WriteOut(MSG_Get("PROGRAM_BOOT_ELCD_UNREADABLE"));				
 				return;
@@ -3348,47 +3359,56 @@ public:
 					}
 					else if (entry[0] == 0x00/*non-bootable*/) {
 						LOG_MSG("El Torito entry: ignoring non-bootable record\n");
-					}
+					}					
 					else if (entry[0] == 0x88/*bootable*/) {
-						if (header_platform == 0x00/*x86*/) {
-							unsigned char mediatype = entry[1]&0xF;
-							unsigned short load_segment = ((unsigned int)entry[2]) + (((unsigned int)entry[3]) << 8);
-							unsigned char system_type = entry[4];
-							unsigned short sector_count = ((unsigned int)entry[6]) + (((unsigned int)entry[7]) << 8);
-							unsigned long load_rba = ((unsigned int)entry[8]) + (((unsigned int)entry[9]) << 8) +
-								(((unsigned int)entry[10]) << 16) + (((unsigned int)entry[11]) << 24);
+						
+							if (header_platform == 0x00/*x86*/) {
+								unsigned char mediatype = entry[1] & 0xF;
+								unsigned short load_segment = ((unsigned int)entry[2]) + (((unsigned int)entry[3]) << 8);
+								unsigned char system_type = entry[4];
+								unsigned short sector_count = ((unsigned int)entry[6]) + (((unsigned int)entry[7]) << 8);
+								unsigned long load_rba = ((unsigned int)entry[8]) + (((unsigned int)entry[9]) << 8) +
+									(((unsigned int)entry[10]) << 16) + (((unsigned int)entry[11]) << 24);
+									
+								WriteOut("\nElTorito BootCD Entry:\n"
+										"  - Bootable x86 record Mediatype = %u\n"
+										"  -            Load_segment       = 0x%04x\n"
+										"  -            system_type        = 0x%02x\n"
+										"  -            sector_count       = %u\n"
+										"  -            load_rba           = %lu\n",
+											mediatype,load_segment,system_type,sector_count,load_rba);
+											
+								LOG_MSG("ElTorito BootCD Entry:\n"
+										" - Bootable x86 record Mediatype = %u\n"
+										" -            Load_segment       = 0x%04x\n"
+										" -            system_type        = 0x%02x\n"
+										" -            sector_count       = %u\n"
+										" -            load_rba           = %lu\n",
+											mediatype,load_segment,system_type,sector_count,load_rba);
 
-							LOG_MSG("ElTorito BootCD Entry:\n"
-									"- Bootable x86 record Mediatype = %u\n"
-									"  -            Load_segment     = 0x%04x\n"
-								    "  -            system_type      = 0x%02x\n"
-									"  -            sector_count     = %u\n"
-									"  -            load_rba         = %lu\n",
-								    mediatype,load_segment,system_type,sector_count,load_rba);
+								/* already chose one, ignore */
+								if (el_torito_floppy_base != ~0UL)
+									continue;
 
-							/* already chose one, ignore */
-							if (el_torito_floppy_base != ~0UL)
-								continue;
+								if (load_segment != 0 && load_segment != 0x7C0)
+									LOG_MSG("El Torito boot warning: load segments other than 0x7C0 not supported yet\n");
+								
+								if (sector_count != 1)
+									LOG_MSG("El Torito boot warning: sector counts other than 1 are not supported yet\n");
 
-							if (load_segment != 0 && load_segment != 0x7C0)
-								LOG_MSG("El Torito boot warning: load segments other than 0x7C0 not supported yet\n");
-							
-							if (sector_count != 1)
-								LOG_MSG("El Torito boot warning: sector counts other than 1 are not supported yet\n");
+								if (mediatype < 1 || mediatype > 3)
+								{
+									LOG_MSG("El Torito boot entry: media types other than floppy emulation not supported yet\n");
+									continue;
+								}
 
-							if (mediatype < 1 || mediatype > 3)
-							{
-								LOG_MSG("El Torito boot entry: media types other than floppy emulation not supported yet\n");
-								continue;
+								el_torito_floppy_base = load_rba;
+								el_torito_floppy_type = mediatype;
 							}
-
-							el_torito_floppy_base = load_rba;
-							el_torito_floppy_type = mediatype;
+							else {
+								LOG_MSG("El Torito entry: ignoring bootable non-x86 (platform_id=0x%02x) record\n",header_platform);
+							}
 						}
-						else {
-							LOG_MSG("El Torito entry: ignoring bootable non-x86 (platform_id=0x%02x) record\n",header_platform);
-						}
-					}
 					else {
 						LOG_MSG("El Torito entry: ignoring unknown record ID %02x\n",entry[0]);
 					}
@@ -3399,7 +3419,8 @@ public:
 			{
 				WriteOut(MSG_Get("PROGRAM_BOOT_ELCD_NOT_FOUND"));
 				return;
-			}				
+			}
+			
 		}
 		/************************************************************************************* EL_TORITO */		
 		
@@ -3549,7 +3570,8 @@ public:
 					return;
 				}
 				drive = static_cast<char>(i_drive);
-			} else if (fstype=="none")
+			}
+			else if (fstype=="none")
 			{
 				cmd->FindCommand(1,temp_line);
 				if ((temp_line.size() > 1) || (!isdigit(temp_line[0]))) {
@@ -3857,24 +3879,42 @@ public:
 				std::vector<DOS_Drive*> imgDisks;
 				std::vector<std::string>::size_type i;
 				std::vector<DOS_Drive*>::size_type ct;
-				
-				for (i = 0; i < paths.size(); i++) {
+								
+				for (i = 0; i < paths.size(); i++)
+				{
 					DOS_Drive* newDrive = new fatDrive(paths[i].c_str(),sizes[0],sizes[1],sizes[2],sizes[3],0);
 					imgDisks.push_back(newDrive);
 					if(!(dynamic_cast<fatDrive*>(newDrive))->created_successfully) {
+						
+						bool dskExists = false;
+						if (FileExists(paths[i].c_str()) != 0)
+							dskExists = true;
+
 						WriteOut(MSG_Get("PROGRAM_IMGMOUNT_CANT_CREATE"));
+
+						if (dskExists == true)
+						{
+							WriteOut("Check File Attribute for Write-Protected\n\n");
+							 LOG_MSG("Check File Attribute for Write-Protected: %s\n\n", paths[i].c_str());
+							dskExists = false;
+						}
+
 						for(ct = 0; ct < imgDisks.size(); ct++) {
 							delete imgDisks[ct];
 						}
 						return;
+					}else
+					{
+							DriveManager::AppendDisk(drive - 'A', imgDisks[i]);
+							DriveManager::InitializeDrive(drive - 'A');
 					}
 				}
 
 				// Update DriveManager
-				for(ct = 0; ct < imgDisks.size(); ct++) {
-					DriveManager::AppendDisk(drive - 'A', imgDisks[ct]);
-				}
-				DriveManager::InitializeDrive(drive - 'A');
+				//for(ct = 0; ct < imgDisks.size(); ct++) {
+				//	DriveManager::AppendDisk(drive - 'A', imgDisks[ct]);
+				//}
+				//DriveManager::InitializeDrive(drive - 'A');
 
 				// Set the correct media byte in the table 
 				mem_writeb(Real2Phys(dos.tables.mediaid) + (drive - 'A') * 9, mediaid);
@@ -3883,13 +3923,14 @@ public:
 				RealPt save_dta = dos.dta();
 				dos.dta(dos.tables.tempdta);
 
-				for(ct = 0; ct < imgDisks.size(); ct++) {
+				for(ct = 0; ct < imgDisks.size(); ct++){
 					DriveManager::CycleDisks(drive - 'A', (ct == (imgDisks.size() - 1)));
 
 					char root[7] = {drive,':','\\','*','.','*',0};
 					DOS_FindFirst(root, DOS_ATTR_VOLUME); // force obtaining the label and saving it in dirCache
 				}
 				dos.dta(save_dta);
+				DriveManager::InitializeDrive(drive - 'A');
 				
 				// Multiple Imagemount ======================================================== BEGIN
 				std::string lfw(paths[0]);
@@ -4029,9 +4070,13 @@ public:
 
 				}
 
-
+			} else if (fstype=="none") {
+					
+				
 			} else if (el_torito != "") {
-				newImage = new imageDiskElToritoFloppy(el_torito_cd_drive,el_torito_floppy_base,el_torito_floppy_type);
+				
+				newImage = new imageDiskElToritoFloppy((unsigned char)el_torito_cd_drive, el_torito_floppy_base, el_torito_floppy_type);
+				WriteOut("BOOTABLE CDROMS NOT WORKING AT TIME");
 				
 			} else {
 				if (el_torito != "")
@@ -4065,6 +4110,7 @@ public:
 		}
 
 		if (fstype=="none") {
+			
 			delete imageDiskList[drive-'0'];
 			imageDiskList[drive-'0'] = newImage;
 			updateDPT();
@@ -4226,14 +4272,14 @@ void DOS_SetupPrograms(void) {
 	MSG_Add("PROGRAM_MOUNT_STATUS_FORMAT","%-5s  %-58s %-12s\n");
 
 	MSG_Add("PROGRAM_MOUNT_STATUS_MULTI1","\033[37;1m================= Multiples Mount on Drive %c: =================\033[0m\n"
-	                                      "\033[37;1m                  Press\033[32;1m CTRL + F4\033[37;1m to Cycle through Disk's\033[0m\n");
+	                                      "\033[37;1m                  Press\033[32;1m CTRL + F9\033[37;1m to Cycle through Disk's\033[0m\n");
 										  
 	MSG_Add("PROGRAM_MOUNT_STATUS_MULTI2","\033[34;1m Mount Drive: %c:\033[0m\n");	
 	MSG_Add("PROGRAM_MOUNT_STATUS_MULTI3","\033[37;1m %s\033[0m\n");	
 	MSG_Add("PROGRAM_MOUNT_STATUS_MULTI4","\033[37;1m================================================================\033[0m\n");	
 	
 	MSG_Add("PROGRAM_MOUNT_STATUS_MULTI5","\033[37;1m================= Multiples Mount on Drive %c: =================\033[0m\n"
-	                                      "\033[37;1m                  Press\033[32;1m CTRL + F3\033[37;1m to Cycle through CD's\033[0m\n");
+	                                      "\033[37;1m                  Press\033[32;1m CTRL + F11\033[37;1m to Cycle through CD's\033[0m\n");
 					
 				// Multiple Imagemount ======================================================== BEGIN	
 	MSG_Add("PROGRAM_MOUNT_STATUS_2","\033[34;1m Mount Drive %c:\033[37;1m %s\033[0m\n");
@@ -4298,6 +4344,7 @@ void DOS_SetupPrograms(void) {
 		"For information about basic mount type \033[34;1mintro mount\033[0m\n"
 		"For information about CD-ROM support type \033[34;1mintro cdrom\033[0m\n"
 		"For information about special keys type \033[34;1mintro special\033[0m\n"
+		"For information about special maschine keys type \033[34;1mintro maschines\033[0m\n"		
 		"For more information about DOSBox, go to \033[34;1mhttp://www.dosbox.com/wiki\033[0m\n"
 		"\n"
 		"\033[31;1mDOSBox will stop/exit without a warning if an error occurred!\033[0m\n"
@@ -4332,13 +4379,28 @@ void DOS_SetupPrograms(void) {
 		"\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD"
 		"\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xBC\033[0m\n"
 		);
+	MSG_Add("PROGRAM_INTRO_MOUNT_VIRTUAL",
+		""
+		/*
+		Erklärung für IDE und HDD Images
+		
+		Cartdriges Booten: PCJR 
+			'Boot Cartdroge.pcjr'
+			
+		Floppys Boooten: Müssen vorher gemounted werden
+		
+			'IMGMOUNT A FLOPPY.IMA'
+			'BOOT FLOPPY.IMA -L A'
+		
+		*/
+		);
 	MSG_Add("PROGRAM_INTRO_MOUNT_END",
 		"When the mount has successfully completed you can type \033[34;1mc:\033[0m to go to your freshly\n"
 		"mounted C-drive. Typing \033[34;1mdir\033[0m there will show its contents."
 		" \033[34;1mcd\033[0m will allow you to\n"
 		"enter a directory (recognised by the \033[33;1m[]\033[0m in a directory listing).\n"
 		"You can run programs/files which end with \033[31m.exe .bat\033[0m and \033[31m.com\033[0m.\n"
-		);
+		);		
 	MSG_Add("PROGRAM_INTRO_CDROM",
 		"\033[2J\033[32;1mHow to mount a Real/Virtual CD-ROM Drive in DOSBox:\033[0m\n"
 		"DOSBox provides CD-ROM emulation on a few levels.\n"
@@ -4352,39 +4414,77 @@ void DOS_SetupPrograms(void) {
 		"\n"
 		"The \033[33mhigher\033[0m level adds CD-ROM image mounting support.\n"
 		"Therefore only works on supported CD-ROM images:\n"
-		"\033[34;1mimgmount d \033[0;31mD:\\example.img\033[34;1m -t cdrom\033[0m\n"
+		"\033[34;1mimgmount e \033[0;31mD:\\example.img\033[34;1m -t cdrom [Optional -ide nr]\033[0m\n"
+		"Supportet Images: ISO/ CUE(BIN)/ CHD"
 		"\n"
 		"Replace \033[0;31mD:\\\033[0m with the location of your CD-ROM.\n"
 		"Replace \033[0;31mD:\\example.img\033[0m with the location of your CD-ROM image.\n"
 		);
-	MSG_Add("PROGRAM_INTRO_SPECIAL",
-		"\033[2J\033[32;1mSpecial keys:\033[0m\n"
-		"These are the default keybindings.\n"
-		"They can be changed in the \033[33mkeymapper\033[0m.\n"
-		"\n"
-		"\033[33;1mALT-ENTER\033[0m   : Go full screen and back.\n"
-		"\033[33;1mALT-PAUSE\033[0m   : Pause DOSBox.\n"
-		"\033[33;1mALT-F9\033[0m      : Set Mixer [All Channels] Volume Up.\n"
-		"\033[33;1mALT-F10\033[0m     : Set Mixer [All Channels] Volume Down.\n"			
-		"\033[33;1mALT-F12\033[0m     : Unlock speed Fix (turbo button/fast forward).\n"			
-		"\033[33;1mALT-F12\033[0m     : Unlock speed (turbo button/fast forward).\n"		
-		"\033[33;1mCTRL-F1\033[0m     : Start the \033[33mkeymapper\033[0m.\n"
-		"\033[33;1mCTRL-F3\033[0m     : Cyle/Swap/Update Directory Cache for CD-ROM's.\n"		
-		"\033[33;1mCTRL-F4\033[0m     : Cyle/Swap/Update Directory Cache for Floppy's.\n"		
-		"\033[33;1mCTRL-F5\033[0m     : Save a screenshot.\n"
-		"\033[33;1mCTRL-F6\033[0m     : Start/Stop recording sound output to a wave file.\n"
-		"\033[33;1mCTRL-F7\033[0m     : Decrease frameskip.\n"
-		"\033[33;1mCTRL-F8\033[0m     : Increase frameskip.\n"
-		"\033[33;1mCTRL-F9\033[0m     : Kill DOSBox.\n"
-		"\033[33;1mCTRL-F10\033[0m    : Capture/Release the mouse.\n"
-		"\033[33;1mCTRL-F11\033[0m    : Slow down emulation (Decrease DOSBox Cycles).\n"
-		"\033[33;1mCTRL-F12\033[0m    : Speed up emulation (Increase DOSBox Cycles).\n"		
-		"\033[33;1mCTRL-ALT-F5\033[0m : Start/Stop creating a movie of the screen.\n"				
-		"\033[33;1mCTRL-ALT-F7\033[0m : Start/Stop recording of OPL commands.\n"
-		"\033[33;1mCTRL-ALT-F8\033[0m : Start/Stop the recording of raw MIDI commands.\n"		
-	
-		);
 		
+		/*
+		Free
+			"\033[33;1mCTRL-F2\033[0m   :
+			"\033[33;1mCTRL-F7\033[0m   :
+			"\033[33;1mCTRL-F10\033[0m  :
+			"\033[33;1mCTRL-F12\033[0m  :
+			"\033[33;1mCTRL-ALT-F1\033[0m :
+			"\033[33;1mCTRL-ALT-F2\033[0m :
+			"\033[33;1mCTRL-ALT-F3\033[0m :
+			"\033[33;1mCTRL-ALT-F4\033[0m :		
+			
+			Wo ist der Code fürs recording hin
+		
+		*/		
+	MSG_Add("PROGRAM_INTRO_SPECIAL",
+		"\033[2J\033[32;1mSpecial keys:\033[0m (Default Layout. They can be changed in the \033[33mKeyMapper\033[0m.)\n"
+		"\033[33;1mCTRL-F1\033[0m     : Start the \033[33mKeyMapper\033[0m\n"
+		"\033[33;1mALT-ENTER\033[0m   : Go full screen and back\n"
+		"\033[33;1mALT-PAUSE\033[0m   : Pause DOSBox\n"
+		"\033[33;1mCTRL-ALT-[*]\033[0m: Kill DOSBox\n"
+		"\033[33;1mCTRL-F3/F4\033[0m  : Slow Down/Speed up Emulation (Change Cycles)\n" 	
+		"\033[33;1mCTRL-F8\033[0m     : Set Mixer [All Channels] Volume Down\n"
+		"\033[33;1mCTRL-ALT-F8\033[0m : Set Mixer [All Channels] Volume Up\n"
+		"\n"
+		"\033[36;1mRecording\033[0m\n"
+		"\033[33;1mCTRL-F5\033[0m     : Save a Screenshot as PNG\n"
+		"\033[33;1mCTRL-F6\033[0m     : Start/Stop recording sound output to a wave file\n"
+		"\033[33;1mCTRL-ALT-F5\033[0m : Start/Stop creating a movie of the screen\n"
+		"\033[33;1mCTRL-ALT-F6\033[0m : Start/Stop recording of OPL commands\n"
+		"\033[33;1mCTRL-ALT-F7\033[0m : Start/Stop the recording of raw MIDI commands.\n"			
+		"\n"
+		"\033[36;1mDisk/ CD-Rom Support\033[0m\n"
+		"\033[33;1mCTRL-F9\033[0m     : Cyle/Swap/Update Directory Cache for Floppy's.\n"
+		"\033[33;1mCTRL-F11\033[0m    : Cyle/Swap/Update Directory Cache for CD-ROM's.\n"
+		"\033[33;1mCTRL-ALT-F9\033[0m : Open Floppy Image Requester For Drive A:.\n"
+		"\033[33;1mCTRL-ALT-F10\033[0m: Open Floppy Image Requester For Drive B:.\n"
+		"\033[33;1mCTRL-ALT-F11\033[0m: Open CD-Rom Image Requester For Drive E:.\n"
+		"\033[33;1mCTRL-ALT-F12\033[0m: Open CD-Rom Image Requester For Drive F:.\n"
+		);
+
+MSG_Add("PROGRAM_INTRO_SPECIAL_MASCHINES",	
+		"\033[2J\033[32;1mSpecial keys for Maschines:\033[0m\n"
+		"\n"
+		"\n"		
+		"\033[36;1mMaschine: IBM PCjr\033[0m\n"
+		"\033[33;1mCTRL-ALT-F1\033[0m : Set Composite Input On<->Off (Auto Default)\n"
+		"\033[33;1mCTRL-F2\033[0m     : Increase and Change HUE+ (Composite ON)\n"
+		"\033[33;1mCTRL-ALT-F2\033[0m : Decrease and Change HUE- (Composite ON)\n"
+		"\n"
+		"\033[36;1mMaschine: Hercules\033[0m\n"
+		"\033[33;1mCTRL-ALT-F1\033[0m : Cycle Modes (Green, Amber, Grey & Paper-White)\n"
+		"\033[33;1mCTRL-ALT-F2\033[0m : Toggle Horizontal Blending (Only in Graphics mode)\n"
+		"\n"
+		"\033[36;1mMaschine: CGA/ Amstrad\033[0m\n"			
+		"\033[33;1mCTRL-ALT-F1\033[0m : Set Composite Iutput On<->Off (Auto Default)\n"
+		"\033[33;1mCTRL-F2\033[0m     : Increase and Change HUE+\n"
+		"\033[33;1mCTRL-ALT-F2\033[0m : Decrease and Change HUE-\n"		
+		"\033[33;1mCTRL-ALT-F3\033[0m : Switch Early<->Late CGA model\n"
+		"\n"
+		"\033[36;1mMaschine: CGA Mono\033[0m\n"	
+		"\033[33;1mCTRL-ALT-F1\033[0m : Cycle Modes (Green, Amber, Grey & Paper-White)\n"
+		"\033[33;1mCTRL-ALT-F2\033[0m : Change Contrast/Brightness\n"
+	);
+	
 	MSG_Add("PROGRAM_BIOS_SPECIFY","Must specify BIOS file to load.\n");
 	MSG_Add("PROGRAM_BIOS_ERROR_LOAD","Can't open a file");	
 	MSG_Add("PROGRAM_BIOS_ERROR_LARGE","BIOS File too large");		
@@ -4405,7 +4505,7 @@ void DOS_SetupPrograms(void) {
 		    "\033[34;1mBOOT [diskimg1.img diskimg2.img] [-l driveletter]\033[0m\n"
 		   );
 	MSG_Add("PROGRAM_BOOT_START_DRIVE", "\033[34;1mAuto Detecting Images... \033[0m\n" );		
-	MSG_Add("PROGRAM_BOOT_UNABLE","033[31;1mUnable to Boot off of Drive %c ...\033[0m\n");
+	MSG_Add("PROGRAM_BOOT_UNABLE","\033[31;1mUnable to Boot off of Drive %c ...\033[0m\n");
 	MSG_Add("PROGRAM_BOOT_IMAGE_OPEN", "\033[34;1mAdded: \033[0m\033[37;1m%s\033[0m\n");	
 	MSG_Add("PROGRAM_BOOT_IMAGE_NOT_OPEN","\033[31;1m -- Can not Open --\n \"%s\" \033[0m\n");	
 	MSG_Add("PROGRAM_BOOT_BOOT","\n\033[37;1mBooting from Drive %c:...\033[0m\n");
@@ -4451,30 +4551,55 @@ void DOS_SetupPrograms(void) {
 
 /* DOSBox-MB IMGMAKE patch. ========================================================================= */	
 	MSG_Add("PROGRAM_IMGMOUNT_SYNTAX",
+				"\n"	
 		    "\033[2J\033[32;1mCreates Floppy or Harddisk Images. Syntax:\033[0m\n"
+				"\n"				
 		    "IMGMAKE [-t][-size][-chs][-nofs][-source][-r retries][-bat/-txt][-force][file]\n"
 		    "        [-fat(12/16/32)] [-spc (Sectors Per Cluster] [-mbr (msdos622/freedos)]\n"
-		    "File       : Image file that is to be created  on the Host. [-t Image type].\n"
-		    "\033[33;1mFloppy Disk templates\033[0m\n"
+				"\n"
+		    "  \033[31;1mFile\033[0m     : Image file that is to be created on the Host. [-t Image type]\n"
+				"             Without a path, it will be created in the DOSBox directory.\n\n"
+		    "  \033[33;1mCustom Harddisk Images: hd (requires -size or -chs)\033[0m\n"
+		    "  \033[31;1m-size\033[0m    : The size of a custom harddisk image in MB.\n"
+				"             Maxmimum Standard: MS-DOS FAT16 max 2GB. For Windows 9x FAT32 8GB\n"				
+		    "  \033[31;1m-chs\033[0m     : Disk geometry in cylinders (1-1023), Heads(1-255), Sectors (1-63)\n"
+				"\n"
+				"  \033[33;1m-spc\033[0m     : Sectors Per Cluster\n"		
+		    "  \033[33;1m-nofs\033[0m    : Add this parameter if a blank image should be created.\n"
+				"  \033[33;1m-fat 12\033[0m  : For DOS Diskimages\n"
+				"  \033[33;1m-fat 16\033[0m  : For DOS Hardrives\n"
+				"  \033[33;1m-fat 32\033[0m  : For W9x Hardrives\n"
+				"  \033[33;1m-type\033[0m    : hd. Look and run 'ImgMake -morehelp' for more infos and Types\n"
+		    "  \033[37;1m-bat/-txt\033[0m: Creates a Batch/Text file with the IMGMOUNT command\n"
+		    "  \033[37;1m-source\033[0m  : Drive letter. If specified the image is read from a floppy disk\n"
+		    "  \033[37;1m-retries\033[0m : How often to retry to read from a bad floppy disk (1-99).\n"
+				"  \033[37;1m-force\033[0m   : Overwrite the Destination File\n"
+	
+		);
+	MSG_Add("PROGRAM_IMGMOUNT_SYNTAX2",
+		    "\033[2J\033[32;1mCreates Floppy or Harddisk Images. Templates & How To:\033[0m\n\n"
+		    "\033[33;1m[-t type] Templates: Floppydisks\033[0m\n"
 		    " fd_160: 160KB  fd_180: 180KB  fd_200 : 200KB  fd_320 : 320KB   fd_360 : 360KB\n"
-			" fd_400: 400KB  fd_720: 720KB  fd_1200: 1.2MB  fd_1440: 1.44MB  fd_2880: 2.88MB\n"
-		    "\033[33;1mHarddisk templates:\033[0m\n"
+			  " fd_400: 400KB  fd_720: 720KB  fd_1200: 1.2MB  fd_1440: 1.44MB  fd_2880: 2.88MB\n"
+				"\n"
+		    "\033[33;1m[-t type] Templates: Harddisks\033[0m\n"
 		    " hd_st225: 20MB    hd_st251: 40MB    hd_250 : 250MB   hd_520 : 520MB\n"
 		    " hd_2gig :  2GB    hd_4gig : 4GB     hd_8gig: 8GB    (8GB is Maximum)\n"
-		    "\033[33;1mCustom Harddisk Images: hd (requires -size or -chs)\033[0m\n"		   
-		    " -size    : The size of a custom harddisk image in MB.\n"
-		    " -chs     : Disk geometry in cylinders (1-1023), Heads( 1-255), Sectors (1-63).\n"
-		    " -nofs    : Add this parameter if a blank image should be created.\n"
-		    " -bat/-txt: Creates a Batch/Text file with the IMGMOUNT command for this image.\n"
-		    " -source  : Drive letter. If specified the image is read from a floppy disk.\n"
-		    " -retries : How often to retry to read from a bad floppy disk (1-99).\n"
-		    " \033[33;1mExamples:\033[0m\n"
+				"\n"
+		    "  \033[33;1mExamples:\033[0m\n"
 		    "  \033[33mimgmake c:\\image.img -t fd_1440\033[0m          - create a 1.44MB floppy image\n"
-		    "  \033[33mimgmake c:\\image.img -t hd -size 100\033[0m     - create a 100MB hdd image\n"
-		    "  \033[33mimgmake c:\\image.img -t hd -size 10 -nofs\033[0m- create a 10MB hdd for MSDOS\n"				
+		    "  \033[33mimgmake c:\\image.img -t hd -size 100 \033[0m    - create a 100MB hdd image\n"
+		    "  \033[33mimgmake c:\\image.img -t hd -size 10 -nofs\033[0m- create a 10MB hdd for MS-DOS\n"				
 		    "  \033[33mimgmake c:\\image.img -t hd -chs 130,2,17\033[0m - create a special hd image\n"
-		    "  \033[33mimgmake c:\\image.img -source a\033[0m           - read image from physical drive A"		
-		);
+		    "  \033[33mimgmake c:\\image.img -source a\033[0m           - read image from physical drive A\n"
+		    "\033[33;1mHints:\033[0m\n"				
+				" MS-DOS 1.x: didn't support hard disks.\n"
+				" MS-DOS 2.x: did, but just one, of up to 10MB.\n"
+				" MS-DOS 3.0: A Single hard disk partition (per drive) of up to 32MB\n"
+				" MS-DOS 3.2: Support 2 partitions per drive, so 2 x 32MB\n"
+				" MS-DOS 3.3: Support 1 Primary & Extended Part. contain. 32MB logical drives\n"
+				" MS-DOS 4, 5 & 6.x permitted disk partitions of up to 2GB.\n"
+		);		
 #ifdef WIN32
 	MSG_Add("PROGRAM_IMGMAKE_FLREAD", "Disk geometry: %d Cylinders, %d Heads, %d Sectors, %d Kilobytes\n\n");
 	MSG_Add("PROGRAM_IMGMAKE_FLREAD2","\xdb =good, \xb1 =good after retries, ! =CRC error, x =sector not found, ? =unknown\n\n");

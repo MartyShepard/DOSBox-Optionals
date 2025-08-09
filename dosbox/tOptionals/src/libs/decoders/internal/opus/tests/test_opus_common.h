@@ -81,5 +81,6 @@ static OPUS_INLINE void _test_failed(const char *file, int line)
   abort();
 }
 #define test_failed() _test_failed(__FILE__, __LINE__);
-
+#define opus_test_assert(cond) {if (!(cond)) {test_failed();}}
+#define expect_true(cond, msg) {if (!(cond)) {fprintf(stderr, "FAIL - %s\n", msg); test_failed();}}
 void regression_test(void);

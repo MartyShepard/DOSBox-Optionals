@@ -187,7 +187,11 @@ public:
 		std::string fullconf=section->Get_string("midiconfig");
 		/* If device = "default" go for first handler that works */
 		MidiHandler * handler;
-//		MAPPER_AddHandler(MIDI_SaveRawEvent,MK_f8,MMOD1|MMOD2,"caprawmidi","Cap MIDI");
+		
+		/* Wurde nach Hardware.cpp verschoben
+		MAPPER_AddHandler(MIDI_SaveRawEvent,MK_f7,MMOD1|MMOD2,"caprawmidi","Cap MIDI");
+		*/
+		
 		midi.sysex.delay = 0;
 		midi.sysex.start = 0;
 		if (fullconf.find("delaysysex") != std::string::npos) {

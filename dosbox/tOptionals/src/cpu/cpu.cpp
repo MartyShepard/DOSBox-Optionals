@@ -2390,8 +2390,8 @@ public:
 #elif (C_DYNREC)
 		CPU_Core_Dynrec_Init();
 #endif
-		MAPPER_AddHandler(CPU_CycleDecrease,MK_f11,MMOD1,"cycledown","Dec Cycles");
-		MAPPER_AddHandler(CPU_CycleIncrease,MK_f12,MMOD1,"cycleup"  ,"Inc Cycles");
+		MAPPER_AddHandler(CPU_CycleDecrease,MK_f3,MMOD1,"cycledown","Dec Cycles");
+		MAPPER_AddHandler(CPU_CycleIncrease,MK_f4,MMOD1,"cycleup"  ,"Inc Cycles");
 		Change_Config(configuration);	
 		CPU_JMP(false,0,0,0);					//Setup the first cpu core
 	}

@@ -1,35 +1,33 @@
+
 /*
- * DOSBox FLAC decoder is maintained by Kevin R. Croft (krcroft@gmail.com)
- * This decoder makes use of the excellent dr_flac library by David Reid (mackron@gmail.com)
+ *  SPDX-License-Identifier: GPL-2.0-or-later
  *
- * Source links
- *   - dr_libs: https://github.com/mackron/dr_libs (source)
- *   - dr_flac: http://mackron.github.io/dr_flac.html (website)
+ *  Copyright (C) 2001-2017  Ryan C. Gordon <icculus@icculus.org>
+ *  Copyright (C) 2018-2019  Kevin R. Croft <krcroft@gmail.com>
+ *  Copyright (C) 2020-2021  The DOSBox Staging Team
  *
- * The upstream SDL2 Sound 1.9.x FLAC decoder is written and copyright by Ryan C. Gordon. (icculus@icculus.org)
- *
- * Please see the file LICENSE.txt in the source's root directory.
- *
- *  This file is part of the SDL Sound Library.
- *
- *  This SDL_sound FLAC decoder backend is free software: you can redistribute
- *  it and/or modify it under the terms of the GNU General Public License as
- *  published by the Free Software Foundation, either version 3 of the License, or
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
  *  (at your option) any later version.
  *
- *  This SDL_sound FLAC decoder backend is distributed in the hope that it
- *  will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
- *  of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License along
- *  along with the SDL Sound Library.  If not, see <http://www.gnu.org/licenses/>.
- *
+ *  with this program; if not, write to the Free Software Foundation, Inc.,
+ *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
-#if HAVE_CONFIG_H
-#  include <config.h>
-#endif
+/*
+ *  DOSBox-X FLAC decoder API implementation
+ *  ----------------------------------------
+ *  This decoder makes use of the dr_flac library by David Reid (mackron@gmail.com)
+ *    - dr_libs: https://github.com/mackron/dr_libs (source)
+ *    - dr_flac: http://mackron.github.io/dr_flac.html (website)
+ */
 
 #include <math.h> /* for llroundf */
 
@@ -40,11 +38,8 @@
 #define DR_FLAC_IMPLEMENTATION
 #define DR_FLAC_NO_STDIO 1
 #define DR_FLAC_NO_WIN32_IO 1
-#define DRFLAC_FREE(p)                    SDL_free((p))
-#define DRFLAC_MALLOC(sz) SDL_malloc((sz))
-#define DRFLAC_REALLOC(p, sz) SDL_realloc((p), (sz))
-#define DRFLAC_ZERO_MEMORY(p, sz)         SDL_memset((p), 0, (sz))
-#define DRFLAC_COPY_MEMORY(dst, src, sz) SDL_memcpy((dst), (src), (sz))
+#define DR_FLAC_NO_OGG 1
+#define DR_FLAC_BUFFER_SIZE 8192
 #include "dr_flac.h"
 
 static size_t flac_read(void* pUserData, void* pBufferOut, size_t bytesToRead)
@@ -53,20 +48,20 @@ static size_t flac_read(void* pUserData, void* pBufferOut, size_t bytesToRead)
     Sound_Sample *sample = (Sound_Sample *) pUserData;
     Sound_SampleInternal *internal = (Sound_SampleInternal *) sample->opaque;
     SDL_RWops *rwops = internal->rw;
-    size_t retval = 0;
+    size_t bytes_read = 0;
 
-    while (retval < bytesToRead)
+    while (bytes_read < bytesToRead)
     {
-        const size_t rc = SDL_RWread(rwops, ptr, 1, bytesToRead);
+        const size_t rc = SDL_RWread(rwops, ptr, 1, (int)(bytesToRead - bytes_read));
         if (rc == 0) {
             sample->flags |= SOUND_SAMPLEFLAG_EOF;
             break;
         } /* if */
-            retval += rc;
-            ptr += rc;
+        bytes_read += rc;
+        ptr += rc;
     } /* while */
 
-    return retval;
+    return bytes_read;
 } /* flac_read */
 
 static drflac_bool32 flac_seek(void* pUserData, int offset, drflac_seek_origin origin)
@@ -91,6 +86,7 @@ static void FLAC_quit(void)
 
 static int FLAC_open(Sound_Sample *sample, const char *ext)
 {
+    (void) ext; // deliberately unused, but present for API compliance
     Sound_SampleInternal *internal = (Sound_SampleInternal *) sample->opaque;
     drflac *dr = drflac_open(flac_read, flac_seek, sample, NULL);
 
@@ -131,14 +127,14 @@ static void FLAC_close(Sound_Sample *sample)
 } /* FLAC_close */
 
 
-static Uint32 FLAC_read(Sound_Sample *sample, void* buffer, Uint32 desired_frames)
+static Uint32 FLAC_read(Sound_Sample *sample)
 {
     Sound_SampleInternal *internal = (Sound_SampleInternal *) sample->opaque;
     drflac *dr = (drflac *) internal->decoder_private;
-    const drflac_uint64 decoded_frames = drflac_read_pcm_frames_s16(dr,
-                                                                    desired_frames,
-                                                                    (drflac_int16 *) buffer);
-    return (Uint32) decoded_frames;
+    const drflac_uint64 rc = drflac_read_pcm_frames_s16(dr,
+                                                        internal->buffer_size / (dr->channels * sizeof(drflac_int16)),
+                                                        (drflac_int16 *) internal->buffer);
+    return (Uint32)(rc * dr->channels * sizeof (drflac_int16));
 } /* FLAC_read */
 
 
@@ -164,9 +160,8 @@ const Sound_DecoderFunctions __Sound_DecoderFunctions_FLAC =
 {
     {
         extensions_flac,
-        "Free Lossless Audio Codec",
-        "Ryan C. Gordon <icculus@icculus.org>",
-        "https://icculus.org/SDL_sound/"
+        "Free Lossless Audio Codec (FLAC)",
+        "The DOSBox-X project"
     },
 
     FLAC_init,       /*   init() method */

@@ -2509,7 +2509,7 @@ public:
 			break;	
 		case MK_ACVU:
 			key=SDL_SCANCODE_VOLUMEUP;
-			break;			
+			break;				
 		}
 		sprintf(buf,"%s \"key %" sBitfs(d) "%s%s%s\"",
 			entry,

@@ -112,13 +112,13 @@
 	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_PREFSEDIT		, ("Edit Preferences Direct"));		
 	::AppendMenu(hSysMenu	, MF_SEPARATOR			, 0, "");	
 	
-	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_FOPN_FLOPPYA	, ("Open Floppy A: Image"));
-	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_FOPN_FLOPPYB	, ("Open Floppy B: Image"));
-	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_CDROMSWAP		, ("&Cache: Swap Next Cd-Rom\tCtrl+F3"));
+	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_FOPN_FLOPPYA	, ("&Open Floppy A: Image\tCtrl+Alt+F9"));
+	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_FOPN_FLOPPYB	, ("&Open Floppy B: Image\tCtrl+Alt+F10"));
+	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_DISKCACHE		, ("&Cache: Swap Next Floppy\tCtrl+F9"));
 	::AppendMenu(hSysMenu	, MF_SEPARATOR			, 0, "");
-	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_FOPN_CDROM		, ("Open CDROM Device 1: Image"));
-	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_FOPN_CDROM2	, ("Open CDROM Device 2: Image"));
-	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_DISKCACHE		, ("&Cache: Swap Next Floppy\tCtrl+F4"));
+	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_FOPN_CDROM		, ("&Open CDROM Device 1: Image\tCtrl+Alt+F11"));
+	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_FOPN_CDROM2	, ("&Open CDROM Device 2: Image\tCtrl+Alt+F12"));
+	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_CDROMSWAP		, ("&Cache: Swap Next Cd-Rom\tCtrl+F11"));	
 	::AppendMenu(hSysMenu	, MF_SEPARATOR			, 0, "");		
 	//::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_INTERNALUI		, ("Internal Preferences"));	
 	::AppendMenu(hSysMenu	, MF_STRING				, ICNMNU_CAPSHOTSW		, ("&Capture: Screenshot [SW]\tCtrl+F5"));	

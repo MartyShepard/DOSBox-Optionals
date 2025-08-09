@@ -208,7 +208,8 @@ struct SDL_Block {
 		bool fullscreen;
 		bool lazy_fullscreen;
 		bool lazy_fullscreen_req;
-		bool vsync;
+		/*bool vsync;*/
+		Bitu vsync;
 		bool borderless;
 		SCREEN_TYPES type;
 		SCREEN_TYPES want_type;
@@ -758,6 +759,31 @@ static void GFX_SetIcon() {
 
 	SDL_SetWindowIcon(sdl.window, logos);
 #endif // !defined(MACOSX)
+}
+
+static void FloppyARequest(bool pressed) {	
+	if (pressed)	
+		MenuBrowseFDImage('A', 0);
+	else
+		return;	
+}
+static void FloppyBRequest(bool pressed) {	
+	if (pressed)	
+		MenuBrowseFDImage('B', 1);
+	else
+		return;	
+}
+static void CDRomERequest(bool pressed) {	
+	if (pressed)	
+		MenuBrowseCDImage('E',0);
+	else
+		return;	
+}
+static void CDRomFRequest(bool pressed) {	
+	if (pressed)	
+		MenuBrowseCDImage('F', 1);
+	else
+		return;	
 }
 
 static void KillSwitch(bool pressed) {
@@ -1354,16 +1380,16 @@ static SDL_Window * GFX_SetupWindowScaled(SCREEN_TYPES screenType)
 		fixedWidth = sdl.desktop.window.width;
 		fixedHeight = sdl.desktop.window.height;
 	}
-	// LOG_MSG("SDL : fixedWidth = %d",sdl.desktop.window.width);
-	// LOG_MSG("SDL : fixedHeight = %d",sdl.desktop.window.height);	//1024
+	 LOG_MSG("SDL : fixedWidth = %d",sdl.desktop.window.width);
+	 LOG_MSG("SDL : fixedHeight = %d",sdl.desktop.window.height);	//1024
 	
 	
 	if (fixedWidth && fixedHeight) {
 		
-		// LOG_MSG("SDL : sdl.draw.width = %d",sdl.draw.width);
-		// LOG_MSG("SDL : sdl.draw.height = %d",sdl.draw.height);		
-		// LOG_MSG("SDL : sdl.draw.scalex = %d",sdl.draw.scalex);
-		// LOG_MSG("SDL : sdl.draw.scaley = %d",sdl.draw.scaley);
+		 LOG_MSG("SDL : sdl.draw.width = %d",sdl.draw.width);
+		 LOG_MSG("SDL : sdl.draw.height = %d",sdl.draw.height);		
+		 LOG_MSG("SDL : sdl.draw.scalex = %d",sdl.draw.scalex);
+		 LOG_MSG("SDL : sdl.draw.scaley = %d",sdl.draw.scaley);
 		
 		double ratio_w=(double)fixedWidth/(sdl.draw.width*sdl.draw.scalex);
 		double ratio_h=(double)fixedHeight/(sdl.draw.height*sdl.draw.scaley);
@@ -1403,8 +1429,8 @@ static SDL_Window * GFX_SetupWindowScaled(SCREEN_TYPES screenType)
 			int windowWidth;
 			SDL_GetWindowSize(sdl.window, &windowWidth, NULL);
 			
-		// LOG_MSG("SDL : sdl.clip.x = %d",sdl.clip.x);
-		// LOG_MSG("SDL : sdl.clip.y = %d",sdl.clip.y);
+		 LOG_MSG("SDL : sdl.clip.x = %d",sdl.clip.x);
+		 LOG_MSG("SDL : sdl.clip.y = %d",sdl.clip.y);
 		
 			sdl.clip.x=(Sint16)((windowWidth-sdl.clip.w)/2);
 			sdl.clip.y=(Sint16)((fixedHeight-sdl.clip.h)/2);
@@ -1654,14 +1680,33 @@ dosurface:
 			goto dosurface;
 		}
 		SDL_GL_ResetAttributes();
-		SDL_GL_LoadLibrary(NULL); // Default OpenGL is fine.
+		//SDL_GL_LoadLibrary(NULL); // Default OpenGL is fine.
 		SDL_GL_SetAttribute( SDL_GL_DOUBLEBUFFER, 1 );
 		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
 		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 		//SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
+
+		/*
+		SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
+		SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
+		SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
+		SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8);
+		SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+		SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+		SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE, 32);
+		SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 2);
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+		*/
 		SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
+
+		/* Sync to VBlank if desired */
+		/* SDL_GL_SetSwapInterval(sdl.desktop.vsync ? 1 : 0);*/
+		SDL_GL_SetSwapInterval(sdl.desktop.vsync);
 		GFX_SetupWindowScaled(sdl.desktop.want_type);
+
 
 		/* We may simply use SDL_BYTESPERPIXEL
 		here rather than SDL_BITSPERPIXEL   */
@@ -1691,8 +1736,7 @@ dosurface:
 		
 		SDL_GL_MakeCurrent(sdl.window, sdl.opengl.context);
 
-		/* Sync to VBlank if desired */
-		SDL_GL_SetSwapInterval(sdl.desktop.vsync ? 1 : 0);
+
 
 		sdl.opengl.framebuf=calloc(1, texsize*texsize*4);		//32 bit color
 
@@ -1766,14 +1810,14 @@ dosurface:
 			glDeleteShader(fragmentShader);
 		}
 
-		// LOG_MSG("=============================================");		
-		// LOG_MSG("sdl.clip.x: %d",sdl.clip.x);
-		// LOG_MSG("windowHeight: %d",windowHeight);		
-		// LOG_MSG("sdl.clip.y: %d",sdl.clip.y);
-		// LOG_MSG("sdl.clip.h: %d",sdl.clip.h);
-		// LOG_MSG("sdl.clip.h: %d",sdl.clip.w);	
-		// LOG_MSG("windowHeight: %d",windowHeight-(sdl.clip.y+sdl.clip.h),sdl.clip.w,sdl.clip.h);
-		// LOG_MSG("=============================================");		
+		 LOG_MSG("=============================================");		
+		 LOG_MSG("sdl.clip.x: %d",sdl.clip.x);
+		 LOG_MSG("windowHeight: %d",windowHeight);		
+		 LOG_MSG("sdl.clip.y: %d",sdl.clip.y);
+		 LOG_MSG("sdl.clip.h: %d",sdl.clip.h);
+		 LOG_MSG("sdl.clip.w: %d",sdl.clip.w);	
+		 LOG_MSG("windowHeight: %d",windowHeight-(sdl.clip.y+sdl.clip.h),sdl.clip.w,sdl.clip.h);
+		 LOG_MSG("=============================================");		
 		
 		glViewport(sdl.clip.x,windowHeight-(sdl.clip.y+sdl.clip.h),sdl.clip.w,sdl.clip.h);
 
@@ -1891,11 +1935,13 @@ dosurface:
 		        "      Vendor  : %s\n"
 				"      Renderer: %s\n"
 				"      Version : %s\n"
-				"      Shader  : %s\n\n", glGetString(GL_VENDOR), glGetString(GL_RENDERER), glGetString(GL_VERSION), glGetString(GL_SHADING_LANGUAGE_VERSION));
+				"      Shader  : %s\n"
+			    "      VSync   : %d\n\n", glGetString(GL_VENDOR), glGetString(GL_RENDERER), glGetString(GL_VERSION), glGetString(GL_SHADING_LANGUAGE_VERSION), SDL_GL_GetSwapInterval());
 		SDLInfoStringShowed = true;
 		}
 		
 		SDL_ShowWindow(sdl.window);			
+	
 	break;
 		}//OPENGL
 #endif	//C_OPENGL
@@ -2479,7 +2525,8 @@ static void GUI_StartUp(Section * sec) {
 
 	sdl.automaticheight=section->Get_bool("AutomaticHeight");
 	sdl.windowstaskbaradjust=section->Get_int("WindowsTaskbarAdjust");
-	sdl.desktop.vsync=section->Get_bool("vsync");
+	//sdl.desktop.vsync=section->Get_bool("vsync");
+	sdl.desktop.vsync = section->Get_int("vsync");
 		
 	sdl.desktop.full.display_res = sdl.desktop.full.fixed && (!sdl.desktop.full.width || !sdl.desktop.full.height);
 	if (sdl.desktop.full.display_res) {
@@ -2635,13 +2682,13 @@ static void GUI_StartUp(Section * sec) {
 	
 		#endif	//OPENGL
 		
-	int  dosbox_shutdown = 0;
+	int  dosbox_shutdown = 1;
 	dosbox_shutdown = section->Get_int("Dosbox Shutdown Key");
 	switch ( dosbox_shutdown ){
 		case 0:
-			MAPPER_AddHandler(KillSwitch,MK_f9,MMOD1,"shutdown","ShutDown");
-			LOG_MSG("SDL : Shutdown DOSBox with - CTRL-F9 (Default)\n");
-			break;
+			//MAPPER_AddHandler(KillSwitch,MK_f9,MMOD1,"shutdown","ShutDown");
+			//LOG_MSG("SDL : Shutdown DOSBox with - CTRL-F9 (Default)\n");
+			//break;
 		case 1:
 			MAPPER_AddHandler(KillSwitch,MK_WHDA,MMOD1|MMOD2,"shutdown","ShutDown");
 			LOG_MSG("SDL : Shutdown DOSBox with - CTRL + ALT + Keypad (*)\n");
@@ -2666,9 +2713,15 @@ static void GUI_StartUp(Section * sec) {
 		
 	}
 
-	MAPPER_AddHandler(CaptureMouse,MK_f10,MMOD1,"capmouse","Cap Mouse");
+	//MAPPER_AddHandler(CaptureMouse,MK_f10,MMOD1,"capmouse","Cap Mouse");
 	MAPPER_AddHandler(SwitchFullScreen,MK_return,MMOD2,"fullscr","Fullscreen");
 	MAPPER_AddHandler(Restart,MK_home,MMOD1|MMOD2,"restart","Restart");
+	
+	MAPPER_AddHandler(FloppyARequest,MK_f9,MMOD1|MMOD2,"FlopAOpen","Open-FloppyA");
+	MAPPER_AddHandler(FloppyBRequest,MK_f10,MMOD1|MMOD2,"FlopBOpen","Open-FloppyB");	
+	MAPPER_AddHandler(CDRomERequest,MK_f11,MMOD1|MMOD2,"CDEOpen","Open-CDRom-E");
+	MAPPER_AddHandler(CDRomFRequest,MK_f12,MMOD1|MMOD2,"CDFOPEN","Open-CDRom-F");
+	
 #if defined(C_DEBUG)
 	/* Pause binds with activate-debugger */
 #else
@@ -3114,8 +3167,9 @@ void Config_Add_SDL() {
 	Pint->Set_help(   "================================================================================================\n"
 	                  "For Multi Monitor Systems. Set The Display Number.");
 					  
-	Pbool = sdl_sec->Add_bool("vsync",Property::Changeable::Always,false);	
-	Pbool->Set_help(  "================================================================================================\n"
+	Pint = sdl_sec->Add_int("vsync",Property::Changeable::Always,0);
+	Pint->SetMinMax(-1, 1);
+	Pint->Set_help(  "================================================================================================\n"
 	                  "Sync to Vblank IF supported by the output device and renderer (if relevant). It can reduce\n"
 	                  "screen flickering, but it can also result in a slow DOSBox.");
 

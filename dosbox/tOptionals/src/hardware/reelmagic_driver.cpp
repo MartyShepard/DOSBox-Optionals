@@ -34,6 +34,7 @@
 #include "callback.h"
 #include "mixer.h"
 #include "setup.h"
+#include "inout.h"
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -51,7 +52,7 @@
 static const Bit8u  REELMAGIC_DRIVER_VERSION_MAJOR  = 2;
 static const Bit8u  REELMAGIC_DRIVER_VERSION_MINOR  = 21;
 static const Bit16u REELMAGIC_BASE_IO_PORT          = 0x9800; //note: the real deal usually sits at 260h... practically unused for now; XXX should this be configurable!?
-static const Bit8u  REELMAGIC_IRQ                   = 11;     //practically unused for now; XXX should this be configurable!?
+static const Bit8u  REELMAGIC_IRQ                   = 7/*11*/;     //practically unused for now; XXX should this be configurable!?
 static const char   REELMAGIC_FMPDRV_EXE_LOCATION[] = "Z:\\"; //the trailing \ is super important!
 
 static Bitu   _dosboxCallbackNumber      = 0;
@@ -887,21 +888,21 @@ static bool RMDEV_SYS_int2fHandler() {
 
 
 // #include "inout.h"
-// static IO_ReadHandleObject   _readHandler;
-// static IO_WriteHandleObject  _writeHandler;
-// static Bitu read_rm(Bitu port, Bitu /*iolen*/) {
-//   LOG(LOG_REELMAGIC, LOG_WARN)("Caught port I/O read @ addr %04X", (unsigned)port);
-//   switch (port & 0xff) {
-//   case 0x02:
-//     return 'R'; //no idea what this does... choosing a value from the magic number... might as well be random
-//   case 0x03:
-//     return 'M'; //no idea what this does... choosing a value from the magic number... might as well be random
-//   }
-//   return 0;
-// }
-// static void write_rm(Bitu port, Bitu val, Bitu /*iolen*/) {
-//   LOG(LOG_REELMAGIC, LOG_WARN)("Caught port I/O write @ addr %04X", (unsigned)port);
-// }
+static IO_ReadHandleObject   _readHandler;
+static IO_WriteHandleObject  _writeHandler;
+static Bitu read_rm(Bitu port, Bitu /*iolen*/) {
+   LOG(LOG_REELMAGIC, LOG_WARN)("Caught port I/O read @ addr %04X", (unsigned)port);
+   switch (port & 0xff) {
+   case 0x02:
+     return 'R'; //no idea what this does... choosing a value from the magic number... might as well be random
+   case 0x03:
+     return 'M'; //no idea what this does... choosing a value from the magic number... might as well be random
+   }
+   return 0;
+ }
+ static void write_rm(Bitu port, Bitu val, Bitu /*iolen*/) {
+   LOG(LOG_REELMAGIC, LOG_WARN)("Caught port I/O write @ addr %04X", (unsigned)port);
+ }
 void ReelMagic_Init(Section* sec) {
   Section_prop * section=static_cast<Section_prop *>(sec);
   if (!section->Get_bool("enabled")) return;
@@ -928,8 +929,8 @@ void ReelMagic_Init(Section* sec) {
   DOS_AddMultiplexHandler(&RMDEV_SYS_int2fHandler);
   LOG(LOG_REELMAGIC, LOG_NORMAL)("\"RMDEV.SYS\" and \"Z:\\FMPDRV.EXE\" successfully installed");
 
-  //_readHandler.Install(REELMAGIC_BASE_IO_PORT,   &read_rm, IO_MB,  0x3);
-  //_writeHandler.Install(REELMAGIC_BASE_IO_PORT,  &write_rm, IO_MB, 0x3);
+  _readHandler.Install(REELMAGIC_BASE_IO_PORT,   &read_rm, IO_MB,  0x3);
+  _writeHandler.Install(REELMAGIC_BASE_IO_PORT,  &write_rm, IO_MB, 0x3);
 
   if (section->Get_bool("alwaysresident")) {
     _unloadAllowed = false;

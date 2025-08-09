@@ -710,6 +710,7 @@ fatDrive::fatDrive(const char *sysFilename, Bit32u bytesector, Bit32u cylsector,
 /* DOSBox-MB IMGMAKE patch. ========================================================================= */	
 	fseeko64(diskfile, 0L, SEEK_END);
 	filesize = (Bit32u)(ftello64(diskfile) / 1024L);
+
 /* DOSBox-MB IMGMAKE patch. ========================================================================= */
 	is_hdd = (filesize > 2880);
 	
@@ -753,6 +754,7 @@ fatDrive::fatDrive(const char *sysFilename, Bit32u bytesector, Bit32u cylsector,
 
 	if (bytesector != 512) {
 		/* Non-standard sector sizes not implemented */
+		LOG_MSG("[%d] ERROR: Loaded Disk not Loaded -  Non-standard sector sizes not implemented: %d", __LINE__, bytesector);
 		created_successfully = false;
 		return;
 	}
@@ -768,6 +770,18 @@ fatDrive::fatDrive(const char *sysFilename, Bit32u bytesector, Bit32u cylsector,
 	bootbuffer.headcount = var_read(&bootbuffer.headcount);
 	bootbuffer.hiddensectorcount = var_read(&bootbuffer.hiddensectorcount);
 	bootbuffer.totalsecdword = var_read(&bootbuffer.totalsecdword);	
+
+	/*
+	LOG_MSG("[%d] Loaded Disk %d", __LINE__, bootbuffer.bytespersector);
+	LOG_MSG("[%d] Loaded Disk %d", __LINE__, bootbuffer.reservedsectors);
+	LOG_MSG("[%d] Loaded Disk %d", __LINE__, bootbuffer.rootdirentries);
+	LOG_MSG("[%d] Loaded Disk %d", __LINE__, bootbuffer.totalsectorcount);
+	LOG_MSG("[%d] Loaded Disk %d", __LINE__, bootbuffer.sectorsperfat);
+	LOG_MSG("[%d] Loaded Disk %d", __LINE__, bootbuffer.sectorspertrack);
+	LOG_MSG("[%d] Loaded Disk %d", __LINE__, bootbuffer.headcount);
+	LOG_MSG("[%d] Loaded Disk %d", __LINE__, bootbuffer.hiddensectorcount);
+	LOG_MSG("[%d] Loaded Disk %d", __LINE__, bootbuffer.totalsecdword);
+	*/
 
 	if (!is_hdd) {
 		/* Identify floppy format */
@@ -786,6 +800,8 @@ fatDrive::fatDrive(const char *sysFilename, Bit32u bytesector, Bit32u cylsector,
 			Bit8u sectorBuffer[512];
 			loadedDisk->Read_AbsoluteSector(1,&sectorBuffer);
 			Bit8u mdesc = sectorBuffer[0];
+
+
 
 			if (mdesc >= 0xf8) {
 				/* DOS 1.x format, create BPB for 160kB floppy */
@@ -816,6 +832,7 @@ fatDrive::fatDrive(const char *sysFilename, Bit32u bytesector, Bit32u cylsector,
 				}
 			} else {
 				/* Unknown format */
+				LOG_MSG("[%d] Loaded Disk has Unknown format\n[Source %s]\nFilesize: %d\nByteSector: %d", __LINE__, __FILE__,filesize,bytesector);
 				created_successfully = false;
 				return;
 			}

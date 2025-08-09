@@ -990,8 +990,8 @@ void MIXER_Init(Section* sec) {
 			LOG_MSG("MIXER: Needed (Max) : %d\n\n",mixer.max_needed);
 			
 	if ( (section->Get_bool("UseMediaKeys") == false ) ){
-		MAPPER_AddHandler(MIXER_VolDown,MK_f9,MMOD2,"volumedown","Vol Down");
-		MAPPER_AddHandler(MIXER_VolUp,MK_f10,MMOD2,"volumeup","Vol Up");
+		MAPPER_AddHandler(MIXER_VolDown,MK_f8,MMOD1,"volumedown","Vol Down");
+		MAPPER_AddHandler(MIXER_VolUp,MK_f8,MMOD1|MMOD2,"volumeup","Vol Up");
 	}else{
 		/* Volume Media Keys */
 		MAPPER_AddHandler(MIXER_VolDown,MK_ACVD,0,"volumedown","Vol Down");

@@ -605,6 +605,8 @@ bool DOS_OpenFile(char const * name,Bit8u flags,Bit16u * entry,bool fcb) {
 	if (device) {
 		Files[handle]=new DOS_Device(*Devices[devnum]);
 	} else {
+		Bit16u olderror=dos.errorcode;
+		dos.errorcode=0;		
 		exists=Drives[drive]->FileOpen(&Files[handle],fullname,flags);
 		if (exists) Files[handle]->SetDrive(drive);
 	}
@@ -798,9 +800,10 @@ bool DOS_CreateTempFile(char * const name,Bit16u * entry) {
 			tempname++;
 		}
 	}
+	Bit16u olderror=dos.errorcode;
 	dos.errorcode=0;
 	/* add random crap to the end of the name and try to open */
-	srand(time(0));
+	srand(static_cast<unsigned int>(time(NULL)));
 	do {
 		Bit32u i;
 		for (i=0;i<8;i++) {
@@ -810,6 +813,7 @@ bool DOS_CreateTempFile(char * const name,Bit16u * entry) {
 	} while (DOS_FileExists(name));
 	DOS_CreateFile(name, 0, entry);
 	if (dos.errorcode) return false;
+	dos.errorcode=olderror;
 	return true;
 }
 

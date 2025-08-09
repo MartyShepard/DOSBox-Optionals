@@ -119,7 +119,7 @@ void swapInDisks(void) {
 	if (allNull) return;
 
 	/* If only one disk is loaded, this loop will load the same disk in dive A and drive B */
-	while(diskcount<2) {
+	while(diskcount<1) {
 		if(diskSwap[swapPos] != NULL) {
 			LOG_MSG("Loaded disk %d from swaplist position %d - \"%s\"", diskcount, swapPos, diskSwap[swapPos]->diskname);
 			imageDiskList[diskcount] = diskSwap[swapPos];
@@ -407,6 +407,7 @@ static void readDAP(Bit16u seg, Bit16u off) {
 void IDE_ResetDiskByBIOS(unsigned char disk);	           
 void IDE_EmuINT13DiskReadByBIOS(unsigned char disk,unsigned int cyl,unsigned int head,unsigned sect);
 void IDE_EmuINT13DiskReadByBIOS_LBA(unsigned char disk,uint64_t lba);
+bool IDE_GetPhysGeometry(unsigned char disk,uint32_t &heads,uint32_t &cyl,uint32_t &sect,uint32_t &size);
 /* DOSBox-MB IMGMAKE patch. ========================================================================= */
 
 static Bitu INT13_DiskHandler(void) {
@@ -897,7 +898,10 @@ static Bitu INT13_DiskHandler(void) {
 		if (bufsz > 0x1E) bufsz = 0x1E;
 		else bufsz = 0x1A;
 
-		imageDiskList[drivenum]->Get_Geometry(&tmpheads, &tmpcyl, &tmpsect, &tmpsize);
+		/*imageDiskList[drivenum]->Get_Geometry(&tmpheads, &tmpcyl, &tmpsect, &tmpsize);*/
+        tmpheads = tmpcyl = tmpsect = tmpsize = 0;
+        if (!IDE_GetPhysGeometry(drivenum,tmpheads,tmpcyl,tmpsect,tmpsize))
+                imageDiskList[drivenum]->Get_Geometry(&tmpheads, &tmpcyl, &tmpsect, &tmpsize);		
 
 		real_writew(segat, bufptr + 0x00, bufsz);
 		real_writew(segat, bufptr + 0x02, 0x0003);  /* C/H/S valid, DMA boundary errors handled */
@@ -956,8 +960,8 @@ void BIOS_SetupDisks(void) {
 /* Setup the Bios Area */
 	mem_writeb(BIOS_HARDDISK_COUNT,2);
 
-	MAPPER_AddHandler(swapCmdFP,MK_f4,MMOD1,"swapimg","Swap Image");
-	MAPPER_AddHandler(swapCmdCD,MK_f3,MMOD1,"swapcd","Swap CDROM");	
+	MAPPER_AddHandler(swapCmdFP,MK_f9 /*MK_f4*/,MMOD1,"swapimg","Swap Image");
+	MAPPER_AddHandler(swapCmdCD,MK_f11/*MK_f3*/,MMOD1,"swapcd","Swap CDROM");	
 	killRead = false;
 	swapping_requested = false;
 

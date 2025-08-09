@@ -1,0 +1,1676 @@
+:AUTOEXEC_CONFIGFILE_HELP
+Lines in this section will be run at startup.
+=================================================================================
+CONFIG -WRITECONF
+EXIT
+=================================================================================
+ECHO OFF
+MOUSECAP
+MIXER MASTER 20
+=================================================================================
+SET PATH=Z:\;C:\;C:\DOS;C:\WINDOWS
+
+
+.
+:EXEC_MOUNT_HD
+-- Example: Image Mount Options HD (The Simplest Way)
+MOUNT    C ".\HDD-C" freesize 250
+MOUNT    D ".\HDD-D" freesize 250
+
+
+-- Example: Image Mount Options HD (As Image variant): (Using 250MB Harddrive)
+SET HD_DIR=.\HDD_IMAGE
+SET HDIMG1=MS-DOS 5.00.img
+SET HDIMG2=MS-DOS 6.22.img
+IMGMOUNT 2 "%HD_DIR%\%HDIMG1%" -size 512,63,16,507 -fs none
+
+
+=================================================================================
+
+.
+:EXEC_MOUNT_CD
+-- Example: Image Mount Options CD:
+SET CD_DIR=.\HDD_CDROM
+SET CDROM1=GAME1.CUE
+SET CDROM2=GAME2.CUE
+
+-- Example: As Directory or Image (Iso, Bin, Cue)
+MOUNT    E "%CD_DIR%" -t cdrom
+IMGMOUNT E "%CD_DIR%\%CDROM1%"  "%CD_DIR%\%CDROM2%" -t cdrom
+
+=================================================================================
+
+.
+:EXEC_MOUNT_DD
+-- Example: Image Mount Options Floppy:
+SET DSKDIR=.\HDD_FLOPPYS
+SET DISK01=%DSKDIR%\DISK1.IMA
+SET DISK02=%DSKDIR%\DISK2.IMA
+SET DISK03=%DSKDIR%\DISK3.IMA
+SET DISK04=%DSKDIR%\DISK4.IMA
+SET DISK05=%DSKDIR%\DISK5.IMA
+SET DISK06=%DSKDIR%\DISK6.IMA
+
+-- Example: Image, Boot, Multi (Multiples Floppy in One Drive) (img, ima)
+IMGMOUNT A "%DISK01%" "%DISK02%" "%DISK03%" "%DISK04%" "%DISK05%" "%DISK06%" -t floppy
+BOOT       "%DISK01%" "%DISK02%" "%DISK03%" "%DISK04%" "%DISK05%" "%DISK06%" -l A
+
+REM More Mount Examples: http:////www.dosbox.com//wiki//IMGMOUNT
+
+
+=================================================================================
+
+.
+:EXEC_MOUNT_SB
+SET BLASTER=A220 I5 D1 T3 P330 H6 E620
+ |    |     |    |  |  |  |    |  |
+ |    |     |    |  |  |  |    |  |_______ AWE 32 Only Parameter
+ |    |     |    |  |  |  |    |__________ "High" DMA Channel
+ |    |     |    |  |  |  |_______________ MIDI Port
+ |    |     |    |  |  |__________________ Type of Card
+ |    |     |    |  |_____________________ DMA Channel
+ |    |     |    |________________________ Interrupt
+ |    |     |_____________________________ Port Address
+ |    |___________________________________ Environment Variable
+ |________________________________________ DOS Command
+
+SET MIDI=SYNTH:1 MAP:E
+
+=================================================================================
+
+.
+:CONFIGFILE_INTRO
+# This is the configuration file for DOSBox %s. Lines starting with a # are comment lines and
+# are ignored by DOSBox. They are used to (briefly) document the effect of each option.
+
+.
+:CONFIG_SUGGESTED_VALUES
+Possible values
+.
+:PROGRAM_CONFIG_NOCONFIGFILE
+Keine Konfigurationsdatei geladen!
+
+.
+:PROGRAM_CONFIG_PRIMARY_CONF
+Prim„re Konfigurationsdatei:
+%s
+
+.
+:PROGRAM_CONFIG_ADDITIONAL_CONF
+Zus„tzliche Konfigurationsdateien:
+
+.
+:PROGRAM_CONFIG_CONFDIR
+DOSBox %s Konfigurationsverzeichnis: 
+%s
+
+
+.
+:PROGRAM_CONFIG_FILE_ERROR
+Die Konfigurationsdatei %s kann nicht ge”ffnet werden
+
+.
+:PROGRAM_CONFIG_FILE_WHICH
+Konfigurationsdatei '%s' an.
+.
+:PROGRAM_CONFIG_USAGE
+CONFIG [-wc][-wl][-wcp]Dateiname[-wcd][-r]Parameter[-l][-get][-set][-securemode]
+       [-h -help -? (Sektion/ SekName/ Eigenschaft) ][-axclear][-axadd][-axtype] 
+       
+  wc Dateiname     Ohne Parameter wird die Prim„re geladene Konfigurationsdatei
+  (-writeconf)     ber/-geschrieben. Geben sie ein Dateinamen an um eine neue
+                   anzulegen.
+  wl (-writelang)  Speichert die aktuelle Sprachdatei.   
+  r (+ Parameter)  Startet DOSBox neu. Mit vorigen oder angeh„ngten Parameter
+                   verwenden.
+  wcp Dateiname    Schreibt die Konfigurations Datei Dosbox.conf oder mit dem
+                   Dateiname in das Programm Verzeichnis.
+  wcd              Legt eine neue Standardkonfigurationsdatei im Konfigurations
+                   verzeichnis an.
+  l                Listet Konfigurationsparameter auf.
+
+  h/ help/ -?      Zeigt diesen Parameterbildschirm
+    + sections     Listet alle Abschnitte der Konfiguration auf
+    + sectionname  Zeigt die Information eines Abschnitts an
+    + propertyname Zeigt die Information des Eigenschafts Namen an
+  
+ axclear           L”scht den Autoexec(.bat)-Abschnitt.
+ axadd [Zeile]     Fgt dem Abschnitt autoexec eine Zeile hinzu.
+ axtype            Druckt den Inhalt des Autoexec-Abschnitts aus.
+
+ securemode        Wechsel in den sicheren Modus.
+
+ get               gibt den Wert der Eigeschaft zurck
+                   zum beispiel: "-get sdl fullresolution"
+ set               Setzt den Wert einer Eigenschaft 
+                   zum Beispiel: "-set sdl fullresolution = true"
+
+.
+:PROGRAM_CONFIG_HLP_PROPHLP
+Zweck der Eigenschaft "%s" (enthalten im Abschnitt "%s"):
+%s
+
+M”gliche Werte : %s
+Standardwert   : %s
+Aktueller Wert : %s
+
+.
+:PROGRAM_CONFIG_HLP_LINEHLP
+Zweck der Sektion "%s":
+%s
+Aktueller Wert : %s
+%s
+
+.
+:PROGRAM_CONFIG_HLP_NOCHANGE
+Diese Eigenschaft kann in der Laufzeit nicht ge„ndert werden.
+
+.
+:PROGRAM_CONFIG_HLP_POSINT
+Positive Ganze Zahl
+.
+:PROGRAM_CONFIG_HLP_SECTHLP
+Abschnitt %s enth„lt die folgenden Eigenschaften:
+
+.
+:PROGRAM_CONFIG_HLP_SECTLIST
+Die DOSBox-Konfiguration enth„lt die folgenden Abschnitte:
+
+
+.
+:PROGRAM_CONFIG_SECURE_ON
+Wechselt in den abgesicherten Modus.
+
+.
+:PROGRAM_CONFIG_SECURE_DISALLOW
+Diese Funktion ist im abgesicherten Modus nicht erlaubt.
+
+.
+:PROGRAM_CONFIG_SECTION_ERROR
+Die Konfig Sektion %s ist nicht vorhanden.
+
+.
+:PROGRAM_CONFIG_VALUE_ERROR
+"%s" ist kein gltiger Wert fr die Eigenschaft %s.
+
+.
+:PROGRAM_CONFIG_PROPERTY_ERROR
+Konfig Sektion oder Variable wurde nicht gefunden.
+
+.
+:PROGRAM_CONFIG_NO_PROPERTY
+Variable %s in der Konfig Sektion %s wurde nicht gefunden.
+
+.
+:PROGRAM_CONFIG_SET_SYNTAX
+Richtige Syntax: CONFIG -set "Sektion Variable".
+
+.
+:PROGRAM_CONFIG_GET_SYNTAX
+Richtige Syntax: CONFIG -get "Sektion Variable".
+
+.
+:PROGRAM_CONFIG_PRINT_STARTUP
+
+DOSBox wurde mit den folgenden Befehlszeilenparametern gestartet:
+%s
+.
+:PROGRAM_CONFIG_MISSINGPARAM
+Fehlender Parameter.
+
+.
+:PROGRAM_BOOT_ELCD_REQUIRES
+ElTorito BootCD:
+Erfordert einen richtigen Laufwerksbuchstaben, der Ihrem CD-ROM-Laufwerk entspricht.
+
+.
+:PROGRAM_BOOT_ELCD_ALREADY_EXISTS
+ElTorito BootCD:
+Das angegebene CD-ROM-Laufwerk [%c] ist bereits als Nicht-CD-ROM-Ger„t vorhanden
+
+.
+:PROGRAM_BOOT_ELCD_NOT_CDROM
+ElTorito BootCD:
+Das angegebene CD-ROM-Laufwerk ist aktuell kein CD-ROM-Laufwerk [%c]
+
+.
+:PROGRAM_BOOT_ELCD_NEED_FLOPPY
+ElTorito BootCD:
+Muss zu diesem Zeitpunkt mit -t floppy verwendet werden
+
+.
+:PROGRAM_BOOT_ELCD_NO_BOOTRECORD
+ElTorito BootCD:
+Boot Record nicht gefunden
+
+.
+:PROGRAM_BOOT_ELCD_UNREADABLE
+ElTorito BootCD:
+Eintr„ge unlesbar
+
+.
+:PROGRAM_BOOT_ELCD_NOT_FOUND
+ElTorito BootCD:
+Bootf„hige Diskette nicht gefunden
+
+.
+:PROGRAM_BOOT_ELCD_NO_FILES
+ElTorito BootCD:
+Geben Sie beim Mounten von virtuellen Diskettenabbildern von bootf„higen El Torito-CDs keine Dateien an.
+
+.
+:PROGRAM_BOOT_ELCD_NO_FSFAT
+ElTorito BootCD:
+-fs fat einbinden nicht untersttzt
+
+.
+:PROGRAM_BOOT_ELCD_NO_FSISO
+ElTorito BootCD:
+-fs iso einbinden nicht untersttzt
+
+.
+:PROGRAM_BOOT_ELCD_NO_FSNON
+ElTorito BootCD:
+-fs none unexpected path (BUG)
+
+.
+:PROGRAM_MOUSE_INSTALL
+Installiert am PS/2-Port.
+
+.
+:PROGRAM_MOUSE_UNINSTALL
+Treiber erfolgreich entladen ...
+
+.
+:PROGRAM_MOUSE_ERROR
+Bereits am PS/2-Port installiert.
+
+.
+:PROGRAM_MOUSE_NOINSTALLED
+Treiber ist nicht installiert.
+
+.
+:PROGRAM_MOUSE_HELP
+Schaltet die Maus ein/aus.
+
+MOUSE [/á] [/U]
+
+.
+:PROGRAM_MOUNT_PHYS_CDROMS_NOT_SUPPORTED
+Physische CD-ROMs werden nicht vollst„ndig untersttzt. IMGMOUNT kann ntzlicher sein.
+
+.
+:PROGRAM_MOUNT_CDROMS_FOUND
+CDROMs found: %d
+
+.
+:PROGRAM_MOUNT_STATUS_FORMAT
+%-5s  %-58s %-12s
+
+.
+:PROGRAM_MOUNT_STATUS_MULTI1
+[37;1m================= Multiples Mount on Drive %c: =================[0m
+[37;1m                  Press[32;1m CTRL + F4[37;1m to Cycle through Disk's[0m
+
+.
+:PROGRAM_MOUNT_STATUS_MULTI2
+[34;1m Mount Drive: %c:[0m
+
+.
+:PROGRAM_MOUNT_STATUS_MULTI3
+[37;1m %s[0m
+
+.
+:PROGRAM_MOUNT_STATUS_MULTI4
+[37;1m================================================================[0m
+
+.
+:PROGRAM_MOUNT_STATUS_MULTI5
+[37;1m================= Multiples Mount on Drive %c: =================[0m
+[37;1m                  Press[32;1m CTRL + F3[37;1m to Cycle through CD's[0m
+
+.
+:PROGRAM_MOUNT_STATUS_2
+[34;1m Mount Drive %c:[37;1m %s[0m
+
+.
+:PROGRAM_MOUNT_STATUS_3
+Mount: %s in Drive %c
+
+.
+:PROGRAM_MOUNT_STATUS_1
+Aktuelle angebundene Laufwerke:
+
+.
+:PROGRAM_MOUNT_ERROR_1
+Verzeichnis %s wurde nicht gefunden.
+
+.
+:PROGRAM_MOUNT_ERROR_2
+%s ist kein Verzeichnis.
+
+.
+:PROGRAM_MOUNT_ILL_TYPE
+Ungltiger Datentr„gertyp: %s
+
+.
+:PROGRAM_MOUNT_ALREADY_MOUNTED
+Das Laufwerk %c ist bereits angebunden an %s
+
+.
+:PROGRAM_MOUNT_USAGE
+Aufruf: [34;1mMOUNT Laufwerksbuchstabe "anzubindendes Verzeichnis"[0m
+Beispiel: MOUNT C %s  
+Bindet das Verzeichnis %s als DOSBox-Laufwerk C: ein.
+
+.
+:PROGRAM_MOUNT_UMOUNT_NOT_MOUNTED
+Laufwerk %c wurde noch nicht angebunden.
+
+.
+:PROGRAM_MOUNT_UMOUNT_SUCCESS
+Laufwerk %c wurde freigegeben.
+
+.
+:PROGRAM_MOUNT_UMOUNT_NO_VIRTUAL
+Virtuelle Laufwerke k”nnen nicht freigegeben werden.
+
+.
+:PROGRAM_MOUNT_WARNING_WIN
+[31;1mEs wird nicht empfohlen, C:\ einzubinden,
+bitte w„hlen Sie besser ein (Unter)verzeichnis![0m
+
+.
+:PROGRAM_MOUNT_WARNING_OTHER
+[31;1mEs wird nicht empfohlen, / einzubinden,
+bitte w„hlen Sie besser ein (Unter)verzeichnis![0m
+.
+:PROGRAM_MOUNT_NOT_FOUND
+Image not Found
+ [at Position %d] in %s
+
+.
+:PROGRAM_MOUNT_OVERLAY_NO_BASE
+[35;1m Overlay    : [0m
+ Ein normales Verzeichnis muss zuerst eingebunden werden, bevor es mit Overlay
+ verbunden werden kann.
+
+.
+:PROGRAM_MOUNT_OVERLAY_INCOMPAT_BASE
+[35;1m Overlay    : [0m
+ Das Overlay Verzeichnis ist NICHT mit dem angegebenen Laufwerk kompatibel.
+
+.
+:PROGRAM_MOUNT_OVERLAY_MIXED_BASE
+[35;1m Overlay    : [0m
+ Das Overlay-Verzeichnis muss mit Angemeldeten Laufwerk (Verzeichnis) identisch
+ sein. Keine Vermischung von relativen und absoluten Pfaden.
+.
+:PROGRAM_MOUNT_OVERLAY_SAME_AS_BASE
+[35;1m Overlay    : [0m
+ Das Overlay-Verzeichnis ist nicht mit dem Angemeldeten Laufwerk identisch.
+
+.
+:PROGRAM_MOUNT_OVERLAY_GENERIC_ERROR
+[35;1m Overlay    : [0m Etwas ist schief gelaufen.
+
+.
+:PROGRAM_MOUNT_OVERLAY_STATUS
+[35;1m Overlay[0m
+[35;1m Verzeichnis:[0m %s 
+[35;1m Laufwerk   :[0m %c
+
+.
+:PROGRAM_MEM_CONVEN
+%10d KiB freier konventioneller Speicher
+
+.
+:PROGRAM_MEM_EXTEND
+%10d KiB freier erweiterter Speicher (XMS)
+
+.
+:PROGRAM_MEM_EXPAND
+%10d KiB freier Expansionsspeicher (EMS)
+
+.
+:PROGRAM_MEM_UPPER
+%10d KiB freier oberer Speicher in %d Bl”cken (gr”áter UMB: %d KiB)
+
+.
+:PROGRAM_LOADFIX_ALLOC
+%d KiB zugewiesen
+
+.
+:PROGRAM_LOADFIX_DEALLOC
+%d KiB freigegeben.
+
+.
+:PROGRAM_LOADFIX_DEALLOCALL
+Der verwendete Speicher wurde freigegeben.
+
+.
+:PROGRAM_LOADFIX_ERROR
+Fehler bei der Speicherzuweisung.
+
+.
+:MSCDEX_SUCCESS
+ MSCDEX geladen...
+
+.
+:MSCDEX_ERROR_MULTIPLE_CDROMS
+MSCDEX-Fehler: Buchstaben fr mehrere CD-Laufwerke mssen direkt aufeinander 
+folgen.
+
+.
+:MSCDEX_ERROR_NOT_SUPPORTED
+MSCDEX-Fehler: Noch nicht untersttzt.
+.
+:MSCDEX_ERROR_PATH
+MSCDEX: Angegebene Position ist kein CD-ROM-Laufwerk.
+
+.
+:MSCDEX_ERROR_OPEN
+MSCDEX-Fehler: Datei ist ungltig oder kann nicht ge”ffnet werden.
+
+.
+:MSCDEX_TOO_MANY_DRIVES
+MSCDEX-Fehler: Zu viele CD-ROM-Laufwerke (maximal 5)
+MSCDEX nicht wurde nicht installiert.
+
+.
+:MSCDEX_LIMITED_SUPPORT
+MSCDEX: Ein Unterverzeichnis wurde eingebunden - eingeschr„nkte Untersttzung.
+
+.
+:MSCDEX_INVALID_FILEFORMAT
+MSCDEX-Fehler: Ungltiges oder fehlerhaftes ISO/CUE-Image
+
+.
+:MSCDEX_UNKNOWN_ERROR
+Unbekannter MSCDEX-Fehler
+
+.
+:PROGRAM_RESCAN_SUCCESS
+Laufwerkscache geleert
+
+.
+:PROGRAM_INTRO
+[2J[33;1mWillkommen bei DOSBox[0m, einem x86-Emulator mit Grafik und Sound!
+DOSBox funktioniert wie das gute alte DOS und sieht auch so aus.
+
+Hilfe zum Einbinden von Laufwerken erhalten Sie mit [36mINTRO MOUNT[0m.
+Hilfe zur CD-ROM-Untersttzung erhalten Sie mit [36mINTRO CDROM[0m.
+Hilfe zu den Tastaturkrzeln erhalten Sie mit [36mINTRO SPECIAL[0m.
+For more information about DOSBox, go to [34;1mhttp://www.dosbox.com/wiki[0m
+Mehr Informationen zu DOSBox finden Sie im DOSBox-Wiki im Internet:
+[32;1mhttp://dosbox.sourceforge.net/wiki[0m
+[31;1mIm Falle eines Fehlers kann DOSBox ohne Vorwarnung beendet werden![0m
+
+
+
+.
+:PROGRAM_INTRO_MOUNT_START
+[2J[33;1mDOSBox-Schnellstart:[0m
+Um mit DOSBox Programme aufrufen zu k”nnen, die im bergeordneten Dateisystem 
+liegen, muss das Verzeichnis mit den Dateien als virtuelles Laufwerk 
+eingebunden werden.
+
+
+.
+:PROGRAM_INTRO_MOUNT_WINDOWS
+[44;1mÉÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ»
+º [36mMOUNT C D:\DOS[37m erstellt ein (virtuelles) DOSBox-Laufwerk C                  º
+º mit dem Inhalt des Ordners C:\DOS                                           º
+º                                                                             º
+º [32mD:\DOS ist nur ein Beispiel und muss durch das jeweils gewnschte[37m           º
+º [32mSpieleverzeichnis ersetzt werden.[37m                                           º
+ÈÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ¼[0m
+
+.
+:PROGRAM_INTRO_MOUNT_OTHER
+[44;1mÉÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ»  
+º [36mMOUNT C ~/DOS[37m erstellt ein (virtuelles) DOSBox-Laufwerk C                   º
+º mit dem Inhalt des Ordners ~/DOS                                            º
+º                                                                             º
+º [32m~/~/DOS ist nur ein Beispiel und muss durch das jeweils gewnschte[37m           º
+º [32mSpieleverzeichnis ersetzt werden.[37m                                           º
+ÈÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍÍ¼[0m
+
+.
+:PROGRAM_INTRO_MOUNT_END
+Wenn die Einbindung erfolgreich war, geben Sie [36mC:[0m ein, um zu Ihrem gerade 
+erstellten Laufwerk C zu gelangen. Wenn Sie jetzt [36mDIR[0m eingeben, sehen Sie 
+dessen Inhalt. Mit [36mCD[0m k”nnen Sie in eines der Unterverzeichnisse wechseln.
+
+Programme/Dateien mit den Endungen [36mEXE[0m, [36mBAT[0m und [36mCOM[0m k”nnen durch
+Eingabe des Namens aufgerufen werden.
+
+.
+:PROGRAM_INTRO_CDROM
+[2J[32;1mEin virtuelles oder physisches CD-ROM-Laufwerk in DOSBox einbinden:[0m
+DOSBox bietet mehrere M”glichkeiten der Emulation von CD-ROM-Laufwerken.
+[33;1mStufe 1[0m funktioniert mit allen CD-ROM-Laufwerken sowie normalen Verzeichnissen. 
+Es wird MSCDEX geladen und alle Dateien werden als schreibgeschtzt markiert. 
+Fr die meisten Spiele funktioniert dies:
+[36mMOUNT D D:\ -t cdrom[0m oder [36mMOUNT D C:\Verzeichnis -t cdrom[0m
+Wenn das nicht funktioniert, muss vermutlich noch das CD-Label angeben werden:
+[36mMOUNT D C:\Verzeichnis -t cdrom -label Bezeichnung[0m
+
+Die [33;1mStufe 2[0m fgt eine Untersttzung auf unterer Ebene hinzu
+und funktioniert daher aber nur mit echten CD-ROM-Laufwerken:
+[34;1mMOUNT d [0;31mD:\[34;1m -t cdrom -usecd [33m0[0m
+
+Die Untersttzung der [33;1mStufe 3[0m h„ngt vom Betriebssystem ab:
+[34;1mMOUNT d [0;31mD:\[34;1m -t cdrom -usecd [33m0 [34m-ioctl[0m
+
+Ersetzen Sie dabei [36mD:\[0m durch den Namen ihres CD-ROM-Laufwerks.
+Ersetzen Sie die [33;1m0[0m in [34;1m-usecd [33m0[0m durch die Nummer, die sie nach Eingabe von
+[36mMOUNT -CD[0m fr das betreffende CD-ROM-Laufwerk erhalten.
+
+.
+:PROGRAM_INTRO_SPECIAL
+[2J[32;1mHotkeys:[0m (Standard Layout).Kann im [33mKeyMapper[0m ge„ndert werden.
+[33;1mCTRL-F1[0m     : Ruft den [33mKeyMapper[0m
+[33;1mALT-ENTER[0m   : Vollbild\ Fenstermodus
+[33;1mALT-PAUSE[0m   : Pausiert DOSBox
+[33;1mCTRL-ALT-[*][0m: Beendet DOSBox
+[33;1mCTRL-F3/F4[0m  : Verlangsamt/ Erh”ht die Emulation (Cycle „nderung)
+[33;1mCTRL-F8[0m     : Mixer [Alle Kan„le] Laust„rke verringern
+[33;1mCTRL-ALT-F8[0m : Mixer [Alle Kan„le] Laust„rke erh”hen
+
+[36;1mAufnahme[0m
+[33;1mCTRL-F5[0m     : Speichert den Screenshot als PNG
+[33;1mCTRL-F6[0m     : Start/Stop - Sound aufnahme in eine Wave datei
+[33;1mCTRL-ALT-F5[0m : Start/Stop - Erstellt ein AVI Film
+[33;1mCTRL-ALT-F6[0m : Start/Stop - Sound aufnahme des OPL (Adlib)
+[33;1mCTRL-ALT-F7[0m : Start/Stop - Sound aufnahme des Rohen MIDI.
+
+[36;1mDisketten/ CD-Rom Untersttzung[0m
+[33;1mCTRL-F9[0m     : Cyle/Swap/Update Verzeichnis-Cache fr Disketten
+[33;1mCTRL-F11[0m    : Cyle/Swap/Update Verzeichnis-Cache fr CD-Rom's
+[33;1mCTRL-ALT-F9[0m : ™ffnet den Disketten-Image-Requester fr Laufwerk A:.
+[33;1mCTRL-ALT-F10[0m: ™ffnet den Disketten-Image-Requester fr Laufwerk B:.
+[33;1mCTRL-ALT-F11[0m: ™ffnet den Disketten-Image-Requester fr Laufwerk E:.
+[33;1mCTRL-ALT-F12[0m: ™ffnet den Disketten-Image-Requester fr Laufwerk F:.
+
+.
+:PROGRAM_INTRO_SPECIAL_MASCHINES
+[2J[32;1mSondertasten fr Maschinen:[0m
+
+
+[36;1mMaschine: IBM PCjr[0m
+[33;1mCTRL-ALT-F1[0m : Composite-Eingang einstellen Ein<->Aus (Auto Standard)
+[33;1mCTRL-F2[0m     : Erh”hen und ndern des Farbtons+ (Composite ON)
+[33;1mCTRL-ALT-F2[0m : Verringern und ndern des Farbtons- (Composite ON)
+
+[36;1mMaschine: Hercules[0m
+[33;1mCTRL-ALT-F1[0m : Schaltet zwischen Grn, Bernstein, Grau und Papierweiá um
+[33;1mCTRL-ALT-F2[0m : Horizontale šberblendung umschalten (nur im Grafikmodus)
+
+[36;1mMaschine: CGA/ Amstrad[0m
+[33;1mCTRL-ALT-F1[0m : Composite-Eingang einstellen Ein<->Aus (Auto Standard)
+[33;1mCTRL-F2[0m     : Erh”hen und ndern des Farbtons+ +
+[33;1mCTRL-ALT-F2[0m : Verringern und ndern des Farbtons-
+[33;1mCTRL-ALT-F3[0m : Wechseln zwischen dem frhen und sp„ten CGA-Modell
+
+[36;1mMaschine: CGA Mono[0m
+[33;1mCTRL-ALT-F1[0m : Schaltet zwischen Grn, Bernstein, Grau und Papierweiá um
+[33;1mCTRL-ALT-F2[0m : Kontrast/Helligkeit „ndern
+
+
+.
+:PROGRAM_BIOS_SPECIFY
+Must specify BIOS file to load.
+
+.
+:PROGRAM_BIOS_ERROR_LOAD
+Can't open a file
+.
+:PROGRAM_BIOS_ERROR_LARGE
+BIOS File too large
+.
+:PROGRAM_BOOT_NOT_EXIST
+Bootdisk file does not exist.  Failing.
+
+.
+:PROGRAM_BOOT_NOT_OPEN
+Cannot open bootdisk file.  Failing.
+
+
+.
+:PROGRAM_BOOT_NOT_EXIST
+Fehler: Bootdisk-Image nicht gefunden.
+
+.
+:PROGRAM_BOOT_NOT_OPEN
+Fehler: Kann Bootdisk-Image nicht ”ffnen.
+
+.
+:PROGRAM_BOOT_WRITE_PROTECTED
+Die Image-Datei ist schreibgeschtzt. Dies kann zu Problemen fhren.
+
+.
+:PROGRAM_BOOT_PRINT_ERROR
+Bootet DOSBox von einem Disketten- oder Festplatten-Image.
+
+Fr diesen Befehl kann ein Diskettensatz geladen werden. Mit [36mStrg-F4[0m
+werden die geladenen Disketten gewechselt, der Parameter [36m-L[0m w„hlt das
+Laufwerk aus, von dem gebootet werden soll. Wenn keines angebenen ist,
+wird Laufwerk A verwendet. Es kann nur von den Laufwerken A, C und D
+gebootet werden. Um von einer Festplatte (C oder D) zu booten, muss dieses 
+vorher mit dem Befehl [36mIMGMOUNT[0m eingebunden worden sein.
+
+Aufruf:
+[34;1mBOOT [Image1.img [Image2.img ... [ImageN.img]]] [-L Laufwerksbuchstabe][0m
+
+.
+:PROGRAM_BOOT_START_DRIVE
+[34;1mAuto Detecting Images... [0m
+
+.
+:PROGRAM_BOOT_UNABLE
+[31;1mKann nicht von Laufwerk %c booten.[0m
+
+.
+:PROGRAM_BOOT_IMAGE_OPEN
+[34;1mAdded: [0m[37;1m%s[0m
+
+.
+:PROGRAM_BOOT_IMAGE_NOT_OPEN
+[31;1m -- Kann Image-Datei nicht --
+ "%s" [0m
+
+.
+:PROGRAM_BOOT_BOOT
+
+[37;1mBooten von Laufwerk %c:...[0m
+
+.
+:PROGRAM_BOOT_CART_WO_PCJR
+PCjr-Kassette gefunden: Falsches Computersystem
+.
+:PROGRAM_BOOT_CART_LIST_CMDS
+Verfgbare Befehle fr PCjr-Kassette: %s
+.
+:PROGRAM_BOOT_CART_NO_CMDS
+Keine Befehle fr PCjr-Kassette verfgbar.
+.
+:PROGRAM_LOADROM_SPECIFY_FILE
+Spezifiert die zu ladende ROM Datei
+
+.
+:PROGRAM_LOADROM_CANT_OPEN
+ROM Datei nicht zu ”ffnen
+
+.
+:PROGRAM_LOADROM_TOO_LARGE
+ROM-Datei zu groá.
+
+.
+:PROGRAM_LOADROM_INCOMPATIBLE
+Video-BIOS wird vom Maschinentyp nicht untersttzt.
+
+.
+:PROGRAM_LOADROM_UNRECOGNIZED
+ROM-Datei nicht erkannt.
+
+.
+:PROGRAM_LOADROM_BASIC_LOADED
+BASIC ROM geladen.
+
+.
+:PROGRAM_IMGMOUNT_SPECIFY_DRIVE
+Fr das Image wurde kein Laufwerksbuchstabe angegeben.
+
+.
+:PROGRAM_IMGMOUNT_SPECIFY2
+Keine Laufwerksnummer (0 oder 3) angegeben: 0,1=fda,fdb;2,3=hda,hdb.
+
+.
+:PROGRAM_IMGMOUNT_SPECIFY_GEOMETRY
+Weist einem Festplatten- oder CD-ROM-Image ein internes Laufwerk zu.
+Syntax fr [33mCD-ROM[0m-Images:
+  [34;1mIMGMOUNT Laufwerksbuchstabe Imagedatei -T iso[0m
+  
+Syntax fr [33mFestplatten[0m-Images:
+  [34;1mIMGMOUNT Laufwerksbuchstabe Imagedatei -size bps,spc,hpc,cyl[0m
+Fr Festplatten-Images muss die Festplattengeometrie angegeben werden:
+Byte/Sektor, Sektoren/Kopf, K”pfe/Zylinder, Zylinderzahl.
+N„here Informationen dazu in der [36mREADME[0m.
+
+.
+:PROGRAM_IMGMOUNT_INVALID_IMAGE
+Die Image-Datei konnte nicht geladen werden.
+Prfen Sie, ob der Pfad korrekt angegeben wurde und auf die Datei zugegriffen 
+werden kann!
+
+.
+:PROGRAM_IMGMOUNT_INVALID_GEOMETRY
+Die Laufwerks-Geometrie wurde nicht erkannt.
+Verwenden Sie den Parameter "-size bps,spc,hpc,cyl" zur Einstellung.
+Im Zweifelsfalls "-autohdd" statt "-size ..."benutzen.
+
+.
+:PROGRAM_IMGMOUNT_AUTODET_VALUES
+Automatische Erkennung der Geometrie: -size %u,%u,%u,%u
+
+.
+:PROGRAM_IMGMOUNT_TYPE_UNSUPPORTED
+Unbekannter Image-Typ: %s
+Gltige Werte sind "hdd", "floppy" oder"iso".
+
+.
+:PROGRAM_IMGMOUNT_FORMAT_UNSUPPORTED
+Unbekanntes Format: %s
+Gltige Wertesin "fat", "iso" oder "none"
+
+.
+:PROGRAM_IMGMOUNT_SPECIFY_FILE
+Keine Image-Datei angegeben.
+
+.
+:PROGRAM_IMGMOUNT_FILE_NOT_FOUND
+Image-Datei nicht gefunden.
+
+.
+:PROGRAM_IMGMOUNT_MOUNT
+Zum Einbinden von Verzeichnissen muss der Befehl [36mMOUNT[0m und nicht der
+Befehl [34;1mIMGMOUNT[0m verwendet werden.
+
+.
+:PROGRAM_IMGMOUNT_ALREADY_MOUNTED
+Der Laufwerksbuchstabe ist schon vergeben.
+
+.
+:PROGRAM_IMGMOUNT_CANT_CREATE
+Das Laufwerk kann nicht erstellt werden.
+
+.
+:PROGRAM_IMGMOUNT_MOUNT_NUMBER
+Laufwerk Nummer %d ist als %s eingebunden.
+
+.
+:PROGRAM_IMGMOUNT_NON_LOCAL_DRIVE
+Die Image-Datei muss auf einem bergeordneten oder lokalem Laufwerk liegen.
+
+.
+:PROGRAM_IMGMOUNT_MULTIPLE_NON_CUEISO_FILES
+Wenn Sie mehrere Image-Dateien benutzen wollen, mssen diese vom Typ CUE/ISO sein
+
+.
+:PROGRAM_IMGMOUNT_SYNTAX
+
+[2J[32;1mErstellt Abbilder von Floppy oder HD's. Syntax:[0m
+
+IMGMAKE [-t][-size][-chs][-nofs][-source][-r retries][-bat/-txt][-force][file]
+        [-fat(12/16/32)] [-spc (Sectors Per Cluster] [-mbr (msdos622/freedos)]
+
+  [31;1mFile[0m     : Datei die auf dem Gast System erstellt werden soll
+             Ohne Pfad angabe wird die Datei im verzeichis von DOSbox erstellt.
+  [33;1mBenutzerdefinierte Festplatten: hd (ben”tigt -size or -chs)[0m
+  [31;1m-size[0m    : Die Gr”áe eines benutzerdefinierten Abbilds in MB
+             Maxmimum Standard: MS-DOS FAT16 max 2GB. Windows 9x FAT32 8GB
+  [31;1m-chs[0m     : HD Geometrie in cylinders (1-1023), Heads(1-255), Sectors (1-63)
+
+  [33;1m-spc[0m     : Sectors Per Cluster
+  [33;1m-nofs[0m    : Ein leeres Abbild wird erstellt (Keine Formatierung).
+  [33;1m-fat 12[0m  : Abbild erstellung fr DOS Disketten
+  [33;1m-fat 16[0m  : Abbild erstellung fr DOS Festplatten
+  [33;1m-fat 32[0m  : Abbild erstellung fr Win9x Festplatten
+  [33;1m-type[0m    : hd. Siehe 'ImgMake -morehelp' fr Infos und dem Befehl
+  [37;1m-bat/-txt[0m: Erstellt eine Bat-/Textdatei (Fr den befehl IMGMOUNT.)
+  [37;1m-source[0m  : Laufwerk von dem aus ein Abbild erstellt werden soll.
+  [37;1m-retries[0m : Versuche, von einer fehlerhaften Disk zu lesen (1-99).
+  [37;1m-force[0m   : Ziel Datei überschreiben
+
+.
+:PROGRAM_IMGMOUNT_SYNTAX2
+[2J[32;1mErstellt Abbilder von Floppy oder HD's. Templates:[0m
+
+[33;1m[-t type] Templates: Disketten Vorlagen:[0m
+ fd_160: 160KB  fd_180: 180KB  fd_200 : 200KB  fd_320 : 320KB   fd_360 : 360KB
+ fd_400: 400KB  fd_720: 720KB  fd_1200: 1.2MB  fd_1440: 1.44MB  fd_2880: 2.88MB
+[33;1m[-t type] Templates: Festplatten Vorlagen:[0m
+ hd_st225: 20MB    hd_st251: 40MB    hd_250 : 250MB   hd_520 : 520MB
+ hd_2gig :  2GB    hd_4gig : 4GB     hd_8gig: 8GB    (8GB is Maximum)
+
+  [33;1mBeispiele:[0m
+  [33mimgmake c:\image.img -t fd_1440[0m          - Erstellt 1.44MB Floppy
+  [33mimgmake c:\image.img -t hd -size 100[0m     - Erstellt 100MB HDD
+  [33mimgmake c:\image.img -t hd -size 10 -nofs[0m- Erstellt 10MB HDD fr MSDOS
+  [33mimgmake c:\image.img -t hd -chs 130,2,17[0m - Erstellt HD 
+  [33mimgmake c:\image.img -source a[0m           - vom echten Laufwerk A lesen
+[33;1mHints:[0m
+ MS-DOS 1.x: Untersttzt keine Festplatten.
+ MS-DOS 2.x: Nur eine mit bis zu 10 MB.
+ MS-DOS 3.0: Eine einzelne Festplattenpartition (pro Laufwerk) bis zu 32MB.
+ MS-DOS 3.2: Untersttzt zwei Partitionen pro Laufwerk (2 x 32 MB).
+ MS-DOS 3.3: 1 Prim„re & erweiterte Partition mit beliebig vielen 32MB
+             groáen logischen Laufwerken.
+ MS-DOS 4, 5 & 6.x lassen Festplattenpartitionen von bis zu 2GB zu.
+
+.
+:PROGRAM_IMGMAKE_FLREAD
+Plattengeometrie: %d Cylinders, %d Heads, %d Sectors, %d Kilobytes
+
+
+.
+:PROGRAM_IMGMAKE_FLREAD2
+Û =good, ± =good after retries, ! =CRC error, x =sector not found, á =unknown
+
+
+.
+:PROGRAM_IMGMAKE_FILE_EXISTS
+[31;1mFehler beim Erstellen der Datei:[0m
+[37;1m"%s"[0m
+[31;1mist bereits vorhanden. [36;1mHint: Verwende -force zum šberschreiben[0m
+
+.
+:PROGRAM_IMGMAKE_CANNOT_WRITE
+[31;1mDie Datei:[0m
+[37;1m"%s"[0m
+[31;1mkann nicht zum Schreiben ge”ffnet werden.[0m
+
+.
+:PROGRAM_IMGMAKE_NOT_ENOUGH_SPACE
+[31;1mNicht gengend Speicherplatz fr das Abbild verfgbar.[0m
+[33;1mBen”tigt %u bytes.
+[0m
+.
+:PROGRAM_IMGMAKE_PRINT_CHS
+[32;1mErstelle neues Abbild[0m
+         [33;1m[C]ylinders: [36;1m%u[0m
+         [33;1m[H]eads    : [36;1m%u[0m
+         [33;1m[S]ectors  : [36;1m%u[0m
+
+.
+:PROGRAM_IMGMAKE_CANT_READ_FLOPPY
+
+Diskette kann nicht gelesen werden.
+.
+:PROGRAM_IMGMAKE_CREATED
+[32;1mAbbild wurde Erstellt:
+[37;1m"%s"[0m
+
+.
+:PROGRAM_KEYB_INFO
+Die Codeseite %i wurde geladen.
+
+.
+:PROGRAM_KEYB_INFO_LAYOUT
+Die Codeseite %i wurde fr das Layout %s geladen
+
+.
+:PROGRAM_KEYB_SHOWHELP
+[32;1mKEYB[0m [Tastaturlayout-ID[ Codeseiten-Nummer[ Codeseiten-Datei]]]
+
+Einige Beispiele:
+  [32;1mKEYB[0m: Aktuelle Codeseite anzeigen.
+  [32;1mKEYB[0m GR: Deutsches (GR) Layout und zugeh”rige Codeseite laden.
+  [32;1mKEYB[0m GR 850: Deutsches (GR) Layout und Codeseite 850 laden.
+  [32;1mKEYB[0m GR 850 CPAGE.CPI: Wie zuvor, aber die Codeseite wird aus CPAGE.CPI geladen.
+
+.
+:PROGRAM_KEYB_NOERROR
+Das Tastaturlayout %s wurde fr die Codeseite %i geladen.
+
+.
+:PROGRAM_KEYB_FILENOTFOUND
+Ungltiges Tastaturlayout - Datei nicht gefunden: %s
+
+
+.
+:PROGRAM_KEYB_INVALIDFILE
+Ungltiges Tastaturlayout - Datei fehlerhaft: %s
+
+.
+:PROGRAM_KEYB_LAYOUTNOTFOUND
+Kein Tastaturlayout in %s fr Codeseite %i gefunden.
+
+.
+:PROGRAM_KEYB_INVCPFILE
+Fehlerhafte oder fehlende Codeseite fr Tastaturlayout %s.
+
+
+.
+:SHELL_CMD_VOL_DRIVE
+
+ Datentr„ger in Laufwerk %c 
+.
+:SHELL_CMD_VOL_DRIVEERROR
+Das angegebene Laufwerk kann nicht gefunden werden
+
+.
+:SHELL_CMD_VOL_SERIAL
+ Datentr„gernummer: 
+.
+:SHELL_CMD_VOL_SERIAL_NOLABEL
+Hat keine Datentr„gerbezeichnung
+
+.
+:SHELL_CMD_VOL_SERIAL_LABEL
+: %s
+
+.
+:SHELL_ILLEGAL_PATH
+Ungltiger Pfad.
+
+.
+:SHELL_CMD_HELP
+Um die vollst„ndige Liste der Befehle anzuzeigen, benutzen Sie [36mHELP /all[0m.
+Es folgt eine Liste der wichtigsten Befehle:
+
+.
+:SHELL_CMD_ECHO_ON
+ECHO ist eingeschaltet.
+
+.
+:SHELL_CMD_ECHO_OFF
+ECHO ist ausgeschaltet.
+
+.
+:SHELL_ILLEGAL_SWITCH
+Ungltiger Parameter: %s
+
+.
+:SHELL_MISSING_PARAMETER
+Erforderlicher Parameter fehlt.
+
+.
+:SHELL_CMD_CHDIR_ERROR
+Es konnte nicht in das Verzeichnis %s gewechselt werden.
+
+.
+:SHELL_CMD_CHDIR_HINT
+Benutzen Sie [31m%C:[0m, um in ein anderes Laufwerk zu wechseln
+
+.
+:SHELL_CMD_CHDIR_HINT_2
+Der angegebene Verzeichnisname ist l„nger als 8 Zeichen
+und/oder enth„lt Leerzeichen.
+
+.
+:SHELL_CMD_CHDIR_HINT_3
+Sie befinden sich noch auf Laufwerk Z:, um auf ein eingebundenes
+Laufwerk zu wechseln, benutzen Sie den Befehl [31mC:[0m.
+.
+:SHELL_CMD_DATE_HELP
+Zeigt oder „ndert das interne Datum.
+
+.
+:SHELL_CMD_DATE_ERROR
+Das angegebene Datum ist nicht korrekt.
+
+.
+:SHELL_CMD_DATE_DAYS
+3SunMonTueWedThuFriSat
+.
+:SHELL_CMD_DATE_NOW
+Aktuelles Datum:
+.
+:SHELL_CMD_DATE_SETHLP
+Type 'date MM-DD-YYYY' to change.
+
+.
+:SHELL_CMD_DATE_FORMAT
+M/D/Y
+.
+:SHELL_CMD_DATE_HELP_LONG
+DATE [[/T] [/H] [/S] | MM-DD-YYYY]
+  MM-DD-YYYY: neues Datum zu setzen
+  /S:         Dauerhaft Host-Zeit und das Datum als DOS Zeit verwenden
+  /F:         Zurck zur internen DOSBox-Zeit wechseln (Gegenteil von / S)
+  /T:         Nur Datum anzeigen
+  /H:         Mit Host synchronisieren
+
+.
+:SHELL_CMD_TIME_HELP
+Zeigt die interne Zeit an.
+
+.
+:SHELL_CMD_TIME_NOW
+Aktuelle Uhrzeit:
+.
+:SHELL_CMD_TIME_HELP_LONG
+TIME [/T] [/H]
+  /T:         Einfache Zeit anzeigen
+  /H:         Mit Host synchronisieren
+
+.
+:SHELL_CMD_MKDIR_ERROR
+Das Verzeichnis %s kann nicht erstellt werden.
+
+.
+:SHELL_CMD_RMDIR_ERROR
+Das Verzeichnis %s kann nicht gel”scht werden.
+
+.
+:SHELL_CMD_DEL_ERROR
+Die Datei %s kann nicht gel”scht werden.
+
+.
+:SHELL_CMD_DEL_SUCCE
+  - Erledigt: %8s.
+
+.
+:SHELL_CMD_DEL_NOARG
+Fehlende Argumente.
+
+.
+:SHELL_CMD_DEL_WILDFULL
+L”SCHE ALLE DATEIEN.
+
+:SHELL_CMD_DEL_WILDHALF
+L”SCHE ALLE DATEIEN MIT %s
+.
+
+:SHELL_CMD_DEL_CHECK
+Args Len %d - 
+.
+:SHELL_CMD_DEL_SURE
+Sind Sie sicher [Y,N]
+
+.
+:SHELL_SYNTAXERROR
+Ungltige Befehlssyntax.
+
+.
+:SHELL_CMD_SET_NOT_SET
+Die Umgebungsvariable %s ist nicht definiert-
+
+.
+:SHELL_CMD_SET_OUT_OF_SPACE
+Nicht genug Umgebungsspeicher brig.
+
+.
+:SHELL_CMD_IF_EXIST_MISSING_FILENAME
+IF EXIST: Der Dateiname fehlt.
+
+.
+:SHELL_CMD_IF_ERRORLEVEL_MISSING_NUMBER
+IF ERRORLEVEL: Die Bedingung fehlt.
+
+.
+:SHELL_CMD_IF_ERRORLEVEL_INVALID_NUMBER
+IF ERRORLEVEL: Ungltige Zahl.
+
+.
+:SHELL_CMD_GOTO_MISSING_LABEL
+Bei GOTO wurde kein Sprungziel angegeben.
+
+.
+:SHELL_CMD_GOTO_LABEL_NOT_FOUND
+GOTO: Kein gltiges Sprungziel.
+
+.
+:SHELL_CMD_FILE_NOT_FOUND
+Die Datei %s wurde nicht gefunden.
+
+.
+:SHELL_CMD_FILE_EXISTS
+Die Datei %s ist bereits vorhanden.
+
+.
+:SHELL_CMD_DIR_INTRO
+ Verzeichnis von %s
+ 
+
+.
+:SHELL_CMD_DIR_BYTES_USED
+%5d Datei(en) %17s Bytes.
+
+.
+:SHELL_CMD_DIR_BYTES_FREE
+%5d Verzeichnis(se) %17s Byte frei.
+
+.
+:SHELL_EXECUTE_DRIVE_NOT_FOUND
+Ungltige Laufwerksangabe: %c
+Es muss zuerst ein Laufwerk mit [36mMOUNT[0m eingebunden werden.
+Mehr Informationen mit [36mINTRO[0m oder [36mINTRO MOUNT[0m.
+
+.
+:SHELL_EXECUTE_ILLEGAL_COMMAND
+Ungltiger Befehl: %s
+
+.
+:SHELL_CMD_PAUSE
+Eine beliebige Taste drcken, um fortzusetzen.
+
+.
+:SHELL_CMD_PAUSE_HELP
+H„lt die Ausfhrung einer Stapeldatei an und wartet auf Benutzer.
+
+.
+:SHELL_CMD_COPY_FAILURE
+Fehler beim Kopieren: %s
+
+.
+:SHELL_CMD_COPY_SUCCESS
+   %d Datei(en) kopiert
+
+.
+:SHELL_CMD_MOVE_FAILURE
+Fehler beim Verschieben : %s.
+
+.
+:SHELL_CMD_MOVE_SUCCESS
+   %d %d Datei(en) verschoben
+
+.
+:SHELL_CMD_SUBST_NO_REMOVE
+Laufwerk kann nicht entfernt werden, wird nicht verwendet.
+
+.
+:SHELL_CMD_SUBST_FAILURE
+SUBST-Fehler: Entweder haben Sie eine fehklerhafte Eingabe gemacht oder das 
+Ziellaufwerk wird bereits benutzt. SUBST kann nur mit lokalen Laufwerken
+verwendet werden.
+
+.
+:SHELL_STARTUP_BEGIN
+     [44;1mÛÜ Ü..: ° °° °°°°±±±±±±±±±²²Û²²Û²ÛÛßßÛÛ²Û²²Û²±±±±±±±±±°°°° °° °:..Ü ÜÛ[0m
+     [44;1mÛ ş ..                                                             ş Û[0m
+     [44;1mÛ [32mWillkommen bei DOSBox %-8s                   %s[37m Û[0m
+     [44;1m²                                                                    ²[0m
+
+.
+:SHELL_STARTUP_BEGIN_DEFAULT
+     [44;1m² Mit [36mHELP[37m  erhalten Sie eine Liste an Befehlen.                     ²[0m
+     [44;1m² Mit [36mINTRO[37m erhalten Sie eine kleine Einfhrung.                     ²[0m
+     [44;1m²                                                                    ²[0m
+     [44;1m± Mit [36mStrg-F11[37m l„sst sich die Geschwindgkeit                         ±[0m
+     [44;1m± Drosseln und mit [36mStrg-F12[37m erh”hen.                                 ±[0m
+     [44;1m±                                                                    ±[0m
+     [44;1m° Mit [36mStrg-F1[37m starten Sie den Keymapper                              °[0m
+     [44;1m° Eine Anleitung finden Sie in der [36;1mREADME[37m                            °[0m
+     [44;1m:                                                                    :[0m
+
+.
+:SHELL_STARTUP_CGA
+     [44;1m² DOSBox untersttzt den Composite-CGA-Modus.                        ²[0m
+     [44;1m²                                                                    ²[0m
+     [44;1m± Benutze [31mF12[37m um den Composite Ausgang zu „ndern                     ±[0m
+     [44;1m± ON, OFF, oder AUTO (Standard).                                     ±[0m
+     [44;1m°                                                                    °[0m
+     [44;1m: [31mALT+F11[37m „ndert HUE                                                 :[0m
+     [44;1m. [31mSTRG+ALT+F11[37m w„hlt das Frhere/Sp„tere CGA model.                  .[0m
+     [44;1m.                                                                    .[0m
+
+.
+:SHELL_STARTUP_HERC
+     [44;1m² Benutze [31mF11[37m um die Video Farben zu „ndern.                         ²[0m
+     [44;1m² - Zur auswahl stehen Grn, Bernstein, Grau, Papierweiá             ²[0m
+     [44;1m±                                                                    ±[0m
+     [44;1m±  Benutze ALT+F11 den Horizontalen Verschnitt umzuschalten          ±[0m
+     [44;1m° (Nur im aktiven Grafischen Modus)                                  °[0m
+     [44;1m.                                                                    .[0m
+
+.
+:SHELL_STARTUP_PCJR
+     [44;1m² DOSBox untersttzt den PCjr-Modus.                                 ²[0m
+     [44;1m²                                                                    ²[0m
+     [44;1m± Benutze [31mF12[37m um den Composite Ausgang zu „ndern                     ±[0m
+     [44;1m± ON, OFF, oder AUTO (Standard).                                     ±[0m
+     [44;1m°                                                                    °[0m
+     [44;1m: [31mALT+F11[37m „ndert HUE                                                 :[0m
+
+.
+:SHELL_STARTUP_DEBUG
+     [44;1m¯ Um den Debugger zu laden, drcken Sie entweder                     ®[0m
+     [44;1m¯ [36;1mAlt-Pause[37m oder starten Sie die EXE mit [36mDEBUG[37m.                      ®[0m
+     [44;1m²                                                                    ²[0m
+
+.
+:SHELL_STARTUP_END
+     [44;1m.[32m Viel Spaá![37m                                                         .[0m
+     [44;1m.[32m Wnscht das DOSBox-Team: [33mhttp://www.dosbox.com[37m                     .[0m
+
+.
+:SHELL_STARTUP_END_DEFAULT
+     [44;1mş                                                                    ş[0m
+     [44;1mßşÜÛÛ²²²²²²²±±±±±±±±±±±±±±°°°° °:.. ..:° °°°±±±±±±±±±±±±±±²²²²²²²ÛÛÜşß[0m
+
+	 
+.
+:SHELL_STARTUP_SUB
+
+[32;1mDOSBox %s %s Command Shell[0m
+
+
+.
+:SHELL_CMD_CHDIR_HELP
+Zeigt das aktuelle Verzeichnis an oder wechselt dorthin.
+
+.
+:SHELL_CMD_CHDIR_HELP_LONG
+CHDIR [Laufwerk:][Pfad]
+CHDIR [..]
+CD [Laufwerkd:][Pfad]
+CD [..]
+
+  ..   Symbol fr den Wechsel in das bergeordnete Verzeichnis.
+
+CD Laufwerk:   zeigt das aktuelle Verzeichnis auf dem angegebenen Laufwerk.
+CD             zeigt das aktuelle Laufwerk und Verzeichnis.
+
+.
+:SHELL_CMD_CLS_HELP
+L”scht den Bildschirminhalt.
+
+.
+:SHELL_CMD_DIR_HELP
+Listet die Dateien und Unterverzeichnisse eines Verzeichnisses auf.
+
+.
+:SHELL_CMD_DIR_HELP_LONG
+DIR [Laufwerk:][Pfad][Dateiname] [/W] [/S] [/A [Attribute  ]]
+                      [/L] [/LN] [/P] [/B] [/O [Reihenfolge]]
+
+    [Laufwerk:][Pfad][Dateiname]
+             Bezeichnet Laufwerk, Verzeichnis und/oder Dateien.
+
+  /A         Listet Dateien mit angegebenen Attributen auf.
+  Attribute   D Verzeichnisse        R Schreibgeschtzte Dateien
+              H Versteckte Dateien   A Zu archivierende Dateien
+              S Systemdateien        - vorangestellt kehrt die Bedeutung um.
+      
+  /B         Einfaches Format (keine Kopfdaten, keine Zusammenfassung).
+  /L         Verwendet Kleinschreibung.
+  /LN        Verwendet Kleinschreibung. Der Erste Buchstabe bleibt groá.  
+ 
+  /O         Gibt die Liste sortiert aus.
+  Folge       N Name        (alphabetisch)    S Gr”áe (kleinere zuerst)
+              E Erweiterung (alphabetisch)    D Datum/Zeit („ltere zuerst)
+              - vorangestellt kehrt die Reihenfolge um
+			  
+  /P         Pausiert nach jeder vollen Bildschirmseite.
+  /S         Listet Dateien und alle Unterverzeichnisse auf.(Noch nicht!)
+  /W         Verwendet Breitformat fr die Auflistung.
+.
+
+:SHELL_CMD_DIR_HELP_SORT
+    Sortier Modus: Zu wenig Argumente
+
+  /O         Gibt die Liste sortiert aus.
+  Folge       N Name        (alphabetisch)    S Gr”áe (kleinere zuerst)
+              E Erweiterung (alphabetisch)    D Datum/Zeit („ltere zuerst)
+              
+			  - vorangestellt kehrt die Reihenfolge um
+			  
+  Beispiel:  DIR /ON /OD /OE /OS /O-N /O-D /O-E /O-S
+
+.
+:SHELL_CMD_DIR_HELP_SORT_REVERSE
+    Sortier Modus: Zu wenig Argumente fr die umgekehrte Reihenfolge
+
+  /O         Gibt die Liste sortiert aus.
+  Folge       N Name        (Z bis A)         S Gr”áe (kleinere zuerst)
+              E Erweiterung (Z bia A)         D Datum/Zeit („ltere zuerst)
+
+  Beispiel:  DIR /O-N /O-D /O-E /O-S
+
+.
+:SHELL_CMD_DIR_HELP_ATTRIBUTE
+    Attribute: Zu wenig Argumente
+
+  /A         Listet Dateien mit angegebenen Attributen auf.
+  Attribute   D Verzeichnisse        R Schreibgeschtzte Dateien
+              H Versteckte Dateien   A Zu archivierende Dateien
+              S Systemdateien        - vorangestellt kehrt die Bedeutung um.
+			  
+  Beispiel:  DIR /AA /AD /AH /AS /AR /A-A /A-D /A-H /A-S /A-R
+
+.
+:SHELL_CMD_DIR_ILLEGAL_PARAMETER
+Parameter Format %s nicht korrekt 
+
+.
+
+:SHELL_CMD_ECHO_HELP
+Zeigt Meldungen an oder schaltet die Befehlsanzeige ein oder aus.
+
+.
+:SHELL_CMD_EXIT_HELP
+Beendet die DOSBox.
+
+.
+:SHELL_CMD_HELP_HELP
+Zeigt die Hilfe fr DOSBox-Befehle an.
+
+.
+:SHELL_CMD_HELP_HELP_LONG
+HELP [command]
+
+.
+:SHELL_CMD_MKDIR_HELP
+Erstellt ein Verzeichnis.
+
+.
+:SHELL_CMD_MKDIR_HELP_LONG
+MKDIR [Laufwerk:][Pfad]
+MD [Laufwerk:][Pfad]
+
+.
+:SHELL_CMD_RMDIR_HELP
+Entfernt (l”scht) ein Verzeichnis.
+
+.
+:SHELL_CMD_RMDIR_HELP_LONG
+RMDIR [Laufwerk:][Pfad]
+RD [Laufwerk:][Pfad]
+
+.
+:SHELL_CMD_SET_HELP
+Setzt oder entfernt DOS-Umgebungsvariablen oder zeigt sie an.
+
+.
+:SHELL_CMD_SET_HELP_LONG
+SET [variable=[Zeichenfolge]]
+
+   Variable	   Der Name der Umgebungsvariable
+   Zeichenfolge	   Eine Zeichenfolge die der Varibale zugewiesen werden soll.
+
+* Wenn keine Zeichenfolge angegeben wird, wird die Variable aus der Umgebung entfernt.
+
+Der Befehl SET ohne Parameter zeigt die derzeitigen Umgebungsvariablen an
+
+.
+:SHELL_CMD_IF_HELP
+Verarbeitet Ausdrcke mit Bedingungen in einem Stapelverarbeitungsprogramm.
+
+.
+:SHELL_CMD_IF_HELP_LONG
+IF [NOT] ERRORLEVEL Nummer Befehl
+IF [NOT] Zeichenfolge1==Zeichenfolge2 Befehl
+IF [NOT] EXIST Dateiname Befehl
+
+  NOT               Der Befehl soll nur dann ausgefhrt werden, wenn die
+                    Bedingung nicht erfllt ist
+
+  ERRORLEVEL Nummer Diese Bedingung ist erfllt, wenn das zuletzt ausgefhrte
+                    Programm einen Code gr”áer oder gleich Nummer zurckliefert
+                    
+
+  Zeichenfolge1==Zeichenfolge2
+                    Diese Bedingung ist erfllt, falls die Zeichenfolgen
+                    šbereinstimmen.
+
+  EXIST filename    Diese Bedingung ist erfllt, falls die angebene Datei
+                    existiert.
+
+  command           Gibt den Befehl an, der bei erfllter Bedingung ausgefhrt
+                    werden soll. Diesem Befehl kann das Schlsselwort ELSE
+                    folgen. Der Befehl nach dem Wort ELSE wird ausgefhrt, wenn
+                    die angegebene Bedingung nicht erfllt ist (FALSE).
+
+.
+:SHELL_CMD_GOTO_HELP
+Jump to a labeled line in a batch script.
+
+.
+:SHELL_CMD_GOTO_HELP_LONG
+GOTO Marke
+
+  Marke   Eine Zeichenfolge als Marke in einem Batchprogramm.
+
+Marken stehen allein am Zeilenanfang mit einem vorangestellten Doppelpunkt.
+
+.
+:SHELL_CMD_SHIFT_HELP
+Schiebt die Position ersetzbarer Parameter in einer Stapeldatei nach links.
+
+.
+:SHELL_CMD_TYPE_HELP
+Zeigt den Inhalt einer Textdatei an.
+
+.
+:SHELL_CMD_TYPE_HELP_LONG
+TYPE [Laufwerk:][Pfad][Dateiname]
+
+.
+:SHELL_CMD_REM_HELP
+Leitet Kommentare in einer Stapeldatei ein.
+
+.
+:SHELL_CMD_REM_HELP_LONG
+REM [Kommentar]
+
+.
+:SHELL_CMD_NO_WILD
+Dies ist eine einfache Version des Befehls, Platzhalter sind nicht erlaubt!
+
+.
+:SHELL_CMD_RENAME_HELP
+Benennt eine oder mehrere Dateien um.
+
+.
+:SHELL_CMD_RENAME_HELP_LONG
+RENAME [Laufwerk:][Pfad]Dateiname1 Dateiname2.
+REN [Laufwerk:][Pfad]Dateiname1 Dateiname2.
+
+Sie k”nnen kein anderes Laufwerk oder Verzeichnis in Dateiname2 angeben.
+
+.
+:SHELL_CMD_DELETE_HELP
+L”scht eine oder mehrere Dateien.
+
+.
+:SHELL_CMD_DELETE_HELP_LONG
+DEL   [/P] [/Q] Namen
+ERASE [/P] [/Q] Namen
+
+  Namen      Gibt eine Liste von Dateien oder Verzeichnissen an.
+             Platzhalter k”nnen verwendet werden, um mehrere Dateien zu
+             l”schen. Wird ein Verzeichnis angegeben, werden alle Dateien
+             in diesem Verzeichnis gel”scht.
+			 
+  /P         Fordert Sie vor dem L”schen jeder Datei zur Best„tigung auf.
+  /Q         L”scht alle Dateien in allen Unterverzeichnissen.
+
+.
+:SHELL_CMD_COPY_HELP
+Kopiert eine oder mehrere Dateien an eine andere Position.
+
+.
+:SHELL_CMD_COPY_HELP_LONG
+COPY [/B] [/-Y] Quelle[+Quelle[+...]] [Ziel]
+
+  Quelle       Bezeichnet die zu kopierende(n) Datei(en).
+  Ziel         Bezeichnet das Verzeichnis und/oder Dateinamen der neuen
+               Datei(en).
+  /B           Weist auf eine Bin„rdatei hin.
+  /-Y          Fordert beim šberschreiben vorhandener Zieldateien zum
+               Best„tigen auf.
+
+.
+:SHELL_CMD_CALL_HELP
+Ruft eine Stapeldatei von einer anderen aus auf.
+
+.
+:SHELL_CMD_CALL_HELP_LONG
+CALL [Laufwerk:][Pfad]Dateiname [Parameter]
+
+  Parameter          Bezeichnet beliebige Angaben in der Befehlszeile, die von
+                     dem aufgerufenen Batchprogramm ben”tigt werden.
+
+.
+:SHELL_CMD_SUBST_HELP
+Weist einem internen Pfad eine Laufwerksbezeichnung zu.
+
+.
+:SHELL_CMD_LOADHIGH_HELP
+L„dt ein Programm in den hohen Speicherbereich (setzt "xms=true, umb=true" 
+voraus).
+
+.
+:SHELL_CMD_CHOICE_HELP
+Wartet auf das Tippen einer Taste und setzt den ERRORLEVEL.
+
+.
+:SHELL_CMD_CHOICE_HELP_LONG
+CHOICE [/C:Optionen] [/N] [/S] Text
+   /C    Optionen   Bestimmt die zu erstellende Auswahlliste.
+                    Standardliste ist "JN".
+
+   /N               Blendet die Auswahlliste in der Aufforderung aus.
+                    Die Meldung vor der Aufforderung wird dennoch
+                    angezeigt und die Optionen sind aktiviert.
+
+   /S               Aktiviert die Unterscheidung von Groá-/Kleinschreibung
+                    Standardm„áig wird nicht zwischen Groá- und
+                    Kleinschreibung unterschieden.
+
+   Text             Legt fest, welche Meldung vor der Aufforderung
+                    angezeigt wird. Ohne Angabe wird nur die
+                    Aufforderung angezeigt.
+
+Beispiele:
+   CHOICE /á
+   CHOICE /CJNA "Drcken Sie J fr Ja, N fr Nein oder A fr Abbrechen."
+   CHOICE /Cab /N "W„hlen Sie a fr Option 1 und b fr Option 2."
+.
+:SHELL_CMD_ATTRIB_HELP
+Zeigt Dateiattribute an oder „ndert sie.
+
+.
+:SHELL_CMD_ATTRIB_HELP_LONG
+ATTRIB [+R | -R] [+A | -A ] [+S | -S] [+H | -H] [+I | -I]
+       [Laufwerk:][Pfad][Dateiname] [/S [/D] [/L]]
+
+  +   Setzt ein Attribut.
+  -   L”scht ein Attribut.
+  
+  R   Attribut fr 'Schreibgeschtzte Datei'
+  A   Attribut fr 'Zu archivierende Datei'
+  S   Attribut fr 'Systemdatei'
+  H   Attribut fr 'Versteckte Datei'
+  
+  [Laufwerk:][Pfad][Dateiname]
+      Gibt Dateien fr den Attributprozess an.
+
+.
+:SHELL_CMD_PATH_HELP
+Legt den Suchpfad fr ausfhrbare Dateien fest oder zeigt diesen an.
+
+.
+:SHELL_CMD_PATH_HELP_LONG
+PATH [[Laufwerk:]Pfad[;...][;%PATH%]
+PATH ;
+
+Geben Sie "Path ;" ein, um die Sucheinstellung zu l”schen und um IBM DOS
+nur im aktuellen Verzeichnis nach ausfhrbaren Dateien suche zu lassen.
+Der Befehl PATH ohne Parameter zeigt den aktuellen Suchpfad an. 
+
+.
+:SHELL_CMD_VER_HELP
+Zeigt die Nummer der gemeldeten DOS-Version an oder „ndert sie.
+
+.
+:SHELL_CMD_VER_HELP_LONG
+VER
+VER SET [DOS Nummer]
+
+  DOS Nummer   Setzen der DOS Versions Nummer. (e.g. VER 5 1)
+
+Geben Sie VER ohne Parameter ein, um die aktuelle DOS-Version
+anzuzeigen.
+.
+:SHELL_CMD_VERO_HELP
+Zeigt die Version von DOSBox (Optionls) an
+
+.
+:SHELL_CMD_VER_VER
+DOSBox version %s. Reported DOS version %d.%02d.
+
+.
+:SHELL_CMD_ADDKEY_HELP
+Erzeugt knstliche Tastendrcke.
+
+.
+:SHELL_CMD_MOVE_HELP
+Verschiebt Dateien und benennt Dateien und Verzeichnisse um.
+
+.
+:SHELL_CMD_MOVE_HELP_LONG
+MOVE [Laufwerk:][Pfad]Dateiname[,...] Ziel
+
+.
+:SHELL_CMD_VOL_HELP
+Zeigt die Bezeichnung und Seriennummer des Datentr„gers an (falls vorhanden).
+
+.
+:SHELL_CMD_VOL_HELP_LONG
+VOL [Laufwerk]
+
+.
+:SHELL_CMD_PROMPT_NOARG
+Prompt is now default. For prompt help, type 'PROMPT /á'
+
+.
+:SHELL_CMD_PROMPT_HELP
+[32m„ndert die Eingabeaufforderung..[37m 
+
+.
+:SHELL_CMD_PROMPT_HELP_LONG
+[36mPROMPT [text][37m Specifies a text to prompt ( eq: PROMPT mytext )
+[36mPROMPT [code][37m SET PROMPT=[sign,sign,...] ( eq: SET PROMPT=$E[7m$N:$E[m )
+[32mCharacters and the following special codes:[37m
+[36m  $A [37m  & (Kaufm„nnisches Und)
+[36m  $Q [37m  = (Gleichheitszeichen)
+[36m  $$ [37m  $ (Dollarzeichen)
+[36m  $B [37m  | (Verkettungszeichen)
+[36m  $G [37m  > (Gr”áer-als-Zeichen)
+[36m  $L [37m  < (Kleiner-als-Zeichen)
+[36m  $C [37m  ( (Klammer auf)
+[36m  $F [37m  ) (Klammer zu)
+[36m  $S [37m    (Leerzeichen)
+[36m  $T [37m  Aktuelle Uhrzeit
+[36m  $D [37m  Aktuelles Datum
+[36m  $P [37m  Aktuelles Laufwerk & den Pfad
+[36m  $V [37m  Gemeldete DOS Version
+[36m  $Z [37m  DOSBox Version
+[36m  $N [37m  Aktuelles Laufwerk
+[36m  $_ [37m  Wagenrcklauf und Zeilenvorschub
+[36m  $H [37m  Rckschritt (l”scht vorangehendes Zeichen)
+[36m  $E [37m  Escapezeichen (ASCII-Code 27)
+.
+:SHELL_CMD_LABEL_HELP
+Erstellt, „ndert oder l”scht die Bezeichnung eines Volumes.
+
+.
+:SHELL_CMD_LABEL_HELP_LONG
+LABEL [Bezeichnung]
+
+  Bezeichnung     Gibt die Bezeichnung des Volumes an.
+
+.
+:SHELL_CMD_MORE_HELP
+Zeigt Daten seitenweise auf dem Bildschirm an.
+
+.
+:SHELL_CMD_MORE_HELP_LONG
+MORE [Dateiname]
+
+.
+:SHELL_CMD_MOUSECAP_HELP
+Erfassen/Freigeben der Maus [an/aus]
+
+.
+.
+:SHELL_CMD_ATTRIB_SET_DIRECTORY
+  Verzeichnis	%s
+
+.
+:SHELL_CMD_ATTRIB_GET_ERROR
+Attribute k”nnen nicht abgerufen werden: %s.
+
+.
+:SHELL_CMD_ATTRIB_SET_ERROR
+Attribute k”nnen nicht gesetzt werden: %s.
+
+.
+:SHELL_CMD_PAUSE_CONTINUE
+(Setze %s Fort)
+
+.

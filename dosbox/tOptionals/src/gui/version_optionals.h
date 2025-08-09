@@ -20,9 +20,9 @@
  *
  */
 
-#define Revision 4475
+#define Revision 4476
 
-#define YearBuild 2022
+#define YearBuild 2025
 
  /* Build Automatic */
  
@@ -32,7 +32,7 @@
 #define YEARBULD STR(YearBuild)
 #define RCVersion2 "0.74.3." STR(Revision)
 
-#define DOSBOXREVISION "r" STR(Revision) " (Optionals v23)"
+#define DOSBOXREVISION "r" STR(Revision) " (Optionals v25)"
 #define DOSBOXSVERSION "r" STR(Revision)
 
 #define Comment "DOSBox Fork: Optionals, a DOS & Win9X Emulator"

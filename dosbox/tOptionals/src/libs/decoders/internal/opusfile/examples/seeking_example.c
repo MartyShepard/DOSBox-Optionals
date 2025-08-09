@@ -5,10 +5,11 @@
  * GOVERNED BY A BSD-STYLE SOURCE LICENSE INCLUDED WITH THIS SOURCE *
  * IN 'COPYING'. PLEASE READ THESE TERMS BEFORE DISTRIBUTING.       *
  *                                                                  *
- * THE libopusfile SOURCE CODE IS (C) COPYRIGHT 1994-2012           *
- * by the Xiph.Org Foundation and contributors http://www.xiph.org/ *
+ * THE libopusfile SOURCE CODE IS (C) COPYRIGHT 1994-2020           *
+ * by the Xiph.Org Foundation and contributors https://xiph.org/    *
  *                                                                  *
  ********************************************************************/
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif

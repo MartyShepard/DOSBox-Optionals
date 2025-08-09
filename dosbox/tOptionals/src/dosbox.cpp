@@ -431,8 +431,14 @@ static void DOSBOX_RealInit(Section * sec) {
 	DOSBOX_SetLoop(&Normal_Loop);
 	MSG_Init(section);
 
-	MAPPER_AddHandler(DOSBOX_UnlockSpeed, MK_f12, MMOD2,"speedlock","Speedlock");
-	MAPPER_AddHandler(DOSBOX_UnlockSpeed2, MK_f12, MMOD1|MMOD2,"speedlock2","Speedlock2");	
+	/* Wird ins Menu Verankert
+	
+	   Unlock speed Fix (turbo button/fast forward)
+	   MAPPER_AddHandler(DOSBOX_UnlockSpeed, MK_f12, MMOD2,"speedlock","Speedlock"); 
+	
+	   Unlock speed (turbo button/fast forward).\n"	
+	   MAPPER_AddHandler(DOSBOX_UnlockSpeed2, MK_f12, MMOD1|MMOD2,"speedlock2","Speedlock2");	
+	*/
 	std::string cmd_machine;
 	if (control->cmdline->FindString("-machine",cmd_machine,true)){
 		//update value in config (else no matching against suggested values

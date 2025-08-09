@@ -61,7 +61,7 @@ void CLIB_DECL logerror(const char *text, ...) ATTR_PRINTF(1,2);
  * @param   x   The void to process.
  */
 
-#define LOG(x)
+//#define LOG(x)
 #endif
 
 /***************************************************************************

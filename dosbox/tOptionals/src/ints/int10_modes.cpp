@@ -104,6 +104,7 @@ std::string nCurrentVBEMode = "";
  *instead the redefinitions in the next block will apply to allow M_LIN32.
  To use the 24bpp modes here, you must set 'vesa vbe 1.2 modes are 32bpp=false' */
 
+/* 02.08.2025 Mode 0x006 Flag entnommen _EGA_HALF_CLOCK und ausgetauscht mit _EGA_LINE_DOUBLE. Siehe GL-VIEW.exe*/
 
 VideoModeBlock ModeList_VGA[]={
 /* mode  ,type     ,sw  ,sh  ,tw ,th ,cw,ch ,pt,pstart  ,plength,htot,vtot,hde,vde special flags */
@@ -113,7 +114,7 @@ VideoModeBlock ModeList_VGA[]={
 { 0x003  ,M_TEXT   ,720 ,400 ,80 ,25 ,9 ,16 ,8 ,0xB8000 ,0x1000 ,100 ,449 ,80 ,400 ,0	},
 { 0x004  ,M_CGA4   ,320 ,200 ,40 ,25 ,8 ,8  ,1 ,0xB8000 ,0x4000 ,50  ,449 ,40 ,400 ,_EGA_HALF_CLOCK	| _EGA_LINE_DOUBLE},
 { 0x005  ,M_CGA4   ,320 ,200 ,40 ,25 ,8 ,8  ,1 ,0xB8000 ,0x4000 ,50  ,449 ,40 ,400 ,_EGA_HALF_CLOCK	| _EGA_LINE_DOUBLE},
-{ 0x006  ,M_CGA2   ,640 ,200 ,80 ,25 ,8 ,8  ,1 ,0xB8000 ,0x4000 ,100 ,449 ,80 ,400 ,_EGA_HALF_CLOCK},
+{ 0x006  ,M_CGA2   ,320 ,200 ,80 ,25 ,8 ,8  ,1 ,0xB8000 ,0x4000 ,100 ,449 ,80 ,400 ,_EGA_LINE_DOUBLE},
 { 0x007  ,M_TEXT   ,720 ,400 ,80 ,25 ,9 ,16 ,8 ,0xB0000 ,0x1000 ,100 ,449 ,80 ,400 ,0	},
 { 0x00D  ,M_EGA    ,320 ,200 ,40 ,25 ,8 ,8  ,8 ,0xA0000 ,0x2000 ,50  ,449 ,40 ,400 ,_EGA_HALF_CLOCK	| _EGA_LINE_DOUBLE},
 { 0x00E  ,M_EGA    ,640 ,200 ,80 ,25 ,8 ,8  ,4 ,0xA0000 ,0x4000 ,100 ,449 ,80 ,400 ,_EGA_LINE_DOUBLE },
@@ -140,6 +141,7 @@ VideoModeBlock ModeList_VGA[]={
 { 0x070  ,M_LIN16  ,640 ,480 ,80 ,30 ,8 ,16 ,1 ,0xA0000 ,0x10000,100 ,525 ,80 ,480 ,0	}, /* <- Half Life */
 { 0x079  ,M_LIN16  ,640 ,480 ,80 ,30 ,8 ,16 ,1 ,0xA0000 ,0x10000,100 ,525 ,80 ,480 ,0	}, /* <- Die hard Trilogy */
 { 0x07d  ,M_LIN8   ,512 ,384 ,64 ,24 ,8 ,16 ,1 ,0xA0000 ,0x10000,80  ,449 ,64 ,384 ,0	}, /* <- Request by Blood 1 */
+{ 0x07F  ,M_LIN8   ,640 ,480 ,80 ,30 ,8 ,16 ,1 ,0xA0000 ,0x10000,100 ,525 ,80 ,480 ,0	}, /* <- Alias of mode 101 Added 02.08.2025*/
 
 /* [ -------------------------------------------------------------------0x080 -> 0x08F ] */
 { 0x084  ,M_LIN8   ,720 ,480 ,80 ,30 ,8 ,16 ,1 ,0xA0000 ,0x10000,132 ,525 ,106 ,480 ,0	}, /* <- Request by Blood 1 */

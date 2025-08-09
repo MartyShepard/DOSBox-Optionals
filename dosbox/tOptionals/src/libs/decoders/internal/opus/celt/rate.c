@@ -189,7 +189,7 @@ void compute_pulse_cache(CELTMode *m, int LM)
                   /* Offset the number of qtheta bits by log2(N)/2
                       + QTHETA_OFFSET compared to their "fair share" of
                       total/N */
-                  offset = ((m->logN[j]+((LM0+k)<<BITRES))>>1)-QTHETA_OFFSET;
+                  offset = ((m->logN[j]+(opus_int32)((opus_uint32)(LM0+k)<<BITRES))>>1)-QTHETA_OFFSET;
                   /* The number of qtheta bits we'll allocate if the remainder
                       is to be max_bits.
                      The average measured cost for theta is 0.89701 times qb,
@@ -356,6 +356,8 @@ static OPUS_INLINE int interp_bits2pulses(const CELTMode *m, int start, int end,
             else
                depth_threshold = 0;
 #ifdef FUZZING
+            (void)signalBandwidth;
+            (void)depth_threshold;
             if ((rand()&0x1) == 0)
 #else
             if (codedBands<=start+2 || (band_bits > (depth_threshold*band_width<<LM<<BITRES)>>4 && j<=signalBandwidth))
@@ -641,4 +643,3 @@ int clt_compute_allocation(const CELTMode *m, int start, int end, const int *off
    RESTORE_STACK;
    return codedBands;
 }
-

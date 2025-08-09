@@ -4,7 +4,12 @@
  * This code is free software, available under zlib/libpng license.
  * http://www.libpng.org/pub/png/src/libpng-LICENSE.txt
  */
+#if defined(_MSC_VER)
+#include "SDL2/include/SDL.h"
+#else
 #include <SDL.h>
+#endif
+
 #include <png.h>
 
 #define SUCCESS 0

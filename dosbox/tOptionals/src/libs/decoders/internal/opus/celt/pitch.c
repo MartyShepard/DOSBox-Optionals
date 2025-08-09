@@ -161,17 +161,26 @@ void pitch_downsample(celt_sig * OPUS_RESTRICT x[], opus_val16 * OPUS_RESTRICT x
       shift=0;
    if (C==2)
       shift++;
-#endif
    for (i=1;i<len>>1;i++)
-      x_lp[i] = SHR32(HALF32(HALF32(x[0][(2*i-1)]+x[0][(2*i+1)])+x[0][2*i]), shift);
-   x_lp[0] = SHR32(HALF32(HALF32(x[0][1])+x[0][0]), shift);
+      x_lp[i] = SHR32(x[0][(2*i-1)], shift+2) + SHR32(x[0][(2*i+1)], shift+2) + SHR32(x[0][2*i], shift+1);
+   x_lp[0] = SHR32(x[0][1], shift+2) + SHR32(x[0][0], shift+1);
    if (C==2)
    {
       for (i=1;i<len>>1;i++)
-         x_lp[i] += SHR32(HALF32(HALF32(x[1][(2*i-1)]+x[1][(2*i+1)])+x[1][2*i]), shift);
-      x_lp[0] += SHR32(HALF32(HALF32(x[1][1])+x[1][0]), shift);
+         x_lp[i] += SHR32(x[1][(2*i-1)], shift+2) + SHR32(x[1][(2*i+1)], shift+2) + SHR32(x[1][2*i], shift+1);
+      x_lp[0] += SHR32(x[1][1], shift+2) + SHR32(x[1][0], shift+1);
    }
-
+#else
+   for (i=1;i<len>>1;i++)
+      x_lp[i] = .25f*x[0][(2*i-1)] + .25f*x[0][(2*i+1)] + .5f*x[0][2*i];
+   x_lp[0] = .25f*x[0][1] + .5f*x[0][0];
+   if (C==2)
+   {
+      for (i=1;i<len>>1;i++)
+         x_lp[i] += .25f*x[1][(2*i-1)] + .25f*x[1][(2*i+1)] + .5f*x[1][2*i];
+      x_lp[0] += .25f*x[1][1] + .5f*x[1][0];
+   }
+#endif
    _celt_autocorr(x_lp, ac, NULL, 0,
                   4, len>>1, arch);
 
@@ -249,11 +258,20 @@ celt_pitch_xcorr_c(const opus_val16 *_x, const opus_val16 *_y,
    opus_val32 maxcorr=1;
 #endif
    celt_assert(max_pitch>0);
-   celt_sig_assert((((unsigned char *)_x-(unsigned char *)NULL)&3)==0);
+   celt_sig_assert(((size_t)_x&3)==0);
    for (i=0;i<max_pitch-3;i+=4)
    {
       opus_val32 sum[4]={0,0,0,0};
-      xcorr_kernel(_x, _y+i, sum, len, arch);
+#if defined(OPUS_CHECK_ASM) && defined(FIXED_POINT)
+      {
+         opus_val32 sum_c[4]={0,0,0,0};
+         xcorr_kernel_c(_x, _y+i, sum_c, len);
+#endif
+         xcorr_kernel(_x, _y+i, sum, len, arch);
+#if defined(OPUS_CHECK_ASM) && defined(FIXED_POINT)
+         celt_assert(memcmp(sum, sum_c, sizeof(sum)) == 0);
+      }
+#endif
       xcorr[i]=sum[0];
       xcorr[i+1]=sum[1];
       xcorr[i+2]=sum[2];
@@ -418,7 +436,7 @@ static opus_val16 compute_pitch_gain(opus_val32 xy, opus_val32 xx, opus_val32 yy
    den = celt_rsqrt_norm(x2y2);
    g = MULT16_32_Q15(den, xy);
    g = VSHR32(g, (shift>>1)-1);
-   return EXTRACT16(MIN32(g, Q15ONE));
+   return EXTRACT16(MAX32(-Q15ONE, MIN32(g, Q15ONE)));
 }
 #else
 static opus_val16 compute_pitch_gain(opus_val32 xy, opus_val32 xx, opus_val32 yy)

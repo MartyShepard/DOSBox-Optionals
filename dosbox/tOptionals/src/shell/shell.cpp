@@ -368,9 +368,9 @@ void DOS_Shell::Run(void) {
 			case MCH_CGA			:
 				{
 					if (mono_cga) 
-						WriteOut(MSG_Get("SHELL_STARTUP_MODE_CGA_MONO"),nCurrent_Memory,VERSION,DOSBOXREVISION);
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_CGA_MONO"),VERSION,DOSBOXREVISION,nCurrent_Memory);
 					else
-						WriteOut(MSG_Get("SHELL_STARTUP_MODE_CGA_COLR"),nCurrent_Memory,VERSION,DOSBOXREVISION);
+						WriteOut(MSG_Get("SHELL_STARTUP_MODE_CGA_COLR"),VERSION,DOSBOXREVISION,nCurrent_Memory);
 					
 					intrused = true;
 				}
@@ -378,7 +378,7 @@ void DOS_Shell::Run(void) {
 				
 			case MCH_HERC			:
 				{
-					WriteOut(MSG_Get("SHELL_STARTUP_HERCULES"),nCurrent_Memory,VERSION,DOSBOXREVISION);			
+					WriteOut(MSG_Get("SHELL_STARTUP_HERCULES"),VERSION,DOSBOXREVISION,nCurrent_Memory);
 					intrused = true;					
 				}
 				break;
@@ -914,49 +914,53 @@ void SHELL_Init() {
 	);
 	
 	MSG_Add("SHELL_STARTUP_HERCULES",
+		"\t\033[44;1mDOSBox %s %s                                \033[0m\n"
 		"\n"
-		"\n\033[44;1m"
-		"\tHercules with %dmb Maschine Memory, DOSBox %s %s\n"
 		"\n"
-		"\t1982-1987 Hercules Computer Technology, Inc\n\n"
-		"\t\t\033[31;1mF12\033[0m\t: Set Composite Output ON, OFF, or AUTO (default).\n" 
-		"\t\t\033[31;1mALT+F11\033[0m\t: Toggle Horizontal Blending (Graphics mode).\n"
+		"\t1982-1987 Hercules Computer Technology, Inc\n"
+		"\tMemory...: %dmb Maschine Memory\n\n"
+		"\t\033[31;1mCTRL-ALT-F1\033[0m: Select Composite Output [ON<->OFF] (Auto is Default)\n"
+		"\t\033[31;1mCTRL-ALT-F2\033[0m: Toggle Horizontal Blending (Only in Graphics mode)\n"
 		"\n"
 		"\tReady..."
 		"\n"
 		"\n"
-		"\n"		
+		"\n"
 	);
 	
 	MSG_Add("SHELL_STARTUP_MODE_CGA_MONO",
+		"\t\033[44;1mDOSBox %s %s                                \033[0m\n"
 		"\n"
 		"\n"
-		"\tMonocrome CGA with %dmb Maschine Memory, DOSBox %s %s\n"
-		"\n"
-		"\t1981 IBM PC Color/Graphics Monitor Adapter\n\n"
-		"\t\033[31;1m\033[44;1m(ALT-)F11    \033[0m: Change Contrast & Brightness.\n"		
-		"\t\033[31;1m\033[44;1mF11          \033[0m: Cycle Modes (Green, Amber, White & PaperWhite).\n" 
+		"\t 1981 IBM Personal Computer Color-Graphics-Monitor Adapter\n"
+		"\t Display...: Monocrome CGA\n"
+		"\t Memory ...: %dmb Maschine Memory\n\n"
+		"\t\033[31;1m\033[44;1mCTRL-ALT-F1 \033[0m: to Cycle Modes (Green, Amber, White & PaperWhite).\n"
+		"\t\033[31;1m\033[44;1mCTRL-ALT-F2 \033[0m: Change Contrast & Brightness.\n"
 		"\n"
 		"\tReady..."
 		"\n"
 		"\n"
-		"\n"		
-	);	
+		"\n"
+	);
 	
 	MSG_Add("SHELL_STARTUP_MODE_CGA_COLR",
+		"\t\033[44;1mDOSBox %s %s                                \033[0m\n"
 		"\n"
 		"\n"
-		"\tColor CGA with %dmb Maschine Memory, DOSBox %s %s\n"
-		"\n"
-		"\t1981 The IBM Personal Computer Basic Color/Graphics Monitor Adapter\n\n"
-		"\t\033[31;1m\033[41;1mF12         \033[0m: Set Composite Output ON, OFF, or AUTO (default).\n" 
-		"\t\033[31;1m\033[41;1m(ALT-)F11   \033[0m: Changes HUE.\n"
-		"\t\033[31;1m\033[41;1mCTRL-ALT-F11\033[0m: Selects Early/Late CGA Model.\n"
+		"\t 1981 IBM Personal Computer Color-Graphics-Monitor Adapter\n"
+		"\t Display...: Color CGA\n"
+		"\t Memory ...: %dmb Maschine Memory\n\n"
+		"\t\033[33;1m\033[41;1mCTRL-ALT-F1\033[0m: Switch Composite Output [ON<->OFF<->AUTO]\n"
+		"\t             (Auto is default)\n"
+		"\t\033[33;1m\033[41;1mCTRL-F3    \033[0m: Switch Early <-> Late CGA Model\n"
+		"\t\033[33;1m\033[41;1mCTRL-F2    \033[0m: Increase & Changes HUE(+)\n"
+		"\t\033[33;1m\033[41;1mCTRL-ALT-F2\033[0m: Decrease & Changes HUE(-)\n"
 		"\n"
 		"\tReady..."
 		"\n"
 		"\n"
-		"\n"		
+		"\n"
 	);	
 	
 	MSG_Add("SHELL_STARTUP_TANDY",
@@ -968,8 +972,8 @@ void SHELL_Init() {
 		"\t          IBM PC Compatible Home Computer.\n"
 		"\n"
 		"\n"
-		"\n"				
-	);	
+		"\n"
+	);
 		
 	MSG_Add("SHELL_STARTUP_MODE_PCJR",
 		" \033[44;1m\t\t\t\t\t\t\t\t\t       \033[0m\n"
@@ -986,10 +990,9 @@ void SHELL_Init() {
 		" \033[44;1m  \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF  \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF  \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF     \xDF\xDF\xDF\xDF     \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF  \033[0m\n"
 		" \033[44;1m  \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF  \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF    \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF      \xDF\xDF      \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF  \033[0m\n"
 		" \033[44;1m  \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF  \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF      \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF              \xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF\xDF  \033[0m\n"
+		" \033[44;1m  \033[31mCTRL-ALT-F1\033[37m: Select Composite Output [ON|OFF|AUTO]  \033[44;1m \033[31mCTRL-F2\033[37m: Changes HUE(+)\033[0m\n"
+		" \033[44;1m\t\t\t\t\t            \033[31mCTRL-ALT-F2\033[37m: Changes HUE(-)\033[0m\n"
 		" \033[44;1m\t\t\t\t\t\t\t\t\t       \033[0m\n"
-		" \033[44;1m  \033[31mF12\033[37m: Set Composite Output ON, OFF, or AUTO.  \033[31mAlt-F11\033[37m: Changes HUE.          \033[0m\n"
-		" \033[44;1m\t\t\t\t\t\t\t\t\t       \033[0m\n"		
-		"\n"
 		"\n"
 	);
 	MSG_Add("SHELL_STARTUP_MODE_PCJR_COLOR_MEM",		
@@ -1031,17 +1034,16 @@ void SHELL_Init() {
 	);
 		
 		/*
-
 		Color Table:
-			Color	| Forground	| Background
-			Black	| \033[30m 	| \033[40;1m (Alt \033[0m)			
-			Red		| \033[31m	| \033[41;1m
-			Green	| \033[32m	| \033[42;1m	
+			Color		| Forground	| Background
+			Black		| \033[30m 	| \033[40;1m (Alt \033[0m)			
+			Red			| \033[31m	| \033[41;1m
+			Green		| \033[32m	| \033[42;1m
 			Yellow	| \033[33m	| \033[43;1m
-			Blue	| \033[34m	| \033[44;1m
+			Blue		| \033[34m	| \033[44;1m
 			Magenta | \033[35m	| \033[45;1m
-			Cyan	| \033[36m	| \033[46;1m
-			White	| \033[37m	| \033[47;1m	
+			Cyan		| \033[36m	| \033[46;1m
+			White		| \033[37m	| \033[47;1m
 		*/
 		
 	MSG_Add("SHELL_STARTUP_MODE_EGA",
@@ -1131,27 +1133,28 @@ void SHELL_Init() {
 	if (!mono_cga) {
 		MSG_Add("SHELL_STARTUP_CGA",
 		"\xBA DOSBox supports Composite CGA mode.                                \xBA\n"
-	    "\xBA Use \033[31mF12\033[37m to set composite output ON, OFF, or AUTO (default).        \xBA\n"
-		"\xBA \033[31m(Alt-)F11\033[37m changes hue; \033[31mctrl-alt-F11\033[37m selects early/late CGA model.  \xBA\n"
+	  "\xBA Use \033[31mCtrl-Alt-F1\033[37m to set composite output ON, OFF, or AUTO (default).        \xBA\n"
+		"\xBA \033[31mCtrl-Alt-F2 & Ctrl-Alt-F3\033[37m changes hue; \033[31mCtrl-Alt-F4\033[37m selects early/late CGA model.  \xBA\n"
 		"\xBA                                                                    \xBA\n"
 		);
 	} else {
 		MSG_Add("SHELL_STARTUP_CGA",
-		"\xBA Use \033[31mF11\033[37m to cycle through green, amber, white and paper-white mode, \xBA\n"
-		"\xBA and \033[31mAlt-F11\033[37m to change contrast/brightness settings.                \xBA\n"
+		"\xBA and \033[31mCtrl-Alt-F2\033[37m to change contrast/brightness settings.\xBA\n"
+		"\xBA Use \033[31mCtrl-Alt-F1\033[37m to cycle through green, amber, white and paper-white mode,\xBA\n"
+
 		);
 	}
 	MSG_Add("SHELL_STARTUP_HERC",
-		"\xBA Use \033[31mF11\033[37m to cycle through green, amber, grey and paper-white mode.  \xBA\n"
+		"\xBA Use \033[31mCtrl-Alt-F1\033[37m to cycle through green, amber, grey and paper-white mode.  \xBA\n"
 	    "\xBA                                                                    \xBA\n"
-		"\xBA Use alt-F11 to toggle horizontal blending (only in graphics mode). \xBA\n"		
+		"\xBA Use Ctrl-Alt-F2 to toggle horizontal blending (only in graphics mode). \xBA\n"		
 	    "\xBA                                                                    \xBA\n"			
 	);
 	MSG_Add("SHELL_STARTUP_PCJR","\xBA DOSBox supports Composite PCjr mode.                               \xBA\n"
-	        "\xBA Use \033[31mF12\033[37m to set composite output ON, OFF, or AUTO (default).        \xBA\n"
-	        "\xBA \033[31m(Alt-)F11\033[37m changes hue.                                             \xBA\n"
+	        "\xBA Use \033[31mCtrl-Alt-F1\033[37m to set composite output ON, OFF, or AUTO (default).        \xBA\n"
+	        "\xBA \033[31mCtrl-F2 & Ctrl-Alt-F2\033[37m changes hue.                                             \xBA\n"
 	        "\xBA                                                                    \xBA\n"
-	);	
+	);			
 	MSG_Add("SHELL_STARTUP_DEBUG",
 	        "\xBA Press \033[31malt-Pause\033[37m to enter the debugger or start the exe with \033[33mDEBUG\033[37m. \xBA\n"
 	        "\xBA                                                                    \xBA\n"

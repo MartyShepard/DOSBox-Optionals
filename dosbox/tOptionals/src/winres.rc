@@ -1,6 +1,6 @@
 
 #include "winresrc.h"
-#include "./gui/version.h"
+#include "./gui/version_optionals.h"
 
 // icon resource
 dosbox_ico ICON "dosbox.ico"
@@ -25,7 +25,7 @@ BEGIN
             VALUE "FileDescription",	FileDescription
             VALUE "FileVersion", 		RCVersion2
             VALUE "InternalName", 		"DOSBox Optionals"
-            VALUE "LegalCopyright", 	"Copyright © 2002-2019 DOSBox Team"
+            VALUE "LegalCopyright", 	"Copyright © 2002-2020 DOSBox Team"
             VALUE "OriginalFilename",	"dosbox.exe"
             VALUE "ProductName", 		FileDescription
             VALUE "ProductVersion", 	RCVersion2
