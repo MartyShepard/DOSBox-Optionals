@@ -1380,17 +1380,21 @@ static SDL_Window * GFX_SetupWindowScaled(SCREEN_TYPES screenType)
 		fixedWidth = sdl.desktop.window.width;
 		fixedHeight = sdl.desktop.window.height;
 	}
-	 LOG_MSG("SDL : fixedWidth = %d",sdl.desktop.window.width);
-	 LOG_MSG("SDL : fixedHeight = %d",sdl.desktop.window.height);	//1024
+	
+	LOG_MSG("=============================================");	
+	LOG_MSG("SDL : Fixed Width    = %d",sdl.desktop.window.width);
+	LOG_MSG("SDL : Fixed Height   = %d",sdl.desktop.window.height);	//1024
 	
 	
 	if (fixedWidth && fixedHeight) {
 		
-		 LOG_MSG("SDL : sdl.draw.width = %d",sdl.draw.width);
-		 LOG_MSG("SDL : sdl.draw.height = %d",sdl.draw.height);		
+		LOG_MSG("SDL : SDL Draw Width  = %d",sdl.draw.width);
+		LOG_MSG("SDL : SDL Draw Height = %d",sdl.draw.height);
+		LOG_MSG("=============================================");		
+		 /*
 		 LOG_MSG("SDL : sdl.draw.scalex = %d",sdl.draw.scalex);
 		 LOG_MSG("SDL : sdl.draw.scaley = %d",sdl.draw.scaley);
-		
+		 */
 		double ratio_w=(double)fixedWidth/(sdl.draw.width*sdl.draw.scalex);
 		double ratio_h=(double)fixedHeight/(sdl.draw.height*sdl.draw.scaley);
 		if ( ratio_w < ratio_h) {
@@ -1428,10 +1432,10 @@ static SDL_Window * GFX_SetupWindowScaled(SCREEN_TYPES screenType)
 		if (sdl.window && SDL_GetWindowFlags(sdl.window) & SDL_WINDOW_FULLSCREEN) {
 			int windowWidth;
 			SDL_GetWindowSize(sdl.window, &windowWidth, NULL);
-			
+		 /*
 		 LOG_MSG("SDL : sdl.clip.x = %d",sdl.clip.x);
 		 LOG_MSG("SDL : sdl.clip.y = %d",sdl.clip.y);
-		
+		 */
 			sdl.clip.x=(Sint16)((windowWidth-sdl.clip.w)/2);
 			sdl.clip.y=(Sint16)((fixedHeight-sdl.clip.h)/2);
 		} else {
@@ -1810,6 +1814,7 @@ dosurface:
 			glDeleteShader(fragmentShader);
 		}
 
+		 /*
 		 LOG_MSG("=============================================");		
 		 LOG_MSG("sdl.clip.x: %d",sdl.clip.x);
 		 LOG_MSG("windowHeight: %d",windowHeight);		
@@ -1818,7 +1823,7 @@ dosurface:
 		 LOG_MSG("sdl.clip.w: %d",sdl.clip.w);	
 		 LOG_MSG("windowHeight: %d",windowHeight-(sdl.clip.y+sdl.clip.h),sdl.clip.w,sdl.clip.h);
 		 LOG_MSG("=============================================");		
-		
+		 */
 		glViewport(sdl.clip.x,windowHeight-(sdl.clip.y+sdl.clip.h),sdl.clip.w,sdl.clip.h);
 
 
@@ -3205,7 +3210,7 @@ void Config_Add_SDL() {
 	Pstring = sdl_sec->Add_string("gl.shpath",Property::Changeable::Always,".\\DATA\\SHADERS");	
 	Pstring->Set_help("================================================================================================\n"
 	                  "Set Shader Path");	
-	Pstring = sdl_sec->Add_string("gl.shader",Property::Changeable::Always,"crt-lottes_mod");	
+	Pstring = sdl_sec->Add_string("gl.shader",Property::Changeable::Always,"crt-lottes_woBogen");	
 	Pstring->Set_help("================================================================================================\n"
 	                  "What set of GLSL shaders to use with an OpenGL output. Keep empty if this is not desired. Note\n"
 	                  "that in case it is used, the respective shader files must be found in the \"shaders\" subdirectory\n"

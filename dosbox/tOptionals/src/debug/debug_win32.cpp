@@ -125,7 +125,7 @@ static void ResizeConsole( HANDLE hConsole, SHORT x, SHORT y, SHORT xSize, SHORT
 void WIN32_Console() {
 	AllocConsole();
 	SetConsoleTitle("DOSBox Debugger");
-	ResizeConsole(GetStdHandle(STD_OUTPUT_HANDLE),  0,  0,  100, 150);
+	ResizeConsole(GetStdHandle(STD_OUTPUT_HANDLE),  0,  0,  80, 150);
 	SetWindowPos(GetConsoleHwnd(), HWND_TOPMOST, 1, 1, 0, 0, SWP_NOZORDER);
 	HWND hWnd = GetConsoleWindow();
 	SetWindowLong(hWnd, GWL_STYLE, GetWindowLong(hWnd, GWL_STYLE) &

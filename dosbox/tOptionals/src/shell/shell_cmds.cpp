@@ -63,7 +63,7 @@ static SHELL_Cmd cmd_list[]={
 {	"MKDIR",	1,			&DOS_Shell::CMD_MKDIR,		"SHELL_CMD_MKDIR_HELP"},
 {	"MORE",	    1,			&DOS_Shell::CMD_MORE,		"SHELL_CMD_MORE_HELP"},
 {	"MOVE",	    1,			&DOS_Shell::CMD_MOVE,		"SHELL_CMD_MOVE_HELP"},
-{   "MOUSECAP", 0,          &DOS_Shell::CMD_MOUSECAP,   "SHELL_CMD_MOUSECAP_HELP"},
+{ "MOUSECAP", 0,          &DOS_Shell::CMD_MOUSECAP,   "SHELL_CMD_MOUSECAP_HELP"},
 {	"PATH",		1,			&DOS_Shell::CMD_PATH,		"SHELL_CMD_PATH_HELP"},
 {	"PAUSE",	1,			&DOS_Shell::CMD_PAUSE,		"SHELL_CMD_PAUSE_HELP"},
 {	"PROMPT",	0,			&DOS_Shell::CMD_PROMPT,		"SHELL_CMD_PROMPT_HELP"},

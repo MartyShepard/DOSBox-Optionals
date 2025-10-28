@@ -3903,20 +3903,23 @@ public:
 							delete imgDisks[ct];
 						}
 						return;
-					}else
+					}
+					/*
+					else
 					{
 							DriveManager::AppendDisk(drive - 'A', imgDisks[i]);
 							DriveManager::InitializeDrive(drive - 'A');
 					}
+					*/
 				}
 
 				// Update DriveManager
-				//for(ct = 0; ct < imgDisks.size(); ct++) {
-				//	DriveManager::AppendDisk(drive - 'A', imgDisks[ct]);
-				//}
-				//DriveManager::InitializeDrive(drive - 'A');
+				for(ct = 0; ct < imgDisks.size(); ct++) {
+					DriveManager::AppendDisk(drive - 'A', imgDisks[ct]);
+				}
+				DriveManager::InitializeDrive(drive - 'A');
 
-				// Set the correct media byte in the table 
+				/* Set the correct media byte in the table */
 				mem_writeb(Real2Phys(dos.tables.mediaid) + (drive - 'A') * 9, mediaid);
 
 				/* Command uses dta so set it to our internal dta */
@@ -3930,7 +3933,7 @@ public:
 					DOS_FindFirst(root, DOS_ATTR_VOLUME); // force obtaining the label and saving it in dirCache
 				}
 				dos.dta(save_dta);
-				DriveManager::InitializeDrive(drive - 'A');
+				/* DriveManager::InitializeDrive(drive - 'A');*/
 				
 				// Multiple Imagemount ======================================================== BEGIN
 				std::string lfw(paths[0]);

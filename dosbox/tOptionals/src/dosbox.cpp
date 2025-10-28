@@ -2281,7 +2281,7 @@ void DOSBOX_Init(void) {
 	Pstring->Set_values(ems_settings);
 	Pstring->Set_help(      "================================================================================================\n"
 	                        "Enable EMS support. The default (=true) provides the best compatibility but certain applications\n"
-		                    "may run better with other choices, or require EMS support to be disabled (=false) to work at all.\n");
+	                        "may run better with other choices, or require EMS support to be disabled (=false) to work at all.\n");
 
 	Pbool = secprop->Add_bool("umb",Property::Changeable::WhenIdle,true);
 	Pbool->Set_help(        "================================================================================================\n"
@@ -2293,11 +2293,11 @@ void DOSBOX_Init(void) {
 	
 	Pint = secprop->Add_int("major", Property::Changeable::OnlyAtStart, 5);
 	Pint->Set_help("================================================================================================\n"
-		"Dos major Version (Default: 5)");
+	                        "Dos major Version (Default: 5)");
 
 	Pint = secprop->Add_int("minor", Property::Changeable::OnlyAtStart, 0);
 	Pint->Set_help("================================================================================================\n"
-		"Dos minor Version (Default: 0)");
+	                        "Dos minor Version (Default: 0)");
 
 	const char* ldz_settings[] = { "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s",
 	                               "t", "u", "v", "w", "x", "y", "z", 0};
@@ -2314,8 +2314,8 @@ void DOSBOX_Init(void) {
 	Pbool = secprop->Add_bool("Disable_DOS4GW",Property::Changeable::WhenIdle,false);
 	Pbool->Set_help(        "================================================================================================\n"
 	                        "Disable DOS/4GW Version 2.01a on Drive Z:\n"
-							"You can Unbind an old DOS/4GW e.q 1.97 from the Executbale by usinf the command DOS4GU.exe. Yes,\n"
-							"I have this renamed. Use a newer DOS/4GW speed up your Games. Example? Terminator: FS Skynet");
+	                        "You can Unbind an old DOS/4GW e.q 1.97 from the Executbale by usinf the command DOS4GU.exe. Yes,\n"
+	                        "I have this renamed. Use a newer DOS/4GW speed up your Games. Example? Terminator: FS Skynet");
 
 	Pbool = secprop->Add_bool("Disable_DOS32A",Property::Changeable::WhenIdle,false);
 	Pbool->Set_help(        "================================================================================================\n"
@@ -2323,12 +2323,50 @@ void DOSBOX_Init(void) {
 
 	Pbool = secprop->Add_bool("Disable_CWSDPMI",Property::Changeable::WhenIdle,false);
 	Pbool->Set_help(        "================================================================================================\n"
-	                        "Disable the CWSDPMI on Drive Z: (For compatibility)");	
+	                        "Disable the CWSDPMI7 on Drive Z: (For compatibility)");	
+													
+	Pbool = secprop->Add_bool("Disable_CWSDPMI7NV",Property::Changeable::WhenIdle,true);
+	Pbool->Set_help(        "================================================================================================\n"
+	                        "Enable/ Disable the CWSDPMI7 on Drive Z: (For compatibility)\n"
+													"This NOVCPI build was made by RayeR to disable usage of VCPI memory and prefer XMS because amount\n"
+													"of VCPI memory is quite limited to 32MB with EMM386 and 128MB with JEMM386.");														
 
 	Pbool = secprop->Add_bool("DOS4GW_As_DOS32",Property::Changeable::WhenIdle,false);
 	Pbool->Set_help(        "================================================================================================\n"
 	                        "Use DOS32A Extender 9.12 instead of DOS4GW 2.01 (e.q. as Benchmark and Compare)");							
+
+	Pbool = secprop->Add_bool("Disable_ARC_ARJ",Property::Changeable::WhenIdle,false);
+	Pbool->Set_help(        "================================================================================================\n"
+	                        "Enable/Disable ARJ 2.41a (1993-06-10)");			
 	
+	Pbool = secprop->Add_bool("Disable_ARC_PKZ",Property::Changeable::WhenIdle,false);
+	Pbool->Set_help(        "================================================================================================\n"
+	                        "Enable/Disable PKUNZIP Fast! 2.04G (1993-01-02)");
+													
+	Pbool = secprop->Add_bool("Disable_ARC_UNZ",Property::Changeable::WhenIdle,false);
+	Pbool->Set_help(        "================================================================================================\n"
+	                        "Enable/Disable UNZIP 5.50 (2002-02-17)");														
+		
+	Pbool = secprop->Add_bool("Disable_VID_S3VBE20",Property::Changeable::WhenIdle,false);
+	Pbool->Set_help(        "================================================================================================\n"
+	                        "Enable/Disable S3 VBE/Core 2.0 Version 3.18 Installs a VESA VBE/Core 2.0 for S3 graphics cards\n"
+	                        "with a VESA VBE 1.2. Type S3SPDUP /? for a help screen.");				
+
+	Pbool = secprop->Add_bool("Disable_VID_S3SPDUP",Property::Changeable::WhenIdle,false);
+	Pbool->Set_help(        "================================================================================================\n"
+	                        "Enable/Disable S3 Speed Up Version 3.11 is a TSR program, which can speed up most banked VESA\n"
+	                        "modes (no text or 4 bits/pixel modes) and VGA mode 13h (320x200x256) on S3 graphics cards.\n"
+													"S3 Speed Up requires S3 VBE/Core 2.0. (VID_S3VBE20=false). Type S3SPDUP /? for a help screen.");						
+
+	Pbool = secprop->Add_bool("Disable_CPU_486CACHE",Property::Changeable::WhenIdle,false);
+	Pbool->Set_help(        "================================================================================================\n"
+	                        "Enable/Disable this program to allow you to turn the 80486's (and above) internal cache on and\n"
+	                        "off. Usually your cache should be left enabled, but some software may not work with caching\n"
+													"enabled. In particular, Sierra and Dynamix games will not work correctly with the CMS Sound\n"
+													"Blaster if caching is enabled. Also, you can disable the cache to slow down programs that run\n"
+													"too fast on a 486. Origin's Wing Commander is a good candidate for this, especially if you have\n"
+													"a fast video board. Syntax: 486CACHE /E[nabled] /D[isabled] /H[elp]" );		
+				
 	// Mscdex
 	secprop->AddInitFunction(&MSCDEX_Init);
 	secprop->AddInitFunction(&DRIVES_Init);
@@ -2353,19 +2391,19 @@ void DOSBOX_Init(void) {
 	Pint = secprop->Add_int("nicirq", Property::Changeable::WhenIdle, 6);
 	Pint->Set_help(        "================================================================================================\n"
 	                        "The interrupt it uses. Note serial2 uses IRQ3 as default and remember IRQ 10 use IDE on more as\n"
-							"3 Interfaces");		
+	                        "3 Interfaces");		
 
 	Pstring = secprop->Add_string("macaddr", Property::Changeable::WhenIdle,"AC:DE:48:88:99:AA");	
 	Pstring->Set_help(      "================================================================================================\n"
 	                        "The physical address the emulator will use on your network. If you have multiple DOSBoxes running\n"
-							"on your network this has to be changed for each. AC:DE:48 is an address range reserved for private\n"
+	                        "on your network this has to be changed for each. AC:DE:48 is an address range reserved for private\n"
                             "use, so modify the last three number blocks I.e. AC:DE:48:88:99:AB.");	
 	
 	Pstring = secprop->Add_string("realnic", Property::Changeable::WhenIdle,"list");
 	Pstring->Set_help(      "================================================================================================\n"
 	                        "Specifies which of your network interfaces is used. Write \'list\' here to see the list of devices\n"
-                            "in the log File. Then make your choice and put either the interface number (2 or something) or\n"
-                            "a part of your adapters name, e.g. VIA here.");		
+	                        "in the log File. Then make your choice and put either the interface number (2 or something) or\n"
+	                        "a part of your adapters name, e.g. VIA here.");		
 #endif // C_NE2000
 
 	/* ReelMagic Emulator -- where is the right place to put this? probably after mixer...
