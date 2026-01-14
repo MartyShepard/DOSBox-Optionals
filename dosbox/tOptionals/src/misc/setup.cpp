@@ -929,12 +929,12 @@ inline bool FileExists (const std::string& name) {
 
 std::string sGetFileName(std::string filename)
 {
-	if ( strlen( filename.c_str() ) != 0){
-
+	if ( strlen( filename.c_str() ) != 0)	
+	{
 		filename = filename.substr(filename.find_last_of("/\\") + 1);
 		return filename;
 	}
-	
+	return "";
 }
 
 std::string sCurrentWorkingPath()
@@ -961,26 +961,32 @@ std::string getDosboxConfig()
 		/*
 			Get Dosbox.conf from Current .\
 		*/
-	if ( FileExists(aDirectory.c_str())){
-		return aDirectory;				
-		
-	}else{		
+	if ( FileExists(aDirectory.c_str()))
+	{
+		return aDirectory;						
+	}
+	else
+	{		
 		/*
 			Get Dosbox.conf from Current .\DATA\
 		*/			
 		bDirectory = sCurrentWorkingPath() + "\\DATA\\";			
 		bDirectory += sConfigFile;
 			
-		if ( FileExists(bDirectory.c_str())){
-			return bDirectory;	
-			
-		}else{
+		if ( FileExists(bDirectory.c_str()))
+		{
+			return bDirectory;				
+		}
+		else
+		{
 		
 			LOG_MSG("CONFIG: Could'nt save value to:\n"
 					"        %s\n"
 					"        %s\n",aDirectory.c_str(), bDirectory.c_str() );				
 		}	
-	}		
+	}
+
+	return "";
 }
 
 /*

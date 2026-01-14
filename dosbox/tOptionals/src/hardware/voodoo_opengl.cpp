@@ -2727,7 +2727,7 @@ INLINE GLenum Voodoo_OGL_Buffer_GetType(void)
 }
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-INLINE bool Voodoo_OGL_Buffer_GetColor(UINT32 PixelData, int Buffer, int Side)
+static INLINE bool Voodoo_OGL_Buffer_GetColor(UINT32 PixelData, int Buffer, int Side)
 {
 
 	int a = static_cast<int>(RGB_ALPHA(PixelData)); /* Alpha */
@@ -2792,7 +2792,7 @@ INLINE bool Voodoo_OGL_Buffer_GetColor(UINT32 PixelData, int Buffer, int Side)
 	return true;
 }
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-INLINE UINT32* Voodoo_OGL_Read_GlPix(GLint X, GLint Y, GLsizei Width, GLsizei Height, GLenum Format, GLenum Type, int Side, int Place, UINT32* data) {
+static INLINE Voodoo_OGL_Read_GlPix(GLint X, GLint Y, GLsizei Width, GLsizei Height, GLenum Format, GLenum Type, int Side, int Place, UINT32* data) {
 
 	if ((Side == 1) && (Place == 0))
 	{
@@ -2836,11 +2836,15 @@ INLINE UINT32* Voodoo_OGL_Read_GlPix(GLint X, GLint Y, GLsizei Width, GLsizei He
 		glReadPixels(X, Y, Width, Height, Format, Type, &data);
 		//LOG(LOG_FXOGL, LOG_NORMAL)("glReadPixels (2) [x=%d]", X);
 	}
+	return 0;
 };
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/
-INLINE UINT32* Voodoo_OGL_Read_Clear(UINT32* nMemory) {
-	if (nMemory != NULL)free(nMemory);
+static INLINE Voodoo_OGL_Read_Clear(UINT32* nMemory) {
+	if (nMemory != NULL)
+		free(nMemory);
+
+	return 0;
 };
 
 /*///////////////////////////////////////////////////////////////////////////////////////////////////////////////////*/

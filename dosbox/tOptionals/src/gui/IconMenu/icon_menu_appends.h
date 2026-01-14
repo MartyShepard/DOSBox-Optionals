@@ -191,7 +191,8 @@
 		::AppendMenu(hSubWinRes	, MF_STRING			, ICNMNU_WIN1280X768	, ("\t1280x768"		));	
 		::AppendMenu(hSubWinRes	, MF_STRING			, ICNMNU_WIN1280X800	, ("\t1280x800"		));			
 		::AppendMenu(hSubWinRes	, MF_STRING			, ICNMNU_WIN1280X960	, ("\t1280x960"		));
-		::AppendMenu(hSubWinRes	, MF_STRING			, ICNMNU_WIN1280X1024	, ("\t1280x1024"	));	
+		::AppendMenu(hSubWinRes	, MF_STRING			, ICNMNU_WIN1280X1024	, ("\t1280x1024"	));
+		::AppendMenu(hSubWinRes	, MF_STRING			, ICNMNU_WIN1280X1080	, ("\t1280x1080"	));	
 		::AppendMenu(hSubWinRes	, MF_STRING			, ICNMNU_WIN1360X768	, ("\t1360x768"		));	
 		::AppendMenu(hSubWinRes	, MF_STRING			, ICNMNU_WIN1366X768	, ("\t1366x768"		));	
 		::AppendMenu(hSubWinRes	, MF_STRING			, ICNMNU_WIN1440X900	, ("\t1440x900"		));	
@@ -222,6 +223,7 @@
 		::AppendMenu(hSubFllRes	, MF_STRING			, ICNMNU_FUL1280X800	, ("\t1280x800"		));			
 		::AppendMenu(hSubFllRes	, MF_STRING			, ICNMNU_FUL1280X960	, ("\t1280x960"		));
 		::AppendMenu(hSubFllRes	, MF_STRING			, ICNMNU_FUL1280X1024	, ("\t1280x1024"	));	
+		::AppendMenu(hSubWinRes	, MF_STRING			, ICNMNU_FUL1280X1080	, ("\t1280x1080"	));	
 		::AppendMenu(hSubFllRes	, MF_STRING			, ICNMNU_FUL1360X768	, ("\t1360x768"		));	
 		::AppendMenu(hSubFllRes	, MF_STRING			, ICNMNU_FUL1366X768	, ("\t1366x768"		));	
 		::AppendMenu(hSubFllRes	, MF_STRING			, ICNMNU_FUL1440X900	, ("\t1440x900"		));

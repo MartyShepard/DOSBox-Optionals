@@ -45,6 +45,9 @@ typedef struct {
    int custom_decode;
    int encoder_bit_depth;
    int decoder_bit_depth;
+#ifdef ENABLE_QEXT
+   int qext;
+#endif
 } TestCustomParams;
 
 void* generate_sine_sweep(double amplitude, int bit_depth, int sample_rate, int channels, int use_float, double duration_seconds, int* num_samples_out) {
@@ -470,7 +473,15 @@ void test_opus_custom(const int num_encoders, const int num_setting_changes) {
    TestCustomParams params = {0};
 
    /* Parameters to fuzz. Some values are duplicated to increase their probability of being tested. */
-   int sampling_rates[5] = { 8000, 12000, 16000, 24000, 48000 };
+   int sampling_rates[] = {
+#ifdef CUSTOM_MODEES
+         8000, 12000, 16000, 24000,
+#endif
+         48000,
+#ifdef ENABLE_QEXT
+         96000
+#endif
+         };
    int channels[2] = { 1, 2 };
    int bitrates[10] = { 6000, 12000, 16000, 24000, 32000, 48000, 64000, 96000, 510000, OPUS_BITRATE_MAX };
    int use_vbr[3] = { 0, 1, 1 };
@@ -493,8 +504,8 @@ void test_opus_custom(const int num_encoders, const int num_setting_changes) {
       params.sample_rate = RAND_SAMPLE(sampling_rates);
       params.custom_encode = 1;
       params.custom_decode = 1;
-      /* Can only mix and match Opus and OpusCustom with 48kHz */
-      if (params.sample_rate == 48000) {
+      /* Can only mix and match Opus and OpusCustom with 48kHz (and optionally 96 kHz). */
+      if (params.sample_rate == 48000 || params.sample_rate == 96000) {
          params.custom_encode = RAND_SAMPLE(use_custom_encode);
          params.custom_decode = RAND_SAMPLE(use_custom_decode);
 
@@ -596,6 +607,9 @@ void test_opus_custom(const int num_encoders, const int num_setting_changes) {
          params.float_decode = params.float_encode;
          params.decoder_bit_depth = params.encoder_bit_depth;
 #endif
+#ifdef ENABLE_QEXT
+         params.qext = fast_rand()&1;
+#endif
 
          if (params.custom_encode) {
             if (opus_custom_encoder_ctl(encC, OPUS_SET_BITRATE(bitrate)) != OPUS_OK) test_failed();
@@ -604,6 +618,9 @@ void test_opus_custom(const int num_encoders, const int num_setting_changes) {
             if (opus_custom_encoder_ctl(encC, OPUS_SET_COMPLEXITY(complexity)) != OPUS_OK) test_failed();
             if (opus_custom_encoder_ctl(encC, OPUS_SET_PACKET_LOSS_PERC(pkt_loss)) != OPUS_OK) test_failed();
             if (opus_custom_encoder_ctl(encC, OPUS_SET_LSB_DEPTH(lsb_depth)) != OPUS_OK) test_failed();
+#ifdef ENABLE_QEXT
+            if (opus_custom_encoder_ctl(encC, OPUS_SET_QEXT(params.qext)) != OPUS_OK) test_failed();
+#endif
          }
          else {
             if (opus_encoder_ctl(enc, OPUS_SET_BITRATE(bitrate)) != OPUS_OK) test_failed();
@@ -657,7 +674,6 @@ void test_opus_custom(const int num_encoders, const int num_setting_changes) {
 }
 
 int main(int _argc, char **_argv) {
-   int args = 1;
    char * strtol_str = NULL;
    const char * env_seed;
    int env_used;
@@ -669,8 +685,9 @@ int main(int _argc, char **_argv) {
    env_seed=getenv("SEED");
    if (_argc > 1)
        iseed = strtol(_argv[1], &strtol_str, 10);  /* the first input argument might be the seed */
-   if(strtol_str!=NULL && strtol_str[0]=='\0')   /* iseed is a valid number */
-      args++;
+   if(strtol_str!=NULL && strtol_str[0]=='\0') {
+      /* iseed is a valid number */
+   }
    else if(env_seed) {
       iseed=atoi(env_seed);
       env_used=1;

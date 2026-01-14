@@ -20,6 +20,9 @@
  *
  */
 
+#include <sdl.h>
+#include <sdl_version.h>
+
 #define Revision 4476
 
 #define YearBuild 2025
@@ -32,14 +35,16 @@
 #define YEARBULD STR(YearBuild)
 #define RCVersion2 "0.74.3." STR(Revision)
 
-#define DOSBOXREVISION "r" STR(Revision) " (Optionals v25)"
+#define DOSBOXREVISION "r" STR(Revision) " (Optionals v26)"
 #define DOSBOXSVERSION "r" STR(Revision)
 
 #define Comment "DOSBox Fork: Optionals, a DOS & Win9X Emulator"
 #define FileDescription "DOSBox r" STR(Revision) " (Optionals)"
 
 #define DOSBOXFEATSGFX "3DFX CGA-Extension "
-#define DOSBOXFEATSSND "MT32 SSI2001 M.A.M.E.-Sound Nuked-OPL3(v1.8)\n                   (dr)MP3 Decode (dr)FLAC Decode OGG-Vorbis Ogg-OPUS"
+#define DOSBOXFEATSSND ""
+
+#define DOSBOXSDLVERSION "SDL " STR(SDL_MAJOR_VERSION) "." STR(SDL_MINOR_VERSION) "." STR(SDL_PATCHLEVEL)
 
 extern const char *gDosboxDay;
 extern const char *gDosboxMonth;
@@ -51,4 +56,5 @@ extern const char *gDosboxFullVersion;  // e.g. "DOSBox SVN r4036  (2002-01-01)"
 extern const char *gDOSBoxFeatures;		// e.g. "32Bit (DynamicX68) (Fpu Core X68)"
 extern const char *gDosboxCopyright;    // e.g. "Copyright 2002-2018 DOSBox Team"
 extern const char *gDosboxTeamText;     // The Deafult Copyright Text
+extern const char *gDOSBoxSDLVersion;
 

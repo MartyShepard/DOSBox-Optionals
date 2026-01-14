@@ -2518,8 +2518,11 @@ static chd_error zlib_codec_init(void *codec, uint32_t hunkbytes)
 		err = CHDERR_NONE;
 
 	/* handle an error */
+  /* KEIN free(data) mehr – das macht der Aufrufer! */
+  /*
 	if (err != CHDERR_NONE)
 		free(data);
+  */
 
 	return err;
 }

@@ -623,13 +623,18 @@ INLINE bool MessageBoxFD_InUse(char drive, int CDRomMedien, HWND hwnd)
 	std::string Used= "Image:\n\n" + std::string(Drives[drive - 'A']->GetInfo() + 9) + "\n\n" +
 					  "Exists in the List at Drive " + ID + ":" + " On Position " + std::to_string(CDRomMedien+1);
 
-		MessageBox(hwnd, Used.c_str(), "Change CD image", MB_OK | MB_ICONASTERISK);
+ MessageBox(hwnd, Used.c_str(), "Change CD image", MB_OK | MB_ICONASTERISK);
+
+ return true;
+	
 }
 INLINE bool MessageBoxFD_BWarn(HWND hwnd)
 {
 	std::string msg = "At time, Drive 'B:' can not be Accessed to Mount a Image In Virtual Mode";
 
 	MessageBox(hwnd, msg.c_str(), "Drive B: No Access", MB_OK | MB_ICONASTERISK);
+
+	return true;
 }
 INLINE bool MenuBrowse_Sub_DoubleCheck(char drive, char* ImageFile)
 {
@@ -1988,7 +1993,7 @@ restart_int:
 						WriteOut("%2d",retries);
 
 						if(retries)	goto restart_int;
-						const Bit8u badfood[]="IMGMAKE BAD FLOPPY SECTOR \xBA\xAD\xF0\x0D";
+						const Bit8u badfood[]="IMGMAKE BAD FLOPPY SECTOR  \xBA\xAD\xF0\x0D";
 						for(Bitu z = 0; z < 512/32; z++)
 							memcpy(&data[512*k+z*32],badfood,32);
 						WriteOut("\b\b");

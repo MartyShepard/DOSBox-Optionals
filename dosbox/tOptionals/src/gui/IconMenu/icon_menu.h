@@ -509,6 +509,9 @@
 
 #define ICNMNU_GL_SCISSOR_FLAG (ICNMNU +448 ) 
 
+#define ICNMNU_WIN1280X1080 	(ICNMNU +449 )
+#define ICNMNU_FUL1280X1080 	(ICNMNU +450 )
+
 static HMENU hSysMenu	= NULL;
 static HMENU hSubFllRes = NULL;
 static HMENU hSubWinRes = NULL;
@@ -1135,11 +1138,12 @@ static LRESULT CALLBACK SysMenuExtendWndProc(HWND hwnd, UINT uiMsg, WPARAM wpara
 				case ICNMNU_WIN1280X768 :	{ GFX_UpdateResolution(1280,768, true);	}return 0;
 				case ICNMNU_WIN1280X800 :	{ GFX_UpdateResolution(1280,800, true);	}return 0;
 				case ICNMNU_WIN1280X960 :	{ GFX_UpdateResolution(1280,960, true);	}return 0;
+				case ICNMNU_WIN1280X1080:	{ GFX_UpdateResolution(1280,1080,true);	}return 0;
 				case ICNMNU_WIN1280X1024:	{ GFX_UpdateResolution(1280,1024,true);	}return 0;
 				case ICNMNU_WIN1360X768 :	{ GFX_UpdateResolution(1360,768 ,true);	}return 0;
 				case ICNMNU_WIN1366X768 :	{ GFX_UpdateResolution(1366,768 ,true);	}return 0;
 				case ICNMNU_WIN1440X900 :	{ GFX_UpdateResolution(1440,900 ,true);	}return 0;	
-				case ICNMNU_WIN1440X1080:   { GFX_UpdateResolution(1440,1080,true);	}return 0;
+				case ICNMNU_WIN1440X1080: { GFX_UpdateResolution(1440,1080,true);	}return 0;
 				case ICNMNU_WIN1600X900 :	{ GFX_UpdateResolution(1600,900 ,true);	}return 0;
 				case ICNMNU_WIN1600X1024:	{ GFX_UpdateResolution(1600,1024,true);	}return 0;
 				case ICNMNU_WIN1600X1200:	{ GFX_UpdateResolution(1600,1200,true);	}return 0;
@@ -1164,6 +1168,7 @@ static LRESULT CALLBACK SysMenuExtendWndProc(HWND hwnd, UINT uiMsg, WPARAM wpara
 				case ICNMNU_FUL1280X800 :	{ GFX_UpdateResolution(1280,800, false);}return 0;
 				case ICNMNU_FUL1280X960 :	{ GFX_UpdateResolution(1280,960, false);}return 0;
 				case ICNMNU_FUL1280X1024:	{ GFX_UpdateResolution(1280,1024,false);}return 0;
+				case ICNMNU_FUL1280X1080:	{ GFX_UpdateResolution(1280,1080,false);}return 0;
 				case ICNMNU_FUL1360X768 :	{ GFX_UpdateResolution(1360,768 ,false);}return 0;
 				case ICNMNU_FUL1366X768 :	{ GFX_UpdateResolution(1366,768 ,false);}return 0;
 				case ICNMNU_FUL1440X900 :	{ GFX_UpdateResolution(1440,900 ,false);}return 0;

@@ -31,6 +31,8 @@
 #include "control.h"
 #include "..\gui\version_optionals.h"
 
+#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
+
 #define VESA_SUCCESS          0x00
 #define VESA_FAIL             0x01
 #define VESA_HW_UNSUPPORTED   0x02
@@ -736,9 +738,10 @@ Bitu INT10_WriteVESAModeList(Bitu max_modes) {
 	
 	if ( (int10.nModeListLog) && (int10.LogingCountMode) ){
 		
-		if (int10.nModeListCut > 0){
+		if (int10.nModeListCut != 0)
+		{
 			LOG_MSG("VGA: Video Modes Capped to %d. Get Mode at 0x100",int10.nModeListCut);
-		}else {
+		}else			{
 			LOG_MSG("VGA: Getting all Video Modes at 0x100");
 		}				
 	}
@@ -761,33 +764,36 @@ Bitu INT10_WriteVESAModeList(Bitu max_modes) {
 			}				
 		}
 		
-        if (canuse_mode &&  int10.nModeListCut > 0 && (unsigned int)modecount >= (unsigned int)int10.nModeListCut)
-            canuse_mode = false;
+       // if (canuse_mode &&  int10.nModeListCut > 0 && (unsigned int)modecount >= (unsigned int)int10.nModeListCut)
+       //     canuse_mode = false;
 						
-        if (ModeList_VGA[i].mode>=0x100 && canuse_mode) {
-			if (((!int10.vesa_oldvbe) || (ModeList_VGA[i].mode<=0x120)) &&
-				((!int10.vesa_no24bpp) || (ModeList_VGA[i].type!=M_LIN24))) {
+        if (ModeList_VGA[i].mode>=0x100 && canuse_mode) 
+				{
+					if (((!int10.vesa_oldvbe) || (ModeList_VGA[i].mode<=0x2F0)) && ((!int10.vesa_no24bpp) || (ModeList_VGA[i].type!=M_LIN24)))
+					{
 
-				if (int10.nModeListLog){					
-					if 	( (canuse_mode) && (int10.LogingCountMode == true) ){
-						switch(ModeList_VGA[i].type)
-						{
-							case M_TEXT:{bpp = 2;break;}
-							case M_LIN4:{bpp = 4;break;}
-							case M_LIN8:{bpp = 8;break;}
-							case M_LIN15:{bpp = 15;break;}	
-							case M_LIN16:{bpp = 16;break;}
-							case M_LIN24:{bpp = 24;break;}			
-							case M_LIN32:{bpp = 32;break;}						
+						if (int10.nModeListLog)
+						{					
+							if 	( (canuse_mode) && (int10.LogingCountMode == true) )
+							{
+								switch(ModeList_VGA[i].type)
+								{
+									case M_TEXT:{bpp = 2;break;}
+									case M_LIN4:{bpp = 4;break;}
+									case M_LIN8:{bpp = 8;break;}
+									case M_LIN15:{bpp = 15;break;}	
+									case M_LIN16:{bpp = 16;break;}
+									case M_LIN24:{bpp = 24;break;}			
+									case M_LIN32:{bpp = 32;break;}						
+								}
+								LOG_MSG("VGA: Mode Available %#04x: [ %d x %d x %dbit ] -- (%d,%d)",ModeList_VGA[i].mode,ModeList_VGA[i].swidth,ModeList_VGA[i].sheight,bpp, cnt,i);
+							}
+							cnt += 1;
 						}
-						LOG_MSG("VGA: Mode Available %#04x: [ %d x %d x %dbit ] -- (%d,%d)",ModeList_VGA[i].mode,ModeList_VGA[i].swidth,ModeList_VGA[i].sheight,bpp, cnt,i);
-					}
-					cnt += 1;
-				}
-                phys_writew(PhysMake(0xc000,mode_wptr),ModeList_VGA[i].mode);
-                mode_wptr+=2;
-                modecount++;
-            }
+            phys_writew(PhysMake(0xc000,mode_wptr),ModeList_VGA[i].mode);
+            mode_wptr+=2;
+            modecount++;
+          }
         }
         i++;
 	}	

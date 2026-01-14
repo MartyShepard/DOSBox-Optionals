@@ -36,6 +36,9 @@
 /* LOSSGEN */
 #undef ENABLE_LOSSGEN
 
+/* Opus custom API */
+#undef ENABLE_OPUS_CUSTOM_API
+
 /* Enable Opus Speech Coding Enhancement */
 #undef ENABLE_OSCE
 
@@ -44,6 +47,9 @@
 
 /* Enable dumping of OSCE training data */
 #undef ENABLE_OSCE_TRAINING_DATA
+
+/* Scalable quality extension */
+#undef ENABLE_QEXT
 
 /* 24-bit internal resolution for fixed-point */
 #undef ENABLE_RES24
@@ -69,20 +75,23 @@
 /* Define to 1 if you have the <dlfcn.h> header file. */
 #undef HAVE_DLFCN_H
 
+/* Define to 1 if you have the 'elf_aux_info' function. */
+#undef HAVE_ELF_AUX_INFO
+
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
-/* Define to 1 if you have the `lrint' function. */
+/* Define to 1 if you have the 'lrint' function. */
 #undef HAVE_LRINT
 
-/* Define to 1 if you have the `lrintf' function. */
+/* Define to 1 if you have the 'lrintf' function. */
 #undef HAVE_LRINTF
-
-/* Define to 1 if you have the <memory.h> header file. */
-#undef HAVE_MEMORY_H
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #undef HAVE_STDINT_H
+
+/* Define to 1 if you have the <stdio.h> header file. */
+#undef HAVE_STDIO_H
 
 /* Define to 1 if you have the <stdlib.h> header file. */
 #undef HAVE_STDLIB_H
@@ -102,7 +111,7 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
-/* Define to 1 if you have the `__malloc_hook' function. */
+/* Define to 1 if you have the '__malloc_hook' function. */
 #undef HAVE___MALLOC_HOOK
 
 /* Define if running the test suite so that test #27 works on MinGW. */
@@ -162,7 +171,7 @@
 /* This is a build of OPUS */
 #undef OPUS_BUILD
 
-/* Run bit-exactness checks between optimized and c implementations */
+/* Run bit-exactness checks between optimized and C implementations */
 #undef OPUS_CHECK_ASM
 
 /* Use run-time CPU capabilities detection */
@@ -210,7 +219,9 @@
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
-/* Define to 1 if you have the ANSI C header files. */
+/* Define to 1 if all of the C89 standard headers exist (not just the ones
+   required in a freestanding environment). This macro is provided for
+   backward compatibility; new code need not use it. */
 #undef STDC_HEADERS
 
 /* Make use of alloca */
@@ -219,10 +230,10 @@
 /* Use C99 variable-size arrays */
 #undef VAR_ARRAYS
 
-/* Define to empty if `const' does not conform to ANSI C. */
+/* Define to empty if 'const' does not conform to ANSI C. */
 #undef const
 
-/* Define to `__inline__' or `__inline' if that's what the C compiler
+/* Define to '__inline__' or '__inline' if that's what the C compiler
    calls it, or to nothing if 'inline' is not supported under any name.  */
 #ifndef __cplusplus
 #undef inline

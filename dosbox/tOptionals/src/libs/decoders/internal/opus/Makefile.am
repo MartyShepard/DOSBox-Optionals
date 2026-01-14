@@ -156,6 +156,7 @@ noinst_HEADERS = $(OPUS_HEAD) $(SILK_HEAD) $(CELT_HEAD) $(LPCNET_HEAD)
 if EXTRA_PROGRAMS
 noinst_PROGRAMS = celt/tests/test_unit_cwrs32 \
                   celt/tests/test_unit_dft \
+                  celt/tests/test_unit_mini_kfft \
                   celt/tests/test_unit_entropy \
                   celt/tests/test_unit_laplace \
                   celt/tests/test_unit_mathops \
@@ -177,6 +178,7 @@ noinst_PROGRAMS = celt/tests/test_unit_cwrs32 \
 
 TESTS = celt/tests/test_unit_cwrs32 \
         celt/tests/test_unit_dft \
+        celt/tests/test_unit_mini_kfft \
         celt/tests/test_unit_entropy \
         celt/tests/test_unit_laplace \
         celt/tests/test_unit_mathops \
@@ -260,6 +262,9 @@ if OPUS_ARM_EXTERNAL_ASM
 celt_tests_test_unit_dft_LDADD += libarmasm.la
 endif
 
+celt_tests_test_unit_mini_kfft_SOURCES = celt/tests/test_unit_mini_kfft.c
+celt_tests_test_unit_mini_kfft_LDADD = $(LIBM)
+
 celt_tests_test_unit_entropy_SOURCES = celt/tests/test_unit_entropy.c
 celt_tests_test_unit_entropy_LDADD = $(LIBM)
 
@@ -332,13 +337,18 @@ bwe_demo_SOURCES = dnn/bwe_demo.c
 bwe_demo_LDADD = $(LPCNET_OBJ) $(CELT_OBJ) $(LIBM)
 endif
 
+if ENABLE_QEXT
+noinst_PROGRAMS += qext_compare
+qext_compare_SOURCES = src/qext_compare.c
+qext_compare_LDADD = libopus.la $(LIBM)
+endif
+
 endif
 
 
 EXTRA_DIST = opus.pc.in \
              opus-uninstalled.pc.in \
              opus.m4 \
-             Makefile.mips \
              Makefile.unix \
              CMakeLists.txt \
              cmake/CFeatureCheck.cmake \
@@ -370,7 +380,8 @@ EXTRA_DIST = opus.pc.in \
              tests/meson.build \
              doc/meson.build \
              tests/run_vectors.sh \
-	     celt/mini_kfft.c \
+             celt/mini_kfft.c \
+             celt/arm/meson.build \
              celt/arm/arm2gnu.pl \
              celt/arm/celt_pitch_xcorr_arm.s
 

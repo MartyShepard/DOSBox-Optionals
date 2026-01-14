@@ -37,6 +37,7 @@
 #define ACTIVATION_RELU    3
 #define ACTIVATION_SOFTMAX 4
 #define ACTIVATION_SWISH   5
+#define ACTIVATION_EXP 6
 
 #define WEIGHT_BLOB_VERSION 0
 #define WEIGHT_BLOCK_SIZE 64
@@ -104,6 +105,9 @@ extern const WeightArray fwgan_arrays[];
 extern const WeightArray fargan_arrays[];
 extern const WeightArray pitchdnn_arrays[];
 extern const WeightArray lossgen_arrays[];
+extern const WeightArray lacelayers_arrays[];
+extern const WeightArray nolacelayers_arrays[];
+extern const WeightArray bbwenetlayers_arrays[];
 
 int linear_init(LinearLayer *layer, const WeightArray *arrays,
   const char *bias,
@@ -150,7 +154,7 @@ void compute_conv2d_c(const Conv2dLayer *conv, float *out, float *mem, const flo
 #define compute_conv2d(conv, out, mem, in, height, hstride, activation, arch) ((void)(arch),compute_conv2d_c(conv, out, mem, in, height, hstride, activation))
 #endif
 
-#if defined(__x86_64__) && !defined(OPUS_X86_MAY_HAVE_SSE4_1) && !defined(OPUS_X86_MAY_HAVE_AVX2)
+#if defined(__x86_64__) && !defined(OPUS_X86_MAY_HAVE_SSE4_1) && !defined(OPUS_X86_MAY_HAVE_AVX2) &&!defined(SUPPRESS_PERF_WARNINGS)
 #if defined(_MSC_VER)
 #pragma message ("Only SSE and SSE2 are available. On newer machines, enable SSSE3/AVX/AVX2 to get better performance")
 #else

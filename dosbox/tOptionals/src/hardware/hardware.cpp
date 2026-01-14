@@ -591,9 +591,12 @@ std::string GetCaptureFileName(const char * type,const char * ext) {
 int invert_surface_vertical(SDL_Surface *surface)
 {
     Uint8 *t;
-    register Uint8 *a, *b;
+    //register Uint8 *a, *b;
+		Uint8* a = nullptr;
+		Uint8* b = nullptr;
     Uint8 *last;
-    register Uint16 pitch;
+    //register Uint16 pitch;
+		auto pitch = 0;
 
     if( SDL_LOCKIFMUST(surface) < 0 )
         return -2;

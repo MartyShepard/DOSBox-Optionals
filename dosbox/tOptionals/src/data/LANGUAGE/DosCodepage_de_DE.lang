@@ -310,7 +310,7 @@ CDROMs found: %d
 .
 :PROGRAM_MOUNT_STATUS_MULTI1
 [37;1m================= Multiples Mount on Drive %c: =================[0m
-[37;1m                  Press[32;1m CTRL + F4[37;1m to Cycle through Disk's[0m
+[37;1m                  Press[32;1m CTRL + F9[37;1m to Cycle through Disk's[0m
 
 .
 :PROGRAM_MOUNT_STATUS_MULTI2
@@ -327,7 +327,7 @@ CDROMs found: %d
 .
 :PROGRAM_MOUNT_STATUS_MULTI5
 [37;1m================= Multiples Mount on Drive %c: =================[0m
-[37;1m                  Press[32;1m CTRL + F3[37;1m to Cycle through CD's[0m
+[37;1m                  Press[32;1m CTRL + F11[37;1m to Cycle through CD's[0m
 
 .
 :PROGRAM_MOUNT_STATUS_2

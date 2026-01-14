@@ -128,7 +128,7 @@ return_address:
 	);
 	reg_flags=(reg_flags & ~FMASK_TEST) | (tempflags & FMASK_TEST);
 #else
-	register Bit32u tempflags=reg_flags & FMASK_TEST;
+	auto tempflags=reg_flags & FMASK_TEST;
 	__asm__ volatile (
 		"pushl %%ebp						\n"
 		"pushl $(run_return_adress)			\n"

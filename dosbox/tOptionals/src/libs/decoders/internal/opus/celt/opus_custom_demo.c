@@ -32,12 +32,28 @@
 
 #include "opus_custom.h"
 #include "arch.h"
+#include "modes.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
 
+#ifdef ENABLE_QEXT
+#define MAX_PACKET QEXT_PACKET_SIZE_CAP
+#else
 #define MAX_PACKET 1275
+#endif
+
+static OPUS_INLINE void _opus_ctl_failed(const char *file, int line)
+{
+   fprintf(stderr, "\n ***************************************************\n");
+   fprintf(stderr, " ***         A fatal error was detected.         ***\n");
+   fprintf(stderr, " ***************************************************\n");
+   fprintf(stderr, "En/decoder ctl function %s failed at %d for %s.\n",
+           file, line, opus_get_version_string());
+}
+
+#define opus_ctl_failed() _opus_ctl_failed(__FILE__, __LINE__);
 
 static void print_usage(char **argv) {
    fprintf (stderr, "Usage: %s [-e | -d] <rate> <channels> <frame size> "
@@ -52,6 +68,9 @@ static void print_usage(char **argv) {
    fprintf (stderr, "     -f32                     format is 32-bit float little-endian\n");
    fprintf (stderr, "     -complexity <0-10>       optional only when encoding\n");
    fprintf (stderr, "     -loss <percentage>       encoding (robsutness setting) and decoding (simulating loss)\n");
+#ifdef ENABLE_QEXT
+   fprintf (stderr, "     -qext                    use quality extension\n");
+#endif
 }
 
 static void int_to_char(opus_uint32 i, unsigned char ch[4])
@@ -107,6 +126,9 @@ int main(int argc, char *argv[])
 #if !(defined (FIXED_POINT) && !defined(CUSTOM_MODES)) && defined(RESYNTH)
    double rmsd = 0;
 #endif
+#ifdef ENABLE_QEXT
+   int qext = 0;
+#endif
    int count = 0;
    opus_int32 skip;
    opus_int32 *in=NULL, *out=NULL;
@@ -132,10 +154,18 @@ int main(int argc, char *argv[])
 
    if (rate != 8000 && rate != 12000
     && rate != 16000 && rate != 24000
-    && rate != 48000)
+    && rate != 48000
+#ifdef ENABLE_QEXT
+    && rate != 96000
+#endif
+    )
    {
-       fprintf(stderr, "Supported sampling rates are 8000, 12000, "
-               "16000, 24000 and 48000.\n");
+       fprintf(stderr, "Supported sampling rates are 8000, 12000, 16000, 24000"
+#ifdef ENABLE_QEXT
+               ", 48000 and 96000.\n");
+#else
+               " and 48000.\n");
+#endif
        goto failure;
    }
 
@@ -189,6 +219,11 @@ int main(int argc, char *argv[])
        } else if( strcmp( argv[ args ], "-f32" ) == 0 ) {
           format = FORMAT_F32_LE;
           args++;
+#ifdef ENABLE_QEXT
+       } else if( strcmp( argv[ args ], "-qext" ) == 0 ) {
+          qext = 1;
+          args++;
+#endif
        } else {
           printf( "Error: unrecognized setting: %s\n\n", argv[ args ] );
           print_usage( argv );
@@ -204,11 +239,26 @@ int main(int argc, char *argv[])
       }
       if (complexity >= 0)
       {
-         opus_custom_encoder_ctl(enc,OPUS_SET_COMPLEXITY(complexity));
+         if(opus_custom_encoder_ctl(
+                  enc, OPUS_SET_COMPLEXITY(complexity)) != OPUS_OK) {
+            opus_ctl_failed();
+            goto failure;
+         }
       }
       if (percent_loss >= 0) {
-         opus_custom_encoder_ctl(enc, OPUS_SET_PACKET_LOSS_PERC((int)percent_loss));
+         if(opus_custom_encoder_ctl(
+                  enc, OPUS_SET_PACKET_LOSS_PERC((int)percent_loss)) !=
+                        OPUS_OK) {
+            opus_ctl_failed();
+            goto failure;
+         }
       }
+#ifdef ENABLE_QEXT
+      if(opus_custom_encoder_ctl(enc, OPUS_SET_QEXT(qext)) != OPUS_OK) {
+         opus_ctl_failed();
+         goto failure;
+      }
+#endif
    }
    if (!encode_only) {
       dec = opus_custom_decoder_create(mode, channels, &err);
@@ -217,7 +267,10 @@ int main(int argc, char *argv[])
          fprintf(stderr, "Failed to create the decoder: %s\n", opus_strerror(err));
          goto failure;
       }
-      opus_custom_decoder_ctl(dec, OPUS_GET_LOOKAHEAD(&skip));
+      if(opus_custom_decoder_ctl(dec, OPUS_GET_LOOKAHEAD(&skip)) != OPUS_OK) {
+         opus_ctl_failed();
+         goto failure;
+      }
    }
    if (argc-args != 2)
    {
@@ -293,12 +346,16 @@ int main(int argc, char *argv[])
             for(i=0;i<frame_size*channels;i++)
             {
                float_bits s;
-               s.i=fbytes[4*i+3]<<24|fbytes[4*i+2]<<16|fbytes[4*i+1]<<8|fbytes[4*i];
+               s.i=(unsigned)fbytes[4*i+3]<<24|fbytes[4*i+2]<<16|fbytes[4*i+1]<<8|fbytes[4*i];
                in[i]=(int)floor(.5 + s.f*8388608);
             }
          }
          len = opus_custom_encode24(enc, in, frame_size, data, bytes_per_packet);
-         opus_custom_encoder_ctl(enc, OPUS_GET_FINAL_RANGE(&enc_final_range));
+         if (opus_custom_encoder_ctl(
+                   enc, OPUS_GET_FINAL_RANGE(&enc_final_range)) != OPUS_OK) {
+            opus_ctl_failed();
+            goto failure;
+         }
          if (len <= 0)
             fprintf (stderr, "opus_custom_encode() failed: %s\n", opus_strerror(len));
       }
@@ -346,13 +403,17 @@ int main(int argc, char *argv[])
 
 #if 1 /* Set to zero to use the encoder's output instead */
          /* This is to simulate packet loss */
-         lost = percent_loss != 0 && (float)rand()/RAND_MAX<.01*percent_loss;
+         lost = percent_loss != 0 && (float)rand()/(float)RAND_MAX<.01*percent_loss;
          if (lost)
             /*if (errors && (errors%2==0))*/
             ret = opus_custom_decode24(dec, NULL, len, out, frame_size);
          else
             ret = opus_custom_decode24(dec, data, len, out, frame_size);
-         opus_custom_decoder_ctl(dec, OPUS_GET_FINAL_RANGE(&dec_final_range));
+         if(opus_custom_decoder_ctl(
+                  dec, OPUS_GET_FINAL_RANGE(&dec_final_range)) != OPUS_OK) {
+            opus_ctl_failed();
+            goto failure;
+         }
          if (ret < 0)
             fprintf(stderr, "opus_custom_decode() failed: %s\n", opus_strerror(ret));
 #else
@@ -373,9 +434,10 @@ int main(int argc, char *argv[])
             for(i=0;i<(ret-skip)*channels;i++)
             {
                opus_int32 s;
-               s=(out[i+(skip*channels)]+128)>>8;
-               if (s > 32767) s = 32767;
-               if (s < -32767) s = -32767;
+               s=out[i+(skip*channels)];
+               if (s > 0x007fff00) s = 0x007fff00;
+               if (s < -0x007fff00) s = -0x007fff00;
+               s=(s+128)>>8;
                fbytes[2*i]=s&0xFF;
                fbytes[2*i+1]=(s>>8)&0xFF;
             }
@@ -384,8 +446,8 @@ int main(int argc, char *argv[])
             {
                opus_int32 s;
                s=out[i+(skip*channels)];
-               if (s > 8388607) s = 8388607;
-               if (s < -8388607) s = -8388607;
+               if (s > 0x007fffff) s = 0x007fffff;
+               if (s < -0x007fffff) s = -0x007fffff;
                fbytes[3*i]=s&0xFF;
                fbytes[3*i+1]=(s>>8)&0xFF;
                fbytes[3*i+2]=(s>>16)&0xFF;

@@ -58,7 +58,6 @@
  printf("please read the COPYING file thoroughly before doing so.\n\n");
 */
 
-
 const char *gDosboxDay         = __DATE__ + 4;
 const char *gDosboxMonth       = __DATE__ + 0;
 const char *gDosboxYear        = __DATE__ + 7;
@@ -68,6 +67,7 @@ const char *gDosboxBuildDate   = __DATE__ " " __TIME__;
 const char *gDosboxFullVersion = "DOSBox " VERSION " " DOSBOXREVISION " Build on (" __DATE__ " " __TIME__ ")";
 const char *gDosboxCopyright   = "\tCopyright 2002-2020 DOSBox Team";
 const char *gDosboxTeamText    = "\tDOSBox is written by the DOSBox Team (See AUTHORS file))\n\tDOSBox comes with ABSOLUTELY NO WARRANTY. This is free\n\tsoftware and you are welcome to redistribute,  it under\n\tcertain conditions.\n\tThis is a DOSBox Fork from the Original DOSBox 0.74 " VERSION " " DOSBOXSVERSION "\n\n\tGreetings, credits & thanks:\n\tDOSBox Team, dungan, NY00123, tauro, bloodbat, Yesterplay80\n\tnukeykt, VileRancour, D_Skywalk, Vasyl Tsvirkunov, Moe, kekko\n\tTaeWoong Yoo, krcroft\n\n\t\tGreetings to the CGBoard & Vogons Board";
+const char *gDOSBoxSDLVersion  = DOSBOXSDLVERSION;
 const char *gDOSBoxFeatures    = ""											
 #if C_TARGETCPU == X86
 	"32Bit "
@@ -85,10 +85,12 @@ const char *gDOSBoxFeatures    = ""
 
 #ifdef C_FPU_X86
 	"X86 "
-#endif	
+#endif
+
+ DOSBOXSDLVERSION
 
 #ifdef C_OPENGL
-	"OpenGL3 " DOSBOXFEATSGFX"\n                   "
+	" OpenGL3\n                   " DOSBOXFEATSGFX
 #endif
 
 #ifdef C_RETINAFIX
@@ -100,8 +102,10 @@ const char *gDOSBoxFeatures    = ""
 #endif
 
 #ifdef C_FLUIDSYNTH
-	"Fluidsynth " DOSBOXFEATSSND"\n                   "
+	"Fluidsynth "
 #endif
+
+	"MT32 SSI2001\n                   M.A.M.E.-Sound Nuked-OPL3(v1.8)\n                   (dr)MP3 Decode (dr)FLAC Decode OGG-Vorbis\n                   Ogg-OPUS " 
 
 #ifdef C_SDL_SOUND
 	"SDLSound "

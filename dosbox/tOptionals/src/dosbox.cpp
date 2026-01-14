@@ -387,6 +387,7 @@ void DOSBOX_RunMachine(void){
 	} while (!ret);
 }
 
+bool PCTurboUnlockSpeed;
 static void DOSBOX_UnlockSpeed( bool pressed ) {
 	static bool autoadjust = false;
 	if (pressed) {
@@ -420,6 +421,30 @@ static void DOSBOX_UnlockSpeed2( bool pressed ) {
 	GFX_SetTitle(-1,-1,false);	
 }
 
+void PCturbo_UnlockSpeed(void) {
+	
+	static bool autoadjust = false;
+	if (PCTurboUnlockSpeed==true) {
+		CPU_FastForward = true;
+		LOG_MSG("SPEED: Fast Forward ON");
+		ticksLocked = true;
+		if (CPU_CycleAutoAdjust) {
+			autoadjust = true;
+			CPU_CycleAutoAdjust = false;
+			CPU_CycleMax /= 3;
+			if (CPU_CycleMax<1000) CPU_CycleMax=1000;
+		}
+	} else if (PCTurboUnlockSpeed==false){
+		LOG_MSG("SPEED: Fast Forward OFF");
+		ticksLocked = false;
+		CPU_FastForward = false;
+		if (autoadjust) {
+			autoadjust = false;
+			CPU_CycleAutoAdjust = true;
+		}
+	}
+	GFX_SetTitle(-1,-1,false);
+}
 
 static void DOSBOX_RealInit(Section * sec) {
 	Section_prop * section=static_cast<Section_prop *>(sec);
@@ -434,11 +459,13 @@ static void DOSBOX_RealInit(Section * sec) {
 	/* Wird ins Menu Verankert
 	
 	   Unlock speed Fix (turbo button/fast forward)
-	   MAPPER_AddHandler(DOSBOX_UnlockSpeed, MK_f12, MMOD2,"speedlock","Speedlock"); 
+		 */
+	 //MAPPER_AddHandler(DOSBOX_UnlockSpeed, MK_f3, MMOD1/*MMOD2*/,"speedlock","Speedlock"); 
 	
-	   Unlock speed (turbo button/fast forward).\n"	
-	   MAPPER_AddHandler(DOSBOX_UnlockSpeed2, MK_f12, MMOD1|MMOD2,"speedlock2","Speedlock2");	
-	*/
+	 /*  Unlock speed (turbo button/fast forward).\n"	*/
+	 //MAPPER_AddHandler(DOSBOX_UnlockSpeed2,MK_f4, MMOD1/*|MMOD2*/,"speedlock2","Speedlock2");	
+
+		 
 	std::string cmd_machine;
 	if (control->cmdline->FindString("-machine",cmd_machine,true)){
 		//update value in config (else no matching against suggested values

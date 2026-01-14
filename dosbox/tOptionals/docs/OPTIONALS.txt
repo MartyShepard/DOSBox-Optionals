@@ -1,0 +1,2809 @@
+
+DOSBox SVN r4467 (Optionals v26)
+
+
+Features Compiled: 32Bit DynamicX68 FpuCoreX68 OpenGL3 3DFX CGA-Extension 
+                   PNG Fluidsynth MT32 SSI2001 M.A.M.E.-Sound Nuked-OPL3 
+		               (dr)MP3 Decode (dr)FLAC Decode OGG-Vorbis Ogg-OPUS
+                   DirectSerial IPX Modem 
+				   
+
+Features: In and i have done
+- Added SVN Updates from 4006 to now (Manual)
+- Static (Single Exe)
+- SDL2 2.30, SDL2 Net
+
+Sound  :
+	- Mamesound Branch
+	- Munt MT32	
+	- FM Sound Adjusting
+	- Innovation SSI-2001 reSID Emul. (Tested with Ultima6)
+	- Added a second PCSpeaker Emulation (Starcontrol works)
+	- NukedOPL v18
+	- Mixer Volume Up/Down Keys
+	- Decode: MP3, FLAC, OPUS, WAVE, OGG
+
+	
+Graphic:
+	- OpenGL3 (Look at ENHANCEMENTS.txt)
+	- 3dfx Voodoo Emulation (Up to 8K)
+	- CGA w/ Monochrome Monitor Support
+	- CGA Composite Mode
+	- Borderless in Window Mode
+	- Multimonitor Support
+	
+	
+Shell  :
+	- Multiple Image Mount (with changes)
+	- Batch Bug Fix
+	- Added Config.sys Commands
+	- Added Shell Commands
+	- Estended Prompt Command
+	- Extended & Fixed the del command (*,*.*,*.,.*)
+	- Mouse Capture (with Code changes)
+	- Sleep Command (SLP.COM)
+	
+	
+Various:
+	- Added a Shader Path to the Conf
+	- Config Create/Load where dosbox is (Appdata is gone)
+	- Unlock Speed with CTRL-ALT-F12
+	- Speed Meter, i added in the Conf a Variable for this
+	- Fixed a few *char Compile Warnings
+	- Added Source Fixes by ntfshard
+	- Mouse Capture Code Changed to work from the Autoexec
+	- Dosbox Splash Settings (on/offduration/fadetime)
+	- Dosbox Shudown Key change via conf
+	- Commandline -noconsole is now -console
+	- Commandline -version changed (add version.h/version.cpp)
+	- Max Memory can set to 1GB (Win98 Use 1GB/ Dos,Win95 max is 512)
+
+VirtualMode
+	- Windows 95: Works good. Testet many Pure Win9x Games
+				  Install with VGA. 
+	              Resolve Compatibilty mode: Using Updated ESDI Update from Archiv
+				  Settings: Harddrives C(1m) + D(1s) using Primary IDE Settings
+
+	- Windows 98: Works good. Testet many Pure Win9x Games
+				  Install with SVGA.
+				  Resolve Compatibilty mode: Using Updated ESDI Update from Archiv
+				  Settings: Harddrives C(1s) + D(2s) using Primary and Secondary IDE
+				  
+	- Windows ME: With Compatibility Mode on C: unstable
+				  Install: Using Update/Upgrade CD Version from Windows98SE
+				  
+
+Optionals Version: Fixes/ Changes / Additional
+	- Windows Taskbar height was on Non Fullscreen not calculated.
+	- Fullscreen/Non Fullscreen Mouse Input
+	- Fixed 3DFX Voodoo, Crash with Output Method OpenGl3
+	- Fixed 3DFX Voodoo, Crash Texture Renderer Surface/Direct3d/Auto
+	  ("Auto", On Windows -> SDL take Direct3D first)
+	- CGA Mono and Hercules Color can be set in the conf as default color
+	- Mame CHD Support
+	
+What's happened (Optionals v26)  ...
+Optionals Changes =============================================================14.01.2026
+      Integrate to GCC Version 13.2.0 (Rev5, Built by MSYS2 project)
+      SDL 2.30
+      Useless "register" Variables replaced with auto
+      DosCode Page Deutsch adjusted
+      Added PcTurbo CMD (Enabled/Disabled Cycles)
+      Added 1280x1080 in Menu
+
+What's happened (Optionals v24)  ...
+Optionals Changes =============================================================27.04.2022
+- DOSBox, Update to svn Path r4476
+- DOSBox, Update IDE
+		  - IDE: Remove extra state from IDE controller that
+			is managed by the drive. The ATA-1 standard seems
+			to say that status and drive/head registers on
+			read back always come from the ATA device.
+			(joncampbell123).
+		  - IDE: If ATA device is busy, all IDE registers
+			return the status register and BSY bit according
+			to ATA-1 standard (joncampbell123).
+		  - IDE ATAPI CD-ROM: Add ATAPI command BEh READ CD.
+			This command is like the 28h/A8h READ command but
+			specific to the CD/CD-ROM format and allows reading
+			the various sector types including data sectors and
+			CD audio. Windows NT 4.0 requires this, or else it
+			treats the CD-ROM drive like a non-working device.
+			(joncampbell123).
+		 - Add IDE ATAPI command MECHANISM STATUS for
+			Windows NT 4.0 because that system seems
+			to want to know if your CD-ROM drive is a
+			CD changer (joncampbell123)			
+		- IDE Plug & Play resource descriptor changed to use
+			2-byte structure for listing IRQ resource instead of
+			3 bytes. This (for some reason) fixes problems with
+			the IDE driver in Windows NT 4.0, Windows 2000, and
+			Windows XP and allows them to boot properly.
+			(joncampbell123)			
+		 - Add IDE ATAPI command MECHANISM STATUS for Windows
+			NT 4.0 because that system seems to want to know if
+			your CD-ROM drive is a CD changer. (joncampbell123)
+		  - Fix IDE devices to start up with the drive ready
+			bit set for OSes that expect it when probing IDE
+			devices. This allows the Linux kernel to see IDE
+			ATA drives emulated by DOSBox-X. (joncampbell123)
+		  - Fix IDE ATAPI emulation to correctly handle CD
+			READ across one or more DRQ block transfers. Use
+			block size given by guest in consideration of DRQ
+			block size, which allows ATAPI CD-ROM emulation to
+			work properly with the Linux kernel. (joncampbell123)	
+Optionals Changes =============================================================27.04.2022
+- DOSBox, Update to svn Path r4474
+- DOSBox, Backend SDL Update 2.0.20
+- DOSBox, Backend Decoders Update (thx DOSBox-X)
+- DOSBox, Support for Floppy and CDRom Mount in Live Modus
+		  Important: In Virtual Modus is takes few seconds for disc change
+		  
+- Voodoo, Auto Calculation Resolution for LFB (Hack for Actual Dosbox User Resolution)
+- Voodoo, Many adjustments for High Resolutions (Hack for Actual Dosbox User Resolution)
+- Voodoo, 2D Screens Scanlines/ brighness (Draw Pixel Routines) 
+- Voodoo, Ability to disable 'delete Textures'. This Speed up e.q Blood but beware
+- Voodoo, Fastfill for non 640x480 screens corrected. (Final Fantasy 7)
+- DOSBox, Directory show -1 fixed
+- DOSBox, Resolve "Compatibility Mode for Harddrives" in Win95 (Win98 & WinME .... blup).
+- DOSBox, CHD (Comressed Hunk's Of Data) End of Track fix.
+- DOSBox, #291 Fix trap flag emulation after POPF in dynamic core (svn patches)
+- DOSBox, Added Reelmagic emulation (Not in Virtual Mode)
+		  * https://github.com/jrdennisoss/dosboxrm
+		  * https://www.vogons.org/viewtopic.php?f=32&t=86635
+		  * Credits:
+		  * Jon Dennis <jrdennisoss_at_gmail.com>
+		  * Chris Guthrie <csguthrieoss_at_gmail.com>
+		  * Joseph Whittaker <j.whittaker.us_at_ieee.org>
+		  
+
+	
+What's happened (Optionals v22)  ...
+Optionals Changes =============================================================16.02.2021
+- DOSBox, Update to svn Path r4471
+- DOSBox, Added Screen Fix for Dyna Blaster (!Thanks postalesdeamor!)
+- DOSBox, Fix and Display-Sort for 'config.exe"
+- DOSBox, Spacing Host Mouse Command
+- DOSBox, Update MMX Code (+ More Configuring Steppings with CPU Idents) (!Thanks Kecko!)
+- DOSBox, All Output Sound Module added to QuickMenu to set up Volume
+- DOSBox, Save Screenshit key support OpenGl, Detection Soft vs OGl
+- DOSBox, Add Help screen with Commandline -help --help
+- DOSBox, Fixed Autoexec <exit>
+- DOSbox, Fixed No access to Directorys in lcase in Overlay Drive. Upcase all ..
+- DOSbox, Added Support to Invert Joystick Y-Axis 1-3
+
+ 
+Optionals Changes =============================================================25.12.2020
+- DOSBox, Adding Support for Mame CHD (Compressed Hard Disk) (*.chd) for CDRom images
+- DOSBox, Minor Changes to GUS
+- DOSBox, Update DE Codepage
+- DOSBox, Update most to r4397
+
+Optionals Changes =============================================================03.05.2020
+- DOSBox, Don't lose your styled Autoexec bat in the Config with writeconf.
+          Note: Don't use '#' as REM place holder in the middle of Autoexec.
+		  This are Help Strings from DOSBox/ Commen notes for a INI. .conf is ini ;).
+		  
+
+Optionals Changes =============================================================02.05.2020
+- DOSBox, Resolution (Windowed/Full) 'Desktop' saved by Menu Fixed. Corrected Desktop
+		  Display Index and Resolution
+- Voodoo, Removed useless Centering (this removed the after Win<>Full Screen Flicker)
+- Voodoo, Remove GLpoints for 2D.
+- Voodoo, More work on LFB Read/Write Pixel. Mutliple Resolutions added (> 8k)
+          At time only Window Mode is supportet. This need a function to correct
+		  the LFB Image in combi with Aspect Ratio w/o.
+          Well... The LFB Function is really Processing Intensiv. Work more to
+		  Optimze and replace the Multiple Resolution with a Function in a Future.
+- Voodoo, Replace old Aspect Ratio funktion with a new one.	
+- DOSBox, Added Pinball Hack (Fullscreen Table) 
+- DOSBox, Cursor range tweaks for some DOS games #232 (From DOSBox-X)
+- DOSBox, Tandy DAC anti-pop fixes and DMA controller fix for Prince of Persia #300
+          (DOSBox-X)
+- DOSbox, Cut ISA-PNP from IDE Source and Splitted
+- DOSBox, Added and Integrated Soundblaster Source from DOSBox-X
+		  Jep i need the cool things and hacks from the source for my Build
+- DOSBox, Added IBM PS/1 Sound Card (Use own Source, not MAME Upates)
+- DOSBox, Jep, System Keys how WIN-Left/ WIN Right works now in Win95/98 Mode
+		  without to interfere with Host System. That was annoying in the fullscreen!.
+- DOSbox, Added Amstrad Code from Daum.
+- DOSbox, Fixed GCC warnings on Ne2000 and Modified Log Messages
+- DOSbox, Update Shell Intro Messages
+
+		  
+
+Optionals Changes =============================================================13.04.2020
+- DOSBox, Adapted Gravis Ultra Sound Source from DOSBox-X (Great Work JC)
+          (I actually wanted to try Quest for Glory 4 with GUS and SB...) 
+- DOSBox, GUS Modified to play Duke NUkem 1.5 AE in ST, Added MonoMixed in the Conf
+- DOSBox, Few Shell Change ... too much Return codes make me angry
+- DOSBox, Automatic loading of the language file depending on the language running
+          on the host. Language files can be stored in the main directory or in the
+		  subdirectory .\Data\ or .\Data\Language\ or .\Language\. DOsbox Optionals
+		  searches for these locations with the filename DosCodepage_xx_XX.lang/.lng
+		  Look in the LOG if you dont know your Locale from System.
+- DOSBox, German Language DosCodepage_de_DE.lang added		  
+- DOSBox, Improved Shell Message
+- DOSBox, Added and Adapted Attrib from DOSBox-X (Credits goes to Wengier/DOsbox-X)
+- DOSBox, Improved and Changes to DIR
+
+
+Optionals Changes =============================================================05.04.2020
+- DOSBox, ImgMake with arg -force extended. Overwrite the current Image.
+- DOSBox, ImgMake, no given file name saves the image to the current dosbox directory
+- DOSBox, with output "OpenGL" it is possible to Create Screenshots inc Shader.
+- DOSBox, Menu Extended ... (Remember, this ist not the Final Menu)
+- Voodoo, Create Screenshots too
+
+Optionals Changes =============================================================01.04.2020
+- DOSBox, Moved, Clean, Extended the Menu the Left Top Window Icon
+- DOSBox, Window/ Fullscreen Resoloution on change saved on the fly
+- DOSbox, Fix on Program start to show the Label from the insert CD/DISK.
+- DOSBox, Icon Menu in Combi with Mapper Exit fixed.
+- Voodoo, SDL Block moved to emu. Renamed from *sdl to *sdlVoodoo.
+- Voodoo, Added Struct to Dosbox.h
+- Voodoo, LFB Problem on High Resolotion. Implentiert a Dosbox Conf Value as Fix
+- Voodoo, Add Ability to Set and Syncronize the Windows/Fullscreen on the Fly
+
+
+Optionals Changes =============================================================26.03.2020
+- DOSBox, Fixed Keyinput on Getinformation in NonVM state. This fixed eq up/dowm Arrows
+          in DOS Setsound's Programms
+          
+- Voodoo, Update Fullscreen/ Windows Switch on Activated Voodoo Screen (Opengl)
+- Voodoo, Blackscreen/ Non Reset on Exit from Mapper Fixed
+- DOSbox. Multimonitor Setups fully supportet (Native and Voodoo)
+
+
+Optionals Changes =============================================================13.03.2020
+- DOSBox, Inject newlines before displaying DOS prompt (From Dosbox Stages)
+
+Optionals Changes =============================================================08.01.2020
+
+- DOSBox, Add missing "desktop" value for Window Resolution
+- DOSBox, "SDL Event" update Multimonitor ID
+- Voodoo, Multi Monitor Screennumber ID Bug Fix
+- Voodoo, Full/Window Screen Switch Bug Fix
+- Voodoo, add gl_quadsdraw to use instead of gl_pointsize. Look in the dosbox.conf
+          2D Highres Screens looks natural better with gl_quadsdraw instead of gl_pointsize
+
+Optionals Changes =============================================================28.11.2019
+
+- DOSBox, Added MMX From Latest Daum SVN and Changes to #Define
+- DOSBox, Added CPU Features for CPU ID 543
+- DOSBox, CPU Features can optionals Set in Doosbox.conf for Backward Comp.
+- DOSBox, Add Odd/Even Gfx Emulation. This should avoid the freeze on Win9x Shutdowns
+
+
+Optionals Changes =============================================================13.11.2019
+- DOSBox, Default Keybindings on Intro added Hotkey CTRL-F3
+- DOSBox, OplEmu Handler Nuked set as default with "default"
+          (Prevent CRash in Win9x Setup)
+
+
+Optionals Changes =============================================================13.11.2019
+- Voodoo, Full/Window Screen Switch (Yep, you can now switch from Window <-> fullscreen) )
+          I hope this works now without bugs.
+		  
+- DOSBox, S3 Fix (oops!)
+
+- DOSBox, Added IDE Emulation. Integrated from Dosbox-X/ Daum
+		  Only CD-ROM/HDD Stuff. Not Floppy Controller. No PC98 Stuff
+		  Mount Exmaple HD "<My Path\My Drive HD.img> -t autohdd -ide 1 or 1s"
+		  Mount Example CD "<My Path\My Drive HD.img> -t cdrom -ide 2 or 2s.
+		  
+- DOSbox, Seperate Floppy and CD-Rom Cycle
+          CTRL-F3 Cycle through mounted CD-Roms
+		  CTRL-F4 Cycle through mounted Disks
+		  
+- DOSBox, Sortet view of Mounted Drives on startup
+- DOSbox, Updates from Kcroft Audio Patch Rev13.2
+
+		   
+Optionals Changes =============================================================12.11.2019
+- DOSBox, Change Version.h, more felxibility
+
+Optionals Changes =============================================================02.10.2019
+- DOSBox, Update SDL 2 Libs from 2.0.5 to 2.0.10 (give a little Speed improvement)
+- DOSBox, Update SDL 1 Sound lib to SDL2 Sound lib (Fix Seek and init with SDL2
+          on Build/Configure)
+- DOSBox, Changed Ne2000 Network Emulation Libs 
+
+Optionals Changes =============================================================30.10.2019
+- DOSBox, Fix Window - Fullscreen switch on Multi Monitor System
+- DOSBox, Added Ne2000 Network Emulation (Need Win[Pcap]) 
+
+
+Optionals Changes =============================================================23.04.2019
+- DOSBox, Changes Jostick "chgs" Axes (Throttle is now Z Axes. Left and Right Shoulder)
+          (PSX Pad like)
+		  
+- DOSBox, Added new Mount type (for -t), for Hardrives "autohdd". With the big self-made
+          HD's you always had to set the size =. Instead of -t -size xxxxx you can now
+		  specify with -t -autohdd. DOSBox get's the gemotrie then automatically and
+		  mounted as HD image (C: / D :)
+
+Optionals Changes =============================================================17.10.2019
+- Voodoo, For Compatibility, Update to r4260, Moved FPU State to Voodoo Section
+
+Optionals Changes =============================================================02.04.2019
+- DOSBox, Added Wheel Type to Joystick (Testing)
+- DOSBox, Added Lastdrive Config.Sys Settings to conf. Increase an set max Logivcal Drives.
+- DOSBox, Overlay. Change Exit Code to Log Message for Remove and Create Directory.
+- Voodoo, Added Backbuffer Support for Sub Culture (Windows 95, 3DFX)
+          ===============================================================================
+- Voodoo, Fix Texture Format in Switch, Fixes Requiem Angel
+- DOSBox, Grammatical Erros in Conf removed
+- DOSBox, Added Mode for 0x211 320x480, Requested by 3 Skulls of the Toltecs Gold Win9x
+          Mode  0x211 is default 640x480. Use Conf switch S3Screen_Fix_640x480x16 = true
+- DOSBox, Added Exit Info Message Mt32/Fluidsynth
+- DOSBox, Aspect/Zoom Width Calculation Fixed.. i hope
+- DOSBox, DOSbox now stays on the desktop where it should. (Multi Monitor System)
+- DOSBox, Catch Empty or File Not found for Fluidsynth. The user should be notified
+          if the soundfont no found or he has not any selected.
+- DOSBox, Added Joystick 4 Types. 
+		  qshot6: Quickshot 6 Button, Win9x (To Use with gameport Driver)
+		  capcom: Support 6 Button Pad for DOS (Mainly Super Street Fighter II)
+		  inter6: Win9x 6 Button Pad. Has a different 5+6 Button Config as Quickshot
+		  chvp  : Win9x/DOS. Changed Axis to use the Rudder and Throttle e.q. from
+		          Saitek X Series. Game Controller that use Xinput how Logitech F710
+				  works too. This Config use the Win9x CH Virtual Pilot, Flightsstick
+				  Pro Driver. Mainly use for Flight Sims.
+				  
+- DOSBox, Enum Display Fix for Multimonitor Systems
+- Voodoo, Aspect Ratio Fixes on higher as 2k  -> 8K 3DFX Screens 
+          (Yes, i have and use a 4K as Secondary Monitor)
+- DOSBox, Added joystickhost value. This is special for the chvp driver. Many USB Joystick
+          with Throttle/Rudder has a different Axis Value. At time supportet is:
+		  Logigech Wingman/Extreme 3D Pro
+		  Saitek X-45
+		  Thrustmaster Flight Hotas One
+
+Optionals Changes =======================================================================		
+- DOSBox, Capture and Mapper File Path in the Dosbox Conf fixed
+- Voodoo, Changes
+- Voodoo, added cfg for glScissor. Use this with High Resolution. 
+- Voodoo, Changed glPointSize (Fix 2D Screens on High Reolution)
+- Voodoo, glpointsize calls reduced to 1x.
+- Voodoo, added Test Config Settings. The Most Important thing fpr enduser:
+
+	gl_PointSize_use = Calculate the current Resolution to avoid 
+	                   Transparent 2D Screens & Textures)
+					  
+	glScissor_flag   = Dont use the fixed glScissor(sx,sy,ex-sx,ey-sy)
+		           routine for Non Standard Full/Window Resolutions.
+					
+- DOSBox, Added Icon System Menu and Entry
+- Voodoo, Aspect Ratio for Widescreen Resolutions. (Don't stretch on Widescreen)
+		  Conf, PCI -> voodoo_Aspect = true/false
+- Voodoo, Modify the glOrtho Viewport. Fix Pyl on High Resolutions
+- Voodoo, Zoom Factor, Width and Height seperat to Modify the glOrtho Viewport
+- Voodoo, Filter Types Added
+- Voodoo, Shader and Texture Fix for Formula 1 '97 Added
+- Voodoo, Optimize
+- DOSBox, Added Files Patch from Mieczysław Nalewaj (Eq. Config.sys FILES=xxx)
+- DOSBox, Crash Exit Code Taken from DOSBox-X
+- Voodoo, Added glCheck Code
+- DOSBox, Fixed Mouse Capture and MouseCap. Statement
+- DOSBox, Updated Multimonitor Settings (Conf, SDL, display = x)
+		  Set display = 1 to force DOSbox to use Video Display 1
+- Voodoo, Minor Optimize, Codeloop on Video Settings Stopped.
+- DOSBox, Added Multimeda Keys (Volume Up and Down, Mute)
+- DOSBox, Added UseMediaKeys to Config.  If you dont like the Keys
+          for Mixer Volume you can use your Media Volume Keys.
+		  Alternate you can use the mapper and Map your Media
+		  keys, However ......
+- DOSBox, Zeigt den Name des Laufwerks in der Titeleiste an wenn man das Medium
+          (CD/Floppy) durch listet. (Nur bei Multiple Mounts!)
+- DOSBox, VIDEO CARD Custom S3 Trio Patch (DOSBOX) by s3freak (*)
+- DOSBox, Removed S3Reresh and Jemmex DOS Tools
+- DOSBox, Added Edit (Freedos), DOS32A Extender, DOS/4GW and the Unbind Tool (**)
+- DOSBox, Update CutVesaResolutionIndex
+- DOSBox, Added LogVesaResolutionIndex, Save all availbale Screen Mode to the Log.
+- DOSBox, Minor Changes but try not to break the SVN
+
+
+Inject newlines before displaying DOS prompt
+			In an earlier change, I removed appending newline outside of batch mode
+			in DOS shell code - that made DOSBox behave less like MS-DOS and more
+			like modern shells, that do not try to compensate for buggy
+			applications.
+
+			However, we should recognize that DOSBox (unlike e.g. FreeDOS) is designed
+			to run legacy applications, which might make assumptions about DOS
+			implementation. Some examples:
+
+			- PC Player Benchmark assumes, that help commands are displayed exactly
+			  at 80x25 terminal and formats the output to fill the whole screen
+			  (scrolling past DOS4GW messages).
+			- Quake and other ID games print shareware information on exit, but do
+			  it via a direct memory dump (not interrupts to print DOS text), and
+			  follow up with setting cursor exactly at line 22 (which is partly
+			  written already), expecting shell to inject newline.
+			- PCC Compiler prints status message on exit without newline, depending
+			  on MS-DOS shell behaviour.
+			- TEXTUTIL set of external commands do not print nothing to standard
+			  output, and are designed to clear the screen, therefore writing a
+			  newline after .COM commands would be a mistake.
+
+			Therefore we want to inject this newline, but not in every case.
+
+			New implementation reuses a static variable used by Program base class
+			(for purpose of translating UNIX newlines to DOS newlines) for detection
+			if it's appropriate to inject an additional newline or not.
+
+			Injecting the newline happens in function displaying the DOS prompt (so
+			we don't need to write additonal logic for separately handling batch
+			mode). When starting a non-COM, non-internal command the static variable
+			is set to the state indicating that next DOS prompt should inject the
+			newline.
+
+SB  Emulaion Integration
+		   <<<               DOSBox SVN r4336 (Optionals) (SB  Integrated 00R)           >>>
+		  
+		   29 Oct 2019
+		   
+			- SVN r4176
+				Don't generate sound after DMA is masked at end of single-cycle
+				transfer. Prevents issues with some games.
+		  
+			- SVN r4113
+				No IRQ generating when masking the IRQ channel.
+		  
+			- SVN r4022
+				Update mixer volume calculations for the SBPRO1,2 and SB16, based on
+				measurements by James-F.		  
+				
+			- SVN r3936
+				Add opl3gold option to oplmode setting. With this option the AdLib Gold
+				music can be selected in Dune. Only FM music without effects (reverb,
+				stereo enhancement, surround sound, etc.) is supported. FM volume
+				control, used in the CD-ROm version of Dune, does work.		  
+				
+			- SVN r3926
+				Clear incomplete DSP command at reset, fixes Romancing Prince.
+				("Setting SB input rate sets output rate" part of SVN commit already in
+				DOSBox-X, so not included here)		  
+			
+			- SVN r3896 (partial)
+				Do less to update the frequency of an active SB DMA transfer		  
+				
+			- SVN r3850
+				Relevant part of original commit message:
+				The SB DMA callback ignores previously selected, but not currently selected
+				DMA channels. Fixes Visual Player 2 with SB16. Irrelevant part of original
+				commit message (this part of the commit was implemented in a separate commit
+				in DOSBox-X): Bits 0 and 4 of the SBPro mixer volume registers are always set.
+				Fixes SBPro detection in Wolfenstein 3D, Alone in the Dark (European versions),
+				Visual Player 2, and possibly others.		   
+		   
+			- SVN r3845
+				Add small delay when raising IRQ, fixes Llamatron 2012 and Lemmings 3D.
+		   
+			- Sound Blaster: According to [#1044 (comment)] the time constant DSP command
+				has no effect on the sample rate value stored in 8051 RAM		   
+		   
+			- Sound Blaster:
+				SB16 cur_cmd/last_cmd		   
+				
+		    - Sound Blaster:
+				SB16 8051 memory bytes 0x13-0x14 reflect the sample rate
+				
+			- Sound Blaster:
+				Complete transition to newer DSP command E2h code, remove old code		   
+				
+			- Sound Blaster:
+				DSP command 0xF9 is to read the 8051 DSP RAM, 0xFA to write to the 8051
+				DSP RAM. As confirmed on real hardware		   
+				
+			- Sound Blaster:
+				Mark E2_incr_table as old code to replace someday. The new method for
+				DSP command E2h emulation will not need the lookup table
+		   
+			- Sound Blaster Goldplay
+				mode is compatible with the mixer sample acccurate mode now
+				
+			- Sound Blaster Pro mixer volume apparently has bits 0,3 SET instead
+				of CLEARED. Programs that detect the PRO seem to rely on this.
+				This fixes posse.zip
+				
+			- Wsign-conversion fixup		   
+			
+			- Sound Blaster Emulation:		   
+				Sound Blaster: Enable a specific ASP command emulation even if ASP
+				emulation is false, to make Windows 98 happy.
+
+				SC400 cards do NOT support command 0xC0/0xB0 and 0xC8/0xB8
+
+		   <<<               DOSBox SVN r4336 (Optionals) (SB  Integrated 00Q)           >>>
+		   
+			- Sound Blaster Emulation:
+				apparently there are DOS demos that use Direct DAC playback but don't
+				turn on the speaker. Without this option, such demos run in silence.
+						   
+			- Sound Blaster Emulation:
+				apparently there are DOS demos that use Direct DAC playback but don't
+				turn on the speaker. Without this option, such demos run in silence.
+
+			- Sound Blaster Emulation:
+				Add useful debug message if code tries to play Sound Blaster audio using
+				Direct DAC without turning on the speaker.
+				
+			- Sound Blaster Emulation
+				Sound Blaster: consolidate single-sample DMA detection. fix "goldplay
+				stereo" to trigger only if single-sample DMA. Forced goldplay and
+				goldplay stereo should no longer falsely trigger when a DOS game isn't
+				using that mode (i.e. DOOM).
+
+			- Sound Blaster Emulation
+				Sound Blaster: When the DSP is playing a block by DMA using SB 1.x
+				non-auto-init commands, the busy cycle should stop 3ms early (according
+				to sb.dma.min) just like normal DMA emulation does already. Since
+				Crystal Dream uses the DSP busy cycle to detect when the SB card is
+				about to finish, this helps Crystal Dream play audio without any hiccups
+				or subtle glitches.
+
+			- Sound Blaster Emulation Goldplay:
+				more
+		   <<<               DOSBox SVN r4336 (Optionals) (SB  Integrated 00N)           >>>
+		   
+			- Fix SC-4000 missing break statement
+			
+			- Sound Blaster Emulation 16 ASP:
+				SB16 ASP observed behavior: register contents of undefined registers are
+				SB16ASP ASP mode register behavior update. Based on poking at real
+				hardware. Apparently bits 3 and 7 must be set to enable memory access,
+				else register 0x83 just returns chip ID. bits 4-6 don't matter in that
+				case. bits 0-2 enable index reset and autoincrement as noted.
+
+			- Sound Blaster Emulation 16 ASP:
+				SB16ASP reference: for DSP command 0xF9 add in comment a DOSLIB dump of
+				command 0xF9 results. Someday we could figure out what it means.
+
+			- Sound Blaster Emulation 16 ASP:
+				SB16ASP actual hardware observation: the RAM accessible through port
+				0x83 appears to be uninitialized at power-on. what I thought were
+				signficant contents were really just bytes of RAM that are mostly 0xFF
+				but contain randomly flipped bits based on whatever the RAM cells
+				happened to latch onto when the card first powered up.
+
+			- Sound Blaster Emulation 16 ASP:
+				Update notes regarding SB16ASP mode, modes 0xF8-0xFF and what the bits
+				actually mean. Apparently modes 0xF8-0xFF are some kind of memory access
+				mode, and bit 2 resets the memory index == 0, bit 1 says to increment
+				memory address on write, bit 0 says to increment memory address on read.
+				this also emulates useless ASP modes 0xFD-0xFF as well.
+
+			- Sound Blaster Emulation 16 ASP:
+				make sure not to respond to ASP writes if ASP disabled
+				
+		   <<<               DOSBox SVN r4336 (Optionals) (SB  Integrated 00N)           >>>
+		   
+			- Sound Blaster Emulation 16 ASP:
+				SB16 ASP observed behavior: register contents of undefined registers are
+				the register index you asked for.
+
+			- Sound Blaster Emulation 16 ASP:
+				cleanup, and fix verbosity of SB16ASP debug messages
+				
+			- Sound Blaster Emulation 16 ASP:
+				So... poking at a SB16 card with an ASP chipset, it turns out that ASP
+				register 0x83 is some sort of access port to what appears to be 2KB of
+				RAM on the chip (it's readable/writeable). When you set mode == 0xFA,
+				you enable writing to the RAM with increment. When you set mode == 0xF9,
+				you enable reading from the RAM with increment. Creative's DIAGNOSE.EXE
+				utility appears not to care so much whether the byte sequence is
+				0x00,0xFF,0x00,0xFF so much as it cares whether or not it can read the
+				bytes, invert them, write them back, then read back and invert the bytes
+				again. For reference, a dump of the 2KB RAM block from the chip is
+				provided in the source code as the initial contents. The dump is from a
+				Sound Blaster 16 non-PnP card with DSP version 4.4 and ASP chip version
+				ID 0x10. Creative's DIAGNOSE.EXE utility is happy with the emulation so
+				far, since it gets all the way to asking for the chip version ID.
+				I can only assume this 2KB block of RAM is somehow key to communicating
+				with the chip and the microcode you upload to the chip when you want
+				hardware accelerated decompression (to run CSP images).
+				
+
+			- Sound Blaster Emulation 16 ASP:
+				realism fixes: SB16 ASP commands are the same for all SB16 cards, but
+				what is returned to the game or OS differs by whether or not there is an
+				ASP chip. Cards that lack the ASP always return 0xFF no matter whether
+				you ask version, register contents, etc. If DOSBox/DOSBox-X does not
+				emulate the ASP anyway, why give the driver the impression that there
+				is one? Why not act like a typical SB16 that doesn't have one? But if
+				you want the old behavior back, you can set "enable asp=true" in the
+				[sblaster] section of your dosbox.conf
+				
+
+		   <<<               DOSBox SVN r4336 (Optionals) (SB  Integrated 00M)           >>>
+		   
+			- Sound Blaster Emulation:
+				properly handle sample rates from both DSP
+				command 0x40 (set time constant) and command 0x41/0x42 (set sample rate)
+				when handling SB/SBpro style playback commands (DSP command 0x14).
+				Bugfix for unofficial Silpheed Sound Blaster drivers. These drivers use
+				SB16 sample rate commands if DSP version 4.xx is detected, but will also
+				use DSP 1.x/2.x commands to play audio.
+
+			- Sound Blaster Emulation:
+				make "continue auto-init DMA" work for 16-bit and 8-bit
+				
+			- Sound Blaster Emulation:
+				ah, the same documentation says commands 0x45 & 0x47 only exist on the
+				Sound Blaster 16.
+				
+			- Sound Blaster Emulation:	
+				keep track of what the DMA state *was* so that DMA auto-init can be
+				resumed even if the single-cycle DMA block stopped. As far as available
+				documentation goes, this implements "continue auto-init DMA" commands
+				0x45 and 0x47.
+				
+			- Sound Blaster Emulation:			
+				update command 0x45 the best I can
+				
+			- Sound Blaster Emulation:
+				Undocumented SB16 commands "continue auto-init DMA"
+				
+		   <<<               DOSBox SVN r4336 (Optionals) (SB  Integrated 00K)           >>>
+		   
+			- Sound Blaster Emulation:
+				Make mixer render up to for certain DSP commands that affect sample
+				rate, halt/resume state. DSP command 0x40 (set time constant) bugfix not
+				to reinitialize a paused DMA transfer. The bug was that, if DMA was
+				halted with command 0xD0 (Halt 8-bit DMA), sending command 0x40 would
+				incorrectly resume the DMA transfer when the DOS program did not expect it.
+
+			- Sound Blaster Emulation:	
+				remove Crystal Dream hack, for now. cleanup "old" DMA start playback
+				code. explicitly store 'highspeed' mode flag. do highspeed DSP blocking
+				only if Sound Blaster or Sound Blaster Pro.
+				
+			- Sound Blaster Emulation:		   
+				we have the "always busy cycle" option, get rid of the Saga demo hack,
+				and cycle the busy cycle only when playing audio for sb and sbpro. This
+				fixes Crystal Dream, which on further examination appears to watch the
+				busy cycle as a method of detecting when the DSP has finished playing
+				so it can issue DSP command 0x14 again
+				
+		   
+			- Reveal SC400:		   
+				SC400 DMA channel change needs to match 8/16-bit PCM with 8-bit channel.		   
+				
+			- Reveal SC400:
+				(experimental) emulation, enough to make CONFIG.EXE and TESTSC.EXE happy.
+				Sound Blaster Pro cards do not return a DSP copyright string		   
+				
+		   - mixer changes should trigger render upto
+		   
+		   <<<               DOSBox SVN r4336 (Optionals) (SB  Integrated 00J)           >>>
+		   
+			- Sound Blaster 2.0 updates.
+					Filtering is nonexistent on the CT1350B. Iwas wrong about 23KHz
+					limit, the CT1350B caps itself to 44.1KHz/22.05KHz apparently.
+					
+			- Sound Blaster Emulation:
+				Sound Blaster 16 testing, filtering adjustments completed. Also, I was
+				apparently wrong about ViBRA cards maxing out at 48KHz, they max out at
+				46KHz just like previous revisions of Sound Blaster.
+				
+			- Sound Blaster Emulation:
+				range check and print warning when GenerateDMASound is asked to render
+				too much audio (beyond the buffer allocated for DMA). This fixes
+				segfaults that can happen sometimes when switching between DAC and DMA output.			
+				
+			- Sound Blaster Emulation:
+				here's a good one: Overload by Hysteria assumes DSP write status returns 0x7F
+				or 0xFF, which is correct for Sound Blaster 1.x or Sound Blaster 16, but,
+				not true for Sound Blaster Pro and clone hardware. The demo reads DSP write
+				status to loop until bit 7 clears, then re-uses the 8-bit value as the
+				"center" value to sum it's audio onto for music output. This is why, on
+				Sound Blaster Pro and clones that return 0x2A instead of 0x7F, the demo's
+				music crackles and saturates. This update changes DSP write status to
+				return 0x7F for sbtype=sb1, and adds an option to force DSP write status
+				to return 0x7F/0xFF so demo code like this can work in DOSBox-X.
+
+				Also noted: Running the demo on a laptop with Yamaha OPL3-SAx chipset
+				Sound Blaster emulation also reveals the same problem.
+				
+
+		   <<<               DOSBox SVN r4336 (Optionals) (SB  Integrated 00G)           >>>
+		   	- Sound Blaster ESS 688:
+				dma count in bytes is assigned to total as-is, because 8-bit DMA. sorry.
+				
+		   	- Sound Blaster ESS 688:				
+				Emulate ESS 688 mixer registers. Volume controls in Windows 95 now work
+				correctly.			
+				
+		   	- Sound Blaster ESS 688: 
+				Port 22F is not an alias of 22E, and reading it does not clear interrupts.			
+				
+		   	- Sound Blaster ESS 688: 
+				Always clears IRQ status through 22E, even 16-bit PCM. DMA total counter
+				in the emulation is half the byte count in 16-bit mode. This fixes 16-bit
+				PCM in Windows 95 using the ESS 688 driver. 
+
+			- Sound Blaster ESS 688:  		   
+				Apparently for ESS 688 emulation we need to clear the DRQ to make the
+				Win95 driver happy.
+				
+			- Sound blaster:
+				hz == 0 must disable busy cycle, as documented and expected
+		   
+		   	- Sound Blaster ESS 688:  more finangling, still can't get Win95 to talk to it.		   
+			- Sound Blaster ESS 688:  more ESS emulation work
+			
+			- Sound Blaster Emulation:
+				it turns out Sound Blaster 2.0 and Sound Blaster Pro (DSP v3.1) do not
+				return copyright strings.		   
+				
+			- Sound Blaster ESS 688:  try bumping up the ESS version		   
+			- Sound Blaster ESS 688:  basic ESS 688 emulation completed.
+			- Sound Blaster ESS 688:  new experimental ESS 688 emulation.
+			
+			
+		   <<<               DOSBox SVN r4336 (Optionals) (SB  Integrated 00F)           >>>
+			- Sound blaster:
+				For non-sb16 cards, run the busy cycle if either the DSP is playing audio
+				via DMA, or if the DSP *was* playing audio via DMA. Temporary hack for
+				"Saga" by Dust. Without the hack, the demo can get hung up in it's own
+				interrupt handler while programming a new DSP block, waiting for the DSP
+				to busy cycle between commands. TEMPORARY HACK.
+				
+			- Sound Blaster Bugfix:
+				"goldplay" mode should not spam the debug log if an errant DOS application
+				forgets or is unable to acknowledge the Sound Blaster IRQ.			
+				
+			- Sound blaster:
+				If emulating a Sound Blaster 16 and the DOS application emits the
+				"DSP Speaker Off" command while DMA is running, emit a warning about
+				audible noise/static. The warning is designed to clue the user in on
+				the fact that the noise/static is the result of some stupid assumptions
+				in certain early demoscene productions that don't apply to SB16 hardware,
+				and how to fix it.
+
+			- Sound Blaster Bugfix:
+				regarding my comments about the DSP busy cycle on SB16 cards, SB 2.0
+				and other cards DO have a busy cycle. Additional testing on real
+				hardware shows that SB 2.0 cards (and possible 1.0, and Pro) do not
+				run a DSP busy cycle unless the card is playing audio through DMA.
+				Updated Sound Blaster emulation to reflect this. This should fix
+				hangs with certain DOS demoscene entries (Scrolla, Amnesia, and Saga)
+				who's SB support routines first loop while the DSP is not busy,
+				then loop while the DSP is busy.		   
+				
+		   <<<               DOSBox SVN r4336 (Optionals) (SB  Integrated 00E)           >>>
+		   
+			- dosbox.conf configuration option to pre-set SB Pro stereo. workaround
+				for Sound Blaster Pro support bugs in "Inconexia" by Iguana (1993) demo.		   
+		   
+			- Sound Blaster and ISA PNP:
+				Replace static PNP configuration data with dynamic generation.
+				sb16vibra now contains configuration data that matches exactly what was
+				dumped from a real ViBRA16C card. Add logic to emulate looping behavior
+				observed on real hardware, where PNP data acts as if read from a fixed
+				size ROM if read continuously.
+		   
+			- Sound Blaster:
+				Emulate DSP MIDI Read/Write Poll commands (DSP commands
+				34h through 37h). No attempt is made at this time to send any data back.
+				Adding this makes MIDPLAY (DOS-based MIDI player) happy because it
+				relies on DSP command 35h to switch the DSP into a passive conduit for
+				MIDI data, before sending data to the DSP port for MIDI playback.
+		   
+			- fix the mixer stereo bit warning again
+			
+			- fix sb16 mixer stereo bit warning to report new state correctly AND only
+			  when sbtype=sb16
+			  
+			- add reminder to self about FIFO emulation (Sound Blaster 16). allow user
+				to control sb.dma.min from dosbox.conf in case default 3ms setting is
+				not ideal.
+				
+			- Sound Blaster bug fixes:
+				don't read the DMA channel if it's masked. Ever. Don't try to read
+				sb.dma.min samples in reaction to the DOS game masking the DMA channel.		   
+		   
+			- Bugfix
+				for "Jump" demo: always assign total count even if forced auto-init.
+				prior to this fix, a fresh boot with the Jump demo and forced auto-init
+				would cause no audio, and an endless cascade of zero-length SB transfer messages.		   
+				
+			- Sound Blaster "goldplay" bugfix: Check to see that "read" bytecount does
+				not cause DMA bytecount to underrun past zero. Doing so means the IRQ
+				never fires properly. Bugfix for "Extreme Assault" who's SB16 test
+				routines attempt to play a 1-byte DMA transfer as 16-bit stereo PCM (4
+				bytes). Prior to this fix the test would fail because the IRQ would
+				never fire and the game would claim it did not detect the card.
+		   
+			- New sample accurate mixer mode. ******
+				for demos that need greater than 1ms granularity in audio output, such
+				as programs that modulate Tandy or Adlib FM channels to fake digitized
+				speech.
+		   
+			- whoops, correct SB rate limit
+			
+			- cleanup, adjust, Sound Blaster direct DAC timing limit code.
+			
+			- Remove pic unmask on irq hacks except for the initial startup unmasking
+				setting. setting "force dsp auto-init" is more effective, and the
+				commentary was unnecessary.
+
+			- Sound blaster:
+				The final hack to get the damn "Jump" demo to keep it's music
+				playing: Forcibly unmask the IRQ on Sound Blaster IRQ signal.
+				Now it can play all the way through without cutting out. Sheesh.
+				The programmer needs to learn how to program the 8259 PIC and
+				the interrupt mask registers properly.
+		   
+			- Sound blaster:
+				some games support Sound Blaster and expect the IRQ to fire but make no
+				attempt to unmask the IRQ at the PIC (Public NMI - Jump demo). Added a
+				new option that tells Sound Blaster emulation to unmask the IRQ on
+				startup to ensure the demo music plays properly regardless.		   
+				
+		   
+		   <<<               DOSBox SVN r4336 (Optionals) (SB  Integrated 00B)           >>>
+			- change default DSP busy write time to 1000ns (1us). I'm starting to
+				wonder if certain early demos are having problems keeping single-cycle
+				going because our delay is too long...
+
+			- Add dosbox.conf option (off by default) that if set, forces Sound
+				Blaster emulation to treat all DSP single-cycle playback commands as if
+				auto-init. This hack is a workaround for demos like Extreme's "lunatic"
+				demo that has problems responding to the Sound Blaster IRQ if under load
+				(including using DOSBox's speedlock function to "fast forward"). By
+				forcing auto-init playback, it no longer matters if the demo missed the
+				IRQ. Warnings are given in the config file that the option should not be
+				enabled unless necessary.
+
+			- Bugfix:
+				Goldplay detection code now also considers whether or not the DOS game
+				or demo is trying to enable sbpro stereo, not just whether stereo playback
+				is being started. This fixes Goldplay detection with Crystal Dream 2 when
+				sbtype=sb16
+
+			- Bugfix:
+				check DMA channel pointer before using. fixes segfault when playing
+				16-bit PCM on a high DMA channel when second DMA controller doesn't exist
+				
+			- Add goldplay state to DMA debug message
+			
+			- Goldplay mode:
+				improve detection by triggering goldplay mode only if the dma count
+				is actually at or less than one sample of audio, rather than assuming
+				4 dma counts. add "force goldplay" mode option, for testing, not for
+				general use.
+					
+			- add dosbox.conf configuration option to enable "instant DAC output mode"
+				for some demos with broken Sound Blaster support that use IRQ 0 and
+				direct DAC output. The option is off by default. Recommended for
+				Superiority Complex's X-Mas 1993 demo.
+				
+			- Bugfix:
+				instead of rate-limiting the DSP time constant value directly,
+				maintain the original value written and rate-limit a copy on DMA start.
+				This fixes a problem with sample rate limits and Optic Nerve demo. The
+				demo appears to first test the SB by using DSP command 0x14 to play a
+				2-byte long block, then issue DSP command 0x91 for the main demo music
+				without writing the time constant again between the two.
+				Prior to this fix, the DSP time constant was clamped down to non-hispeed
+				22050Hz and then not restored for the 0x91 playback, causing the demo
+				music to play slowly.
+				
+				
+		   <<<               DOSBox SVN r4336 (Optionals) (SB  Integrated 00A)           >>>
+		   				
+			- Update DSP write status port emulation to return SB 2.0 style 0xAA/0x2A
+				instead of 0xFF/0x7F for busy state, based on values observed on actual
+				Sound Blaster 2.0 hardware.		   
+				
+			- Reminder to self:
+				Different DSP write status readback than the normal 0x7F/0xFF values
+				on SB 2.0 cards.
+				
+			- Sound Blaster 2.0 Direct DAC emulation update with commentary.
+			
+			- Update according to testing with SB 2.0 card
+			
+			- Sound Blaster 16 DSP
+				added Sound Blaster 16 DSP "busy cycle" emulation. to explain what that
+				means: the DSP seems to go busy on it's own whether or not it's doing
+				anything at a clock rate that corresponds to 16 ISA I/O cycles. This
+				busy cycle doesn't prevent it from accepting commands, but the DSP write
+				status register reflects this state regardless. Previous SB cards do not
+				seem to do this. Some DOS demos that rely on polling the DSP may be
+				confused by the busy cycle (Crystal Dream is such a demo) which is
+				probably why those demos don't work on SB16 cards (where they would
+				otherwise work just fine). The code just added emulates this busy cycle
+				in a time-accurate manner (but also in a way that is counted by I/O
+				reads to compensate for DOSBox's I/O emulation system to ensure the DOS
+				program sees it change in 8 I/O reads.
+		   
+			- Update Direct DAC timeout constants in SB emulation. On a related note,
+				my SB16 card does seem to toggle DSP ready state even when the card
+				isn't doing anything! So the weird code that was replaced may have
+				had a purpose regardless. Hm. At what rate does it toggle?
+				
+		    - remove unused variable, put switch default case in place.
+			
+			- Remove now-pointless comment.
+				change PnP header writing to use host_writed to silence GCC
+				warnings about type punning.		   
+				
+			- store time constant
+				and for pre-SB16 commands, use the time constant to enforce sample
+				rate limits rather than the sample rate value. Results are quite a
+				bit closer now to real hardware when you go over the sample rate limit.
+				
+			- When sbtype=sb16, report DSP version 4.5. When sbtype=sb16vibra,
+				report DSP version 4.13.		   
+		   
+		   <<<               DOSBox SVN r4336 (Optionals) (SB  Integrated 009)           >>>
+			-  Sound Blaster hack		   
+				EMF "Internal Damage" demo seems to use port 22Dh to talk to the DSP
+				instead of 22Ch. I added a dosbox.conf option (disabled by default)
+				to alias I/O ports by ignoring bit 0 (port 22D -> 22C, 22B -> 22A, etc)
+				which seems to help the demo enable it's Sound Blaster mode (though with
+				a lot of noise and hash, perhaps another problem). The real question:
+				Did the original Sound Blaster 1.x and 2.x (not Pro) cards alias I/O ports
+				like that?
+				
+			-  allow SB16 playback command to interrupt another SB16 playback
+				command. remove SB16 questions since I just answered them.
+				
+			- Testing shows
+				that on an SB16, there really is no "highspeed DSP" mode, the DSP responds
+				to the command the same way it does a normal non-highspeed command.
+				updated sample rate limit code to reflect SB16 behavior. It seems the
+				SB16 allows all playback commands to run at a time constant from 4KHz
+				up to the max supported by the DSP (48KHz on the ViBRA card I tested)
+				with or without hispeed DSP commands.		    
+				
+			- Comment out DSP debug
+		   <<<               DOSBox SVN r4336 (Optionals) (SB  Integrated 008)           >>>
+		   
+			- Add reminder
+				to self about SB16 "bug" discovered during testing where audio samples
+				are skipped if you tell the card to do single-cycle playback with the
+				FIFO enabled (which is not recommended by Creative documentation,
+				apparently). this will eventually be emulated in sblaster.cpp with
+				a dosbox.conf to enable/disable emulation of this quirk.		   
+		   
+			- we do need to double the count used to read DMA in goldplay mode if using
+				the 16-bit DMA over 8-bit DMA alias mode
+				
+			- Final Bugfix:		   
+				Since the DMA channel read function deals with DMA transfer units
+				NOT bytes, correct Goldplay code. consolidate IRQ on DMA terminal count.
+   			
+			- Bugfix:
+				sblaster.cpp dma.total and dma.left are in samples not bytes,
+				consider that when adjusting .left after Goldplay-style single DMA read.
+				This fixes odd DMA timing in my SB test program in Goldplay mode.			
+				
+			- Bugfix:
+				Why did I do that "divide by 2" in sblaster, why?
+				
+			- Bugfix:
+				Goldplay mode for 16-bit DMA needs to consider 16-bit DMA and
+				16-bit aliased over 8-bit DMA cases.			
+				
+			- Bugfix:
+				Adjust dma transfer length check to catch Goldplay style
+				playback with 16-bit stereo over 8-bit DMA.
+				
+		    - add Sound Blaster 2.x ADPCM auto-init command support
+			
+			- Bugfix:
+				make sure highspeed mode is reset on every single-cycle transfer
+				end, not just the main. this fixes bugs where the DSP remains "busy"
+				because the highspeed flag is never reset.		   
+				
+			- oops, revert some of the mistakes made in "goldplay stereo" mode.
+				Without this fix, Sound Blaster Pro stereo audio plays at twice the
+				sample rate even if "goldplay mode" is not active!
+
+			- Update DSP playback (old)
+				to avoid reinitializing audio again if audio is still playing from
+				the last time. In other words, if a single cycle audio block from DSP
+				command 0x14 is in progress on playback, and another DSP command 0x14
+				comes in before the current block is finished, then just reset the DMA
+				left/total values so the audio playback moves on uninterrupted.
+				Sound Blaster output from Crystal Dream is now flawless, and sounds just
+				like it did on real hardware master.
+		   
+		   <<<               DOSBox SVN r4336 (Optionals) (SB  Integrated 007)           >>>
+		   
+			- Sound Blaster DSP write status emulation fixed up.
+				DSP highspeed DMA playback is also considered. Added bugfix for
+				SB16 "require IRQ ack" where audio is stopped if another IRQ
+				is fired and the previous IRQ has not been acked, which makes
+				sense to me, and also eliminates popping and crackling in the
+				audio when using the auto-init DSP playback modes. Added code to
+				modify DSP busy wait delay if using DSP command 0x10 direct DAC
+				output to rate-limit programs that use it and the IRQ 0 timer
+				for playback. The rate limit ensures that playback cannot happen
+				faster than 23000Hz just like real hardware when using DSP command 0x10.
+
+				Confirmed: Sound Blaster audio is now working with Crystal Dream demo,
+				though with very minor popping and crackling, which I will look into.		   
+				
+			- Sound Blaster Accuracy Emulation:
+				If emulating Sound Blaster 16, or instructed to from dosbox.conf,
+				require that the DOS program acknowledge the interrupt even in
+				auto-init mode before allowing DMA to continue. This is based on what
+				actual SB16 hardware does. Conversely, SBPro and earlier emulation
+				does not require IRQ ack to continue playing.
+		   
+			- Sound Blaster		   
+				added "goldplay stereo" option as workaround for demos that use Sound
+				Blaster Pro but don't seem to know the requirement that they double the
+				sample rate when computing the DSP time constant. Such demos tend to
+				sound worse in stereo mode because they end up programming the DSP to
+				run at 11025Hz stereo while updating the audio sample byte at 22050Hz.
+				Enabling the option double the rate that the DMA memory location is read
+				to enable full quality playback with such demos.		    
+			
+			- doh, simplify some code in sblaster.cpp
+			
+			- Sound Blaster 16 PnP emulation:			
+				Added TODO to add Sound Blaster 16 emulation quirk where DMA is halted
+				until IRQ acknowledgement happens. Added commentary on DOSBox DSP write
+				status port kludge. Added notes on the Triton "Crystal Dream" demo and
+				why the kludge prevents Sound Blaster support from working in that demo.			
+				
+			- whoops, 2-bit ADPCM is said to max out at 11KHz not 13KHz.
+			- Switch to using more accurate DSP time constant formula recommended by
+				Creative documentation.		   
+		   
+		   <<<               DOSBox SVN r4336 (Optionals) (SB  Integrated 006)           >>>
+			- Sound Blaster 16 PnP emulation:
+				Added code to enforce constraints noted on an actual SB16 ViBRA test card
+				where the 16-bit DMA channel is permitted to be either 5, 6, or 7, or
+				match the 8-bit DMA, but if you configure the 16-bit DMA on any other
+				channel (like, say, 8-bit DMA on channel 1 and 16-bit DMA on channel 3)
+				the card doesn't seem to cycle DMA at all.
+				
+			- Sound Blaster			   
+				add emulation option to limit the mixer stereo control bit to Sound
+				Blaster Pro only emulation (off by default). If the option is not set,
+				then it is possible to use Sound Blaster Pro type stereo when emulating
+				a sound blaster 16. The reason this is an option is because Creative SB16
+				cards do not honor the stereo bit, and DOS games written around it will
+				play in mono as a result, while many clone cards still honor the bit.
+				
+		    - Sound Blaster Emulation:		   
+				add option (enabled by default) to limit playback sample rate to match
+				limits imposted by real Sound Blaster hardware. prior to this fix, it
+				was always possible to play audio at sample rates way higher than what
+				is actually possible on real Sound Blaster hardware.		   
+		   
+			- Sound Blaster		   
+				allow dosbox.conf user to assign IRQ and DMA settings -1 to specify that
+				those resources are not assigned at DOSBox startup (ideal for testing PnP
+				configuration). added code to allow dosbox.conf to specify whether the
+				BLASTER environment variable is auto-created at startup.
+				Added code to auto-disable the BLASTER variable if IRQ and 8-bit DMA are
+				not set at startup.
+		   
+		   <<<               DOSBox SVN r4336 (Optionals) (SB  Integrated 005)           >>>
+			- Sound Blaster
+				Fix typo to ensure that 16-bit DMA over 8-bit DMA channel  works properly
+				even if 8-bit channel not assigned (via ISA PnP)		   
+		   
+			- Sound Blaster Bugfix:
+				More bugfixes to check DMA channel pointer against NULL.
+				
+			- Sound Blaster Bugfix:
+				Check the DMA channel variable is non-NULL before checking length to
+				detect goldplay mode.			
+				
+			- Sound Blaster Bugfix:
+				fix up the code so that 16-bit DMA aliased over 8-bit DMA channel
+				works properly.
+				
+			- Remove Goldplay comment			
+			- Remove Goldplay DAC warning			
+		    - Notes to Self
+		   
+		   <<<               DOSBox SVN r4336 (Optionals) (SB  Integrated 004)           >>>
+		   
+			- Minor code cleanup in Sound Blaster emulation		   
+			
+		    - Sound Blaster Emulation:
+				When the user specifies sbtype=sb16 when machine=pcjr or the secondary
+				DMA controller not present, don't force it to sbtype=sbpro2, print a
+				warning message instead to let the user know that's a bad idea, but
+				let the user run it that way anyway. Removed IS_EGAVGA_ARCH check,
+				since the *video card* shouldn't be tied so deeply to the architecture
+				anyway.		   
+				
+			- Add comment to sblaster.cpp about allowing ISA PnP to set the IRQ == 2
+			    and the change to PIC_ActivateIRQ to make the setting work regardless.
+
+			- bugfix: when the PIC has an IRQ 2 signal without a slave IRQ 8-15
+				signal, log an error and clear IRQ 2 instead of calling E_Exit(). Added
+				reminder to self to test what actual Sound Blaster 16 PnP cards do when
+				assigned IRQ 2 vs IRQ 9. Remember that on the ISA bus, the 8-bit
+				connector had an IRQ 2 (reserved) pin (PC/XT) that was reassigned to IRQ
+				9 on AT and later systems, and thus the ISA but doesn't really have IRQ
+				2 (but it's faked as IRQ 2 by DOS or the BIOS).
+
+				prior to this fix, running my Sound Blaster test program with
+				sbtype=sb16vibra and using the program to reassign the card to IRQ 2
+				caused DOSBox to E_Exit() with a complaint about IRQ 2 with no slave
+				IRQ, which imho is not an appropriate way to handle the error.
+		   	   
+		   <<<               DOSBox SVN r4336 (Optionals) (SB  Integrated 002)           >>>		   
+		   BOOT command now shuts down on booting a guest OS: (Partial)
+		   replace all fprintf(stderr,... calls with calls to LOG_MSG		   
+
+		   <<<               DOSBox SVN r4336 (Optionals) (SB  Integrated 001)           >>>
+		   port from svn
+		   
+		   <<<               =================================================           >>>		   
+		   Notes To SB
+		   
+			Triton "Crystal Dreams" (1992) DOS demo
+			[http://www.pouet.net/prod.php?which=463]
+
+			How to configure DOSBox to run this demo:
+			-----------------------------------------
+
+			machine=vgaonly (you might consider machine=svga_et4000 for kicks)
+			cycles=10000 or higher
+			memsize=1 (demo does not appear to use extended memory)
+			goldplay=true (demo uses Goldplay-style hacked Sound Blaster support)
+
+
+			"Crystal Dream" and the horrifying reason it's Sound Blaster output
+			doesn't work with DOSBox by Jonathan Campbell
+			-------------------------------------------------------------------
+
+			It was bad enough writing the Goldplay hack for early DOS demos.
+			The idea of telling the DSP one length (65536) while telling the
+			DMA controller another length (1) and then using the timer interrupt
+			to write to the byte at the sample rate was bad enough. But those
+			demos at least handled the Sound Blaster as intended regardless
+			including the IRQ.
+
+			When I tested the hack against various DOS demos I was intrigued to
+			discover that Crystal Dream also used the technique, but I was also
+			confused as to why the demo seemed to have difficulty responding to
+			the IRQ to keep the sound going---when you started the demo with
+			Sound Blaster output the audio would run for about 1 second, and
+			then stop. I assumed it had to do with faulty PIC emulation at the
+			time, after all, DOSBox's debug code reported the demo writing some
+			strange ICW3 and ICW4 values. I chased that around for a while, then
+			gave up and moved on.
+
+			Today (as of writing this) I had tried the demo again, this time using
+			the debugger to try and examine what IRQ the demo had hooked to see
+			if it was detecting the Sound Blaster IRQ properly. What I found instead
+			is that while the demo hooks IRQ 0 (timer) and IRQ 1 (keyboard), it
+			does NOT hook any IRQ for the Sound Blaster. In fact, it appears to
+			complete ignore the IRQ entirely! Instead, it has code in the timer
+			interrupt (which is running at the sample rate of audio!) to check
+			the DSP write status port (hard-coded to 0x22C apparently!) and
+			maintain a counter based on whether or not the DSP is busy. If the
+			DSP is not busy, it counts down and then after a delay writes
+			DSP command 0x14 (length 0xFFFF). It does this repeatedly, despite the
+			fact that command 0x14 is already in effect! The demo (at about 10-20
+			times a second) is constantly restarting a 1-second block of DSP
+			playback by interrupting the DSP playback it just started! All that
+			just to hack around the fact that it's not really paying attention
+			to the Sound Blaster IRQ!
+
+			It makes me wonder how this technique apparently managed to work as
+			well as it did on both Creative hardware and on a clone Sound Blaster
+			(Gallant SC-6000) that I owned back in the day!
+
+			Now while that works on real hardware (apparently), it does not work
+			with DOSBox, because (at the time of writing this but before fixing
+			DSP emulation) DOSBox emulated the DSP's busy bit by incrementing
+			a counter on read and returning 0xFF if bit 3 was set, rather than
+			using actual writes to the DSP and time to emulate busy/not busy.
+			This is "good enough" for most DOS games that only loop until not
+			busy, but if you're "Crystal Dream" polling port 0x22C on every
+			timer interrupt, this blind toggling only serves to confuse it's
+			hacked DSP playback mode. Specifically, DOSBox's blind toggling
+			every 8 reads causes the demo's countdown timer to reset. Because
+			the counter is never allowed to count down properly, the demo never
+			gets to the stage of issuing another DSP command 0x14 to keep audio
+			playback going, and eventually, the 1-second long DSP block stops
+			and audio goes silent.
+
+			TODO: Since the demo is not acknowledging the IRQ the standard way
+				  (by reading the proper I/O port), would audio also stop and
+				  halt on Sound Blaster 16 hardware?
+
+				  This posting on Pouet seems to provide a hint:
+
+				  "Nice demo with common effects of its time. The soundblaster sound worked only with my old sb pro, today I have to use my even older DAC :-))"
+					   
+IDE Emulaion Integration
+		   <<<               DOSBox SVN r4288 (Optionals) (IDE Integrated 001)           >>>
+		  Changelog for IDE Emulation (From Dosbox-X Codebase):
+		   - remove silent_fprintf
+		   - add mount option and support in INT 13h code for "reserved cylinder"
+		   - IDE emulation: more guessing
+		  
+		   - BIOS INT 13h emulation: on INT 13h disk reset, call IDE emulation to
+		     change drive state to emulate BIOS carrying out a disk reset function.
+		   - IDE emulation: add disk reset INT 13h emulation.
+		  
+		   - Added code to set status to DISK_READY|SEEK_COMPLETE upon completing
+		     common functions. This succeeds in getting past some initial checks in
+			 WDCTRL in WfW 3.11 so far. Now all we need is for INT 13h "read disk"
+			 code to change IDE registers as well because WDCTRL "tests" for validity
+			 by executing INT 13h then reading back IDE registers.
+			
+		   - int 13h emulation: call IDE code where, if disk belongs to IDE controller, the
+		     registers are hacked as if the BIOS had carried out IDE commands.
+			 IDE emulation: moved C/H/S counting up, so it only occurs if another sector is
+			 beginning to read. added code to hack IDE registers as if BIOS IDE read. To my
+			 amazement, IDE emulation now passes all tests given by Windows 3.11 Windows for
+			 Workgroup 32-bit disk driver WDCTRL, and Windows 3.11 is observed issuing IDE
+			 read/write commands on startup! Yay! Now if I could figure out what Windows 95
+			 expects it would make my day... and I could remove my bitter sarcastic remarks
+			 from the source code.
+			
+		   - IDE emulation: Added "write" command emulation. Added some diagnostic messages.
+		     I am happy to say that DOSBox-X with these changes is now able to run in full
+			 32-bit disk access mode with our IDE emulation. I haven't seen any instability
+			 yet.
+			
+		   - IDE emulation: reduce read/write command delay.
+		  
+		   - IDE emulation: uncomment out some of the debug messages. replace some
+		     abort_error() calls with abort_normal() reset but not error because some command
+		     emulation called it as a reset mechanism (like READ emulation). This helps reduce
+	    	 the signal/noise ratio when determining which IDE commands failed or were aborted.
+			
+		   - IDE emulation: Add option to enable/disable INT 13h "fake io" hack.
+		   - CPU: add code to force feed virtual 8086 mode fake I/O instructions
+		   - DOSBox: add config param int13fakev86io
+		  
+		   - INT 13h emulation: add reminder to self that IDE I/O emulation needs to reflect
+		     geometry translation.
+
+		   - change vm86 force I/O to generate code once then use lookup table. theis works
+		     around the dynamic core's cachine and other weirdness.
+			
+		    - move force vm86 I/O init to bios stage	
+		   
+		   - IDE emulation: Added INT 13h fakery, "going through the motions" code.
+		     Added fixes to help fakery work in Win95. Success! Removed rude comments
+			 from top of source file.
+			 
+		   - IDE emulation: uncomment more debugging messages. simplify geometry translation
+			 a bit (down to "shift head count by what now?"). Next to add: translate BIOS
+			 C/H/S given by notifcation so that Win95 can handle disks larger than 504MB.
+			 
+		   - IDE emulation: replace *= 2 with left shift in geometry translation.
+		     Fix code to only do IDE fakery IF it's actually the drive in question.
+			 
+		   - IDE emulation: remove comments and debug messages, the LBA conversion is no
+		     longer untested.
+		   
+		   - IDE emulation: add "initialize drive params" emulation (though it doesn't
+		     allow changing them)
+			 
+		   - IDE emulation: Don't announce ATA commands if we're sending them to ourself.
+		     I want the appearance of "ATA command" debug messages to be one sign that the
+			 OS is doing the IDE commands.
+			 
+		   - INT 13h: disk image code now correctly returns an error code instead of silently
+		     failing and returning random garbage if fseek() or fread() failed. IDE: more work
+			
+		   - IDE emulation: If remapping comes out to using 255 heads/track, then use ECHS 
+		     type mapping instead where we force heads=255 and sects=63 and cylinders=however
+			 many 63*255 blocks are available.		
+
+		   - IDE emulation: Update geometry from BIOS mapping code to warn the user if the
+		     geometry chosen cannot match the BIOS geometry cleanly, as that will prevent
+			 Windows 95 from enabling it's 32-bit IDE driver.			 
+			
+		   - IDE emulation: Add fake I/O emulation for INT 13h AH=0x42 extended disk read.
+		     Assuming geometries match, this enables 32-bit disk access in Windows 95 OSR2.			
+			
+		   - IDE emulation: Achange ATA IDENTIFY DEVICE to reflect an older drive
+		   
+		   <<<<<<<<<<<<<<<<<  DOSBox SVN r4288 (Optionals) (IDE Integrated 002) >>>>>>>>>>>>>>>>>
+		   - IDE emulation: Aremove #if 0 blocks (Atapi Command/Write)
+		   
+		   - IDE emulation: Reduce read/write delays. For multisector (meaning: READ commands		   
+			 with multiple sectors NOT READ MULTISECTOR), use the normal delay for only the
+			 first sector, then use an extremely small delay for the rest of the command.
+			 This makes Win95 OSR2 and Win98 more responsive.	
+
+		   - IDE emulation: Copy-paste C/H/S out of bounds error message to the other READ
+		     command (whoops).
+			 Added code to severely reduce ALL IDE delays IF the command is "faked" by INT
+			 13h (in other words if command was issued by virtual 8086 mode fake I/O code).
+			 Hopefully this will improve Win9x performance especially during Setup.			 
+			 
+		   - IDE emulation: bugfix C/H/S address increment code NOT to assume 16 heads/track
+		   
+		   - IDE emulation: De-clutter I/O by moving C/H/S and LBA auto-increment to one function.
+		     Clean up code, fix mistakes, that can cause Windows 9x to read/write the wrong data
+			 if more than one track's worth of data is operated on.
+			 
+		   - DOSBox paging: error out if page fault queue exceeds array limit. Raise page
+		     fault queue limit. Minor cleanup. (pafing.cpp : #define PF_QUEUESIZE 80 from 16)		   
+		   
+		   - remove "initializing vm86 fake I/O" message
+		   
+		   - IDE emulation: do not set any bits in WORD 48, we don't do 32-bit PIO yet
+		   
+		   - Change dosbox property object to store help strings itself instead of through
+		     MSG_Add/MSG_Get (what were they thinking?). convert redundant IDE section code
+			 to a loop.		   
+			 
+		   - Modify config file writer not to print the property name as a comment if there
+			 is nothing to say about it.			 
+			  
+		   - IDE emulation: change IDE object to have host_reset_begin() and host_reset_complete()
+		     to better simulate driver reset via 3F6
+			 
+		   - IDE emulation: reduce ATA IDENTIFY DEVICE delay to 10us down from 1ms.
+		   
+		   - BIOS: IRQ 14 and 15 need to be associated with INT 0x76 and 0x77 **
+		   
+		   - IDE emulation: update DEVICE RESET to zero all but the one specific status bit 
+		     added NOP emulation to fail the command in a very specific way required by the
+			 ATA standard.
+			 
+		   - IDE emulation: update identify block
+		   - IDE emulation: add recalibrate command emulation
+		   - IDE emulation: add READ VERIFY commands 0x40 and 0x41
+		   
+		   <<<<<<<<<<<<<<<<<  DOSBox SVN r4288 (Optionals) (IDE Integrated 003) >>>>>>>>>>>>>>>>>		   
+		   - IDE emulation: fire the right IRQ instead of IRQ 14
+		   - IDE emulation: add code to emulate INITIALIZE DRIVE PARAMETERS
+		   - IDE emulation: update identify
+		   - IDE emulation: autoincrement bugfix for LBA mode. ide command printing now
+		     prints lba sector number if lba mode, chs otherwise
+			 
+		   - move commands to functions
+		   - IDE emulation: add CD audio emulation, work towards getting Win95 to play audio
+		     CDs, fixup TOC function to return full TOC
+			 
+		   - IDE emulation: Audio CD, more work. mode sense
+		   - IDE emulation: Audio CD, mode sense completion
+		   - CD playback---it works!!!!
+		   - IDE emulation: Audio CD, remove CD playback from stopping playback when len == 0
+		   - IDE emulation: Audio CD, more work
+		   - IDE emulation: Audio CD,fix the MODE SENSE reporting format
+		   - IDE emulation: Audio CD,disable debug stuff again
+		   - IDE emulation: Audio CD,cleanup SCSI sense emulation by using sense[] buffer and		   
+		     providing function to set contents.
+			 
+		   - IDE emulation: Audio CD,cleanup play/pause status byte, DOSBox's code will
+		     not return pause=1 when play=0. Fix PLAY AUDIO MSF command code mistake that
+			 converted M:S:F to LBA without considering the 150-sector offset.
+			 This fixes the bug where pausing and resuming would skip forward 2 seconds.
+			
+		   - IDE emulation: add comments
+		   - IDE emulation: whoops, sense data length not set by function. this fixes MSCDEX.EXE
+		     hanging on audio-only CDs. Cleanups
+			 
+		   - IDE emulation: IDE ATAPI CD-ROM drive emulation now emulated spin up/down times,
+		     del1ays commands for spinup, and returns appropriate TEST UNIT READY and sense
+			 data for media change and first spinup. Win95 is happy, at least.
+			 
+		   - IDE ATAPI CD-ROM media change complete. If I do a CTRL+F4 to change CDs, MSCDEX.EXE
+		     is able to pick up that the media changed and show fresh contents.
+			 Windows 95 is able to see the change (not automatically, but if you hit F5 (refresh)
+			 after the change the contents reflect CD media change).			 
+			 
+		   
+		   <<<               DOSBox SVN r4288 (Optionals) (IDE Integrated 004)           >>>			 
+		   - IDE emulation: IDE ATAPI CD-ROM drive emulation change IDE delays. a longer CD
+		     insert delay makes windows 95's auto-insert a lot more reliable
+			 
+		   - CON driver: Query STDIN status call now uses INT 16h AH=0x11 to detetmine status
+		     instead of the DOSBox-specific keyboard scan code hack that was there. The reason
+			 is that some programs (such as Microsoft SCANDISK in 6.22) rely on hooking INT 16h
+			 to eat certain scan codes and prevent MS-DOS from seeing them (why they don't make
+			 use of INT 15h AH=0x4F hooking is beyond me). In order for SCANDISK.EXE's textual
+			 "GUI" to work properly with certain keys, we have to call INT 16h and therefore the
+			 hook, or keyboard input becomes sporadic.			 
+			 
+		   - IDE emulation: comment out assertion in IDE emulation that triggers if not word
+		     aligned. Apparently Windows 98 can trigger it when installing Visual Studio 4.0
+			 or something.
+			 
+		   - brain-dead bugfix: IDE emulation only considered the master device of an IDE
+		     controller when emulating CD change and spinup delays. This fixes timeout and
+			 hang errors with MS-DOS MSCDEX.EXE when the CD-ROM drive is a slave of the controller.			 
+			 
+		   - Add IDE ATAPI "READ CAPACITY" emulation (command 0x25)
+			
+		   - IDE section destroy callback now frees all IDE controllers and devices, fixing yet
+		     another memory leak.			
+			 
+		   - IDE: clarify why the command was dropped. fixup printf formatting and typecasting
+			 in comparisons and uninitialized var warnings.
+			 
+		   - IDE emulation: modify IDE base IO port handler NOT to complain about I/O port
+		     lockout on device/controller busy IF the port in question is the drive/head register
+			 (port+6), because apparently there are MS-DOS drivers that like to write to it during
+			 command execution "just to be sure" (but at least the value written is the same as
+			 last time). Changed select() handler on IDE device not to change state. This fixes a
+			 bug where ATAPICD.SYS would issue a command then immediately write port +6 as described
+			 above, causing the I/O and readback to malfunction and causing the IDE device to get
+			 stuck in a busy state.
+			 
+		   - EL-Torito: a LOT of modifications to IMGMOUNT command to accomodate -el-torito, and
+			 to NOT require a path if -el-torito is given. Code is complete only far enough to scan
+			 the ISO 9660 volume descriptors and locate the El Torito structure.			 			 
+			 
+		   - IDEATADevice: show state when complaining about one command over another
+			
+		   - IDE: no longer abort command if same command value written while command in
+			 progress. also allow Device Reset command (0x08) to interrupt a command.
+			 Hack for Linux kernel.
+			 
+		   - IDE emulation: IDE bugfix, do not carry out any fakery if BOTH fakeio=false and
+		     fakev86io=false. Prior to this fix, setting fakeio=false but fakev86io=true failed
+			 to emulate the V86 hackery needed for Win95/98/ME to pickup the IDE controller.
+			 
+		   - IDE emulation: Add IDE devices to the ISA PnP BIOS device enumeration, unless of
+		     course dosbox.conf says not to. Apparently this is how you get Windows 95 to talk
+			 to the teritary and quaternary IDE ports.			 
+			 
+		   - IDE configuration change: DOSBox-X will no longer enable Teritary and Quaternary
+		     by default, while it will still enable Primary and Secondary by default. The reason,
+			 is that having only a Primary interface, or having a Primary and Secondary interface,
+			 was far more common than having the Teritary and Quaternary interfaces.
+			 If you still want the Teritary/Quaternary, just add enable=true under the section
+			 related to those IDE interfaces.			 
+			 
+		   - IDE emulation: add configuration option to set the IDE controller's IRQ, with warning
+		     that doing so will not work unless the software uses the ISA PnP BIOS to enumerate it.
+			 
+		   - IDE emulation: allow changing the base I/O port of an IDE controller
+		   - IDE emulation: Add option to set alt I/O port too.
+		   
+		   - IDE emulation: increase max IDE controller count from 4 to 8, with the caveat that
+		     beyond 4 no standard default resources are available.
+			 
+		   - increase maximum MSCDEX CD-ROM drives
+		   
+		   - IDE emulation: add support code for 32-bit PIO
+		   
+		   - IDE emulation: add option to enable/disable 32-bit IDE PIO, and even to emulate some
+		     mid 1990's laptop quirk where 32-bit PIO is outright ignored.
+			 
+		   - taken Drive Mount ( Seperate for Floppys and CD ) CTRL+F3
+		   
+		   - IDE emulation: implement SET MULTIPLE MODE IDE command and code to accept/reject
+		     multiple mode sector count and return the count via IDENTIFY DEVICE.		   
+		   - IDE emulation: do not write multiple mode vars to IDENTIFY DEVICE if not enabled
+		     (vars set to zero).
+		   - IDE emulation: IDE READ MULTIPLE command implemented.
+		   - IDE emulation: write multiple implemented.	
+		   
+		   <<<               DOSBox SVN r4288 (Optionals) (IDE Integrated 005)           >>>			   
+		   - IDE emulation: don't bother logging "Unknown ATA command" message for ATA
+		     emulation for commands 0xA0 (ATAPI PACKET) and 0xA1 (IDENTIFY PACKET DEVICE)
+			 because a lot of code out there likes to send the IDENTIFY PACKET DEVICE to
+			 hard drives as a way to autodetect CD-ROM vs HDD. Also ignore ATAPI PACKET
+			 commands for ATA emulation because of Windows 95.
+			 
+		   - IDE emulation: IDE ATAPI emulation: updated READ TOC command to support the
+		     multisession format version of the command. The FreeDOS UIDE.SYS CD-ROM driver
+			 requires this command, it does not fallback to the plain READ TOC command (the
+			 other possibility is that our ATAPI IDENTIFY command somehow convinces UIDE.SYS
+			 that it supports the multisession commands).
+			 
+		   - IDE emulation: correct PNP info for IDE		   
+		   - Fix IDE PNP enumeration so IDE controllers show up in PNP enumeration again.		   
+			
+		   - IDE emulation: hey, just noticed a way the IDE controller can allocate twice
+		     and lose track of pointers.
+			 
+		   - IDE debugging: if a device will reject writes to ports 1-5 because it's busy,
+		     say so in the log.
+			 
+		   - IDE emulation: bugfix: there are apparently many cases where ATAPI emulation
+		     fails to re-enable writing to IDE device registers (ports 1-5). it happens
+			 to work with Windows 95 only because Windows 95 writes the same values anyway
+			 per ATAPI command. However, the unwritable device registers then fail a simple
+			 test carried out by Windows 95 on next reboot that then causes the CD-ROM drive
+			 to "disappear" from Windows 95.			 
+			 
+		   - IDE emulation: adjust INT 13h v86 win95 hack, to use ports in a different manner
+		     that seems to appease Windows ME's weird IDE driver.			 
+			 
+			- CPUID pentium MMX: don't set MSR bit in CPUID unless MSRs are actuall…
+			
+		   - IDE emulation: "interface" is reserved in some cases on Windows because it's
+		     used to declare COM/OLE interfaces, rename the "interface" parameter/variable.		
+			 
+		   - IDE: BIOS to IDE geometry translation bug fix where failure to shifthead count
+		     but translation regardless should apply translation still			
+
+		   - Remove DOS endings from ide.cpp	
+
+		   
+		   
+GUS Emulation Integration from DOSBox-X
+
+			Gravis Ultrasound: Separate sample interpolation from loading, fix mistake
+			added in recent merge that broke 16-bit samples, restore behavior of always
+			interpolating sample even if the fractional step is faster than 100%.
+			The recent merge was to incorporate code from DOSBox SVN, so apparently,
+			SVN is taking the shortcut of skipping interpolation if playback rate is >= 100%
+
+			GUS: Just a hunch, but if the DAC is not running, voices and audio should not
+			advance
+			
+			Gravis Ultrasound: Still not sure what is causing Duke Nukem 3D Atomic Edition
+			to pan all sound effects to one speaker, but perhaps allowing the game to read
+			the pan pot register might help. Just a guess. See also [#1029]
+
+			-GUS: Do not repeat GUS reset write if the value written is the same aspect
+			before. Some demoscene music routines like to trigger GUS reset repeatedly
+			for some reason, do not fill the log with it
+
+			Add dosbox.conf option to set master Gravis Ultrasound GF1 volume level.
+			Default of course is 0dBFS (100% volume). This option is for demos or
+			games where the music is too loud and clipping otherwise	
+
+			GUS: Looks like some demoscene prods have problems with IRQ handlers
+			not saving DS when handling Gravis Ultrasound. Add IRQ hack option for GUS
+
+			GUS: Limit DRAM peek/poke address to 1MB. Some demos (such as ACME Mebtal
+			Masturbation) appear to poke samples into GUS RAM using odd and spurious
+			values in the upper bits (bits 23-20) of the DRAM address
+
+			GUS: Add hack where polling the DMA control register (when DMA unmasked
+			and DMA TC is not signalled) automatically enables a GUS DMA transfer.
+			This hack fixes GUS problems with
+			ftp.scene.org/mirrors/hornet/demos/1994/m/myth_dw.zip
+
+			GUS: Add option to start with the GF1 in a fully initialized state
+			(as if ULTRINIT has been run) for those demoscene productions with
+			lazy GUS routines
+
+			- unused param cleanup
+			GUS: on both DMA and/or both IRQ set to the same value (conflict condition),
+			defer warning until such conflict actually happens. For IRQ, wait until
+			firing the IRQ. For DMA, wait until DMA starts.
+
+			make GUS AutoAmp an option
+			
+			Gravis Ultrasound, improve AudioAmp to reduce volume if saturating
+			quicker, while also allowing the audio to recover full volume. That way,
+			loud noises don't leave the volume too low ever after.
+
+		   <<<               DOSBox SVN r4335 (Optionals) (GUS Integrated 008)           >>>
+		   
+			don't register ULTRASND variable if GUS emulation is disabled
+			
+			ULTRASND var fix**
+
+			/**
+			https://github.com/joncampbell123/dosbox-x/commit/3174dd5970d15edcec4685451a72aadea7a14bca#diff-432103b3ccdf27772a0e784a8a19f122
+			
+			Gravis Ultrasound: raise IRQs, do not deactive them otherwise. This
+			turned out to be the cause of Sound Blaster aware DOS games missing IRQs
+			from Sound Blaster if both GUS and Sound Blaster were configured to the
+			same IRQ. Added reminder to self that PIC_ActivateIRQ() ought to be
+			named something more relevent to the ISA bus.
+
+			- gus volume, panning, channel remapping, general ICS functions. I'm only
+			able to verify that ULTRAMIX sets the volume correctly given Synth and
+			Output settings. Since Gravis drivers only use the "Normal" mode of the
+			ICS to map each channel, I am not able to test or verify that the ICS's
+			Stereo or Pan/Balance modes work correctly at this time. But I was able
+			to poke at the "Normal" mode with DEBUG.EXE to deliberately L-R or mix
+			channels and verify that the changes happen.
+
+			- volume control working now. setting master or GF1 out controls overall
+			audio output.
+
+			- more GUS mixer work
+
+			- state and storage.
+
+			- correct ASCII art and extra space
+			
+			- more documentation
+			
+			- GUS ICS2101 mixer: move to C++ class, and log only data writes, not
+			address writes. New code to break address write down as documented.
+
+			- more CS4231 regs
+
+			- fix init bit handling
+
+			- The minimalist CS4231 implementation as implemented now causes no audio
+			in PLAYFILE.EXE and causes Windows 3.1 to hang on startup if the GUS
+			drivers attempt to use it. Give the user fair warning: the code is brand
+			new, experimental, and not yet functional.
+
+			- more GUS CS4231 emulation
+			
+		   <<<               DOSBox SVN r4335 (Optionals) (GUS Integrated 007)           >>>
+		   
+			- GUS: UltraMAX CS4231 codec stub code.
+		   
+			- GUS: for classic 3.7, and ultrasound max, emulate the Revision Level,
+			ICS-2102 mixer I/O stubs, and UltraMAX codec register control.
+		   
+			- GUS: port 2XF Register Control for non-classic cards, as documented in
+			  the SDK.
+			  
+			- another GUS type
+			
+			- Interwave PnP noted behavior:
+			Ports 3X2-3X5 do not have weird readback behavior of the GUS MAX.
+			Interwave PNP enforces the 14-channel minimum, unlike the GUS MAX.
+
+			- GUS: it's time for gus type selection
+			
+			- GUS: note that weird 3X3-3X5 I/O port readback behavior has been found
+			to occur (so far) on Gravis Ultrasound MAX cards. GUS PnP Interwave
+			cards do not behave that way. Important notes for future implementation
+			of GUS PnP emulation
+
+			- Gravis ultrasound: update comments to reflect Gus PnP card behavior
+			noted through DOSLIB test programs. While Gus MAX cards allow less than
+			14 channels to exceed 44.1KHz, the Gus Interwave PnP cards do not.
+			Writing less than 14 channels means the value is retained but the card
+			still runs as if 14 channels, and the PnP Interwave will not exceed
+			44.1KHz.
+
+		   <<<               DOSBox SVN r4335 (Optionals) (GUS Integrated 006)           >>>
+		   
+			- GUS observed behavior: an IRQ signal is fired only once. after that, no
+			more IRQ signals are sent until all IRQ events are handled.
+
+			- GUS Fixed: um... my mistake. the start/end registers are stored with 4-bit
+			fractional precision, while the current position uses all 9 fractional
+			bits.
+			
+			- GUS: freq. control register readback
+			
+			- GUS: try to match observed wave/ramp IRQ behavior where diddling the
+			pending bit does not un-stuck a stuck voice.
+
+			- GUS: consolidate port 2X6 and IRQ dispatch masking. IRQ dispatch now
+			only fires an IRQ for status bits that changed to 1, rather than
+			re-firing events already listed as pending (which brings emulation
+			closer to actual GUS hardware behavior). It was observed on real
+			hardware that if a voice IRQ fires and the handler does not read
+			register 8Fh to answer it, further voice IRQs are not sent until the
+			voice is acknowledged through register 8Fh. Following up on RealTech's
+			"Dimension" demo, GUS hardware behavior implemented here is the reason
+			the demo can blindly write 0xFF to Voice Control, trigger an IRQ, and
+			yet continue playing music without drowing in GUS interrupts.
+
+			- GUS IRQ check cleanup
+
+			- GUS emulation: update to reflect undocumented voice IRQ behavior when
+			voice is stopped.
+
+			- Remove RealTech "Dimension" GUS hack, the real hardware actually does
+			permit writing bit 7 and causing a voice IRQ even if stopped.
+
+			- Gravis ultrasound hack for RealTech "Dimension" demo: if a write to
+			Voice Control sets bits to stop a voice, then the bits to enable wave
+			IRQ and pending wave IRQ shall not affect the WaveIRQ bitmask and
+			whether or not any GUS interrupts will happen. "Dimension" apparently
+			stops a voice by writing 0xFF to Voice Control, which prior to the hack
+			caused the demo to crash from NOT handling the wave IRQ that the GUS
+			would attempt to signal. For more information see Issue Tracker
+			entry #157. This hack and the odd behavior noted raises questions on
+			possible undocumented Gravis Ultrasound behavior when treated in this
+			manner.
+
+		   <<<               DOSBox SVN r4335 (Optionals) (GUS Integrated 005)           >>>	
+		   
+			- GUS voice movement rewrite, including deliberate bug-for-bug emulation
+			of unsigned current -= frequency_counter compare bug (#155) where the
+			GUS can miss the start pointer when start is too close to address 0.
+
+			- GUS:
+			don't allow undefined extra bits to affect voice start/end/position.
+			don't allow more precision than what the hardware actually provides.
+
+			- Gravis Ultrasound emulation accuracy fix: contrary to what you think
+			about the "stop/stopped voice" bits per voice, stopping a voice does not
+			stop audio output for that voice. What that means is, when you stop a
+			voice, the voice stops moving, but the GF1 still reads and renders the
+			audio data at that voice's current position while stopped. The effective
+			audio output of a stopped voice is a DC voltage level added to the
+			overall output according to the audio sample the current position was
+			left at. Confirmed using DOSLIB and the ultrasound test utility as described.
+			
+			- GUS: allow readback of voice End position
+			
+			- GUS: It turns out real hardware will also not return IRQ status for DMA
+			terminal count if the DMA TC IRQ is disable in DMA control.
+			
+			- some cleanup, better determination of GUS base frequency.			
+			
+			- Gravis Ultrasound: update IRQ enable explanation. fix adlib timer IRQ
+			test. prior to the test, it was possible for both timers to fire an IRQ
+			if either was enabled to signal IRQs.			
+			
+			- Gravis ultrasound: and now for some more emulation realism, GUS
+			emulation can now switch between the ideal fixed sample rate emulation
+			that mainline DOSBox does, or default to emulation that switches the
+			sample rate of the GUS according to the number of active channels just
+			like real hardware. When in the non-fixed mode, the sample rate can
+			change from 44.1KHz (14 voices) to about 19KHz (32 voices) depending on
+			how many active voices the DOS application is using. When switched into
+			this mode, the wave frequency and ramp rates are more true to the
+			hardware as well, with no floating point math involved. If you would
+			rather have the sparkling clear full 44.1KHz audio than accurate
+			degredation of the audio quality per voice, you can set the option
+			"gus fixed render rate=1" in your dosbox.conf to get it back.			
+			
+		   <<<               DOSBox SVN r4335 (Optionals) (GUS Integrated 004)           >>>	
+		   
+			- GUS emulation update: it turns out the Adlib timer interrupt is also not
+			affected by the "Master IRQ enable" bit. So, the "Master IRQ enable"
+			seems to apply only to the voices and wavetable function of the Gravis
+			Ultrasound. This explains how "Juice" is able to play music with the
+			Master IRQ enable bit off.
+
+			- GUS max behavior: if the Master IRQ Enable bit is zero, the GUS does not
+			report the presence of voice/ramp interrupts in IRQ status register 2X6.
+			
+			- GUS emulation bugfix: When Gravis calls bit 2 of the reset register
+			(0x4C) the "Master IRQ Enable", they apparently mean "Master IRQ enable
+			except for DMA terminal count interrupt". On real hardware, if bit 2 is
+			not set, voice/wave interrupts are not sent, but the DMA terminal count
+			interrupt will still cause an IRQ.
+
+			To answer potential questions: Yes, this does fix the GUS emulation
+			problem with the "NO.EXE" demo by Nooon. The demo resets the GUS, then
+			while leaving the DAC disabled and Master IRQ Enable off, uploads samples
+			to the onboard RAM while expecting the card to fire an IRQ on DMA terminal
+			count. The Gravis Ultrasound MAX card I tested against will still fire DMA
+			TC interrupts, but not voice/wave interrupts, if bit 2 is not set.			
+			
+			- GUS: real GUS hardware reflects last I/O when reading 3X2 as well as
+			3X3. Odd.
+			
+			- GUS bugfix: "force master irq enable" needs to take effect even on
+
+exiting reset state.
+
+			- GUS emulation:
+			poking at the reset register on real hardware shows that DAC enable merely
+			enables/disables the amplifier output of the GF1. Even if DAC enable is off,
+			the GF1 continues to mix and render audio even if you can't hear it anymore.
+
+			- GUS emulation update:
+			tinkering with registers on an Ultrasound MAX reveals the useful and
+			undocumented feature of running the GF1 at higher than the documented
+			44.1KHz sample rate by programming less than 14 channels, contrary to
+			GUS SDK documentation. It's possible the 14-channel cap was enforced
+			only by the SDK, not by the hardware, and that's why nobody knew about
+			this capability. Also, the Active Channels register is readable.
+			See source code comments for more information.
+
+			- GUS: reset reg is 3 bits only, upper bits are not writable
+
+		   <<<               DOSBox SVN r4335 (Optionals) (GUS Integrated 003)           >>>		   
+			- GUS bugfix:
+			Actually, port 3X3 returning 0x00 makes sense after GUS reset, since
+			0x00 is what you wrote to 3X5 to reset the card in the first place, and
+			3X3 reflects the last read or write to 3X3-3X5, so logically, it's port
+			3X3 acting like it's usual self and GUS reset seems not to reset any of
+			that.
+
+			- GUS bugfix:
+			resetting the GUS clears the value read from 3X3, but
+			apparently does not clear the selected register. bugfix for "Dope" by
+			Complex, which apparently resets the GUS like this:
+
+				outb(0x343,0x4C);
+				outb(0x345,0x00); /* reset */
+				outb(0x345,0x01); /* take out of reset */
+
+			Note that it doesn't re-select register 0x4C, it assumes the selected
+			register stays the same through reset. Since the value we read back on
+			real GUS hardware is some sort of latch reflecting ANY I/O through
+			3X3-3X5, we can't assume that the register select is reset to 0x00 even
+			if port 3X3 returns 0x00 after GUS reset.
+
+			- GUS emulation:
+			update: The select register (3X3) has documented behavior
+			for writing, but undocumented behavior for reading. While it seems to
+			always return the last register index you selected, it actually returns
+			the last byte read OR written to I/O ports 3X3-3X5 on real GUS hardware.
+
+			- GUS:
+			emulation updates according to GUS classic observed behavior.
+			Through select register 0x4C (GUS reset), bits 1-2 are zeroed if
+			entering into or coming out of reset. The 8-bit reset register can be
+			seen from both 3X4 and 3X5, though it only responds to 3X5 on writing.
+				
+				
+
+		   <<<               DOSBox SVN r4335 (Optionals) (GUS Integrated 002)           >>>
+			GUS: add hack for "Warcraft II". when enabled, rapid polling of GUS
+			register 2X6 (IRQ status) will trigger hack which will clear the DMA
+			Terminal Count IRQ flag to work around a bug in the game. When GUS is
+			configured as both sound and music, the game will hang if it starts a
+			sound effect while music is playing when within the main menu. This hack
+			forces the stuck loop to terminate by clearing the one IRQ status bit
+			the loop is not designed to handle, which then prevents the game from
+			hanging.
+
+			GUS: DMA unmask: don't start GUS DMA unless DMA enable bit set	
+			
+			GUS: ramp volume clipping, to prevent ramp volume from going out of
+			range. this seems to help reduce audible popping in certain musical
+			sequences in Star Control II.
+
+			GUS: update comments. their SDK does in fact address the rollover bit
+			and that looping takes precedence. It's just worded in a confusing manner.
+
+			GUS: evise configuration register emulation, make it more accurate,
+			document bitfields as taken from GUS SDK, and note if the DOS
+			application does anything that would cause bus conflicts.
+
+			GUS: "accurate" pantable was backwards, fixed. Using DOOM as a reference,
+			sounds now pan correctly. added debug statements to clarify which
+			pantable is being used, and to show the pantable and clarify that
+			it's an *attenuation* table not a volume scale.
+
+			GUS bugfix: clearing the DMA enable bit should stop the DMA event engine.
+
+			GUS emulation: replace "instantaneous" and unrealistic DMA transfer
+			emulation with realistic DMA transfer that closely matches the ISA bus
+			rate. When DMA is enabled the data is transferred in short rapid bursts
+			that match the 650KHz documented by the GUS SDK. Doing this fixes several
+			issues: one, minor popping and crackling in Quake. two, minor issues with
+			missing audio events in Windows 3.1 + Ultrasound drivers.
+
+
+			GUS: allow dosbox.conf to specify the DMA channel should be unmasked at
+			boot, instead of being masked by default. For DOS applications with lazy
+			implementations.
+
+		   <<<               DOSBox SVN r4335 (Optionals) (GUS Integrated 001)           >>>	
+
+			GUS DMA bugfix & hack for Star Commander II. (Control ;-) )
+			
+			http://www.vogons.org/viewtopic.php?f=41&t=31881&start=1060#p466792
+
+			Star Commander II appears to upload samples to GUS RAM via DMA, and
+			sometimes, it incorrectly tells the GUS the DMA is 16-bit wide when
+			the DMA channel itself is 8-bit. This bug only happens when the GUS
+			DMA channel is 8-bit DMA channel 0-3. Star Commander II's GUS support
+			however will correctly set the DMA width bit for 16-bit DMA channels
+			5-7. This fixes the apparent random-sounding samples. Music and sound
+			effects now sound correct (at least relative to running the game with
+			Sound Blaster support).
+		   
+			GUS bugfix:	emulate what the Ramp Control "roll over" bit *really* does.
+			It's not quite what the GUS SDK says, as demonstrated by the behavior of
+			the Windows 3.1 Ultrasound drivers. Prior to this bugfix, Windows 3.1
+			WAVE playback with GUS would cut out and abruptly stop after about 16KB
+			of playback. This fix allows WAVE output to work properly in Windows
+			3.1.
+ 
+ 
+			GUS bugfix:
+			GUS reset was not comprehensive enough, now it ensures all parts
+			of the card are reset. bugfix #2: GUS reset needs to clear Adlib timers
+			1 and 2 AND remove the PIC events that were scheduled. This fixes
+			problems with demos like the 1994 "Friends" demoscene program where the
+			demo's multiple rapid GUS tests cause the PIC event scheduling to get
+			out of sync with each other and cause very irregular music playback.
+	   
+			GUS DMA bugfix: 
+			On DMA terminal count, always set the DMA TC IRQ pendng status
+			bit. It doesn't matter if the DMA IRQ Enable bit is cleared, set it
+			anyway. Some DOS demos upload samples via DMA, but they leave the DMA TC
+			IRQ disabled and poll the register instead to detect DMA transfer
+			completion. Prior to this bugfix, such demos would initialize the GUS
+			and then hang, because DOSBox assumed that you had to enable the DMA TC
+			IRQ for that bit to set.
+			
+		   
+			GUS DMA bugfix: don't signal DMA terminal count IRQ until the DMA
+			channel actually hits terminal count
+		  
+			GUS DMA bugfix: The SDK mentions that when the DMA channel is 16-bit,
+			then the GUS RAM address undergoes the same weird transformation as the
+			play pointer when playing 16-bit PCM.
+		   
+			GUS bugfix: when emulating GUS DMA transfers, advance the DMA start
+			address as you go so that piecewise DMA transfers can resume where the
+			last DMA transfer finished. Bugfix for XGY PARTY REPORT 1993 GUS
+			tracker. Prior to this bugfix, the demo's GUS music would come out
+			wrong and samples would play into one another. With this fix, the GUS
+			music now sounds identical to the Sound Blaster output (but better!).
+			
+			GUS emulation: added dosbox.conf option that, if set, ignores the Master
+			IRQ enable bit and always fires the IRQ. Some DOS games and demos it
+			turns out fail to set the Master IRQ enable bit on GUS initialization,
+			this hack can be used to restore GUS music playback with those buggy
+			implementations.			
+			
+GUS programming mistakes fixed in emulation.
+			Bit 0 of the reset register is clared to reset, set to enable normal
+			operation. Prior to the fix, DOSBox interpreted setting the bit as
+			reset, which is wrong.
+
+			Bits 0-7 of the 16-bit gRegData variable were interpreted as the
+			contents of the 8-bit reset register, when it should have been looking
+			at bits 8-15. On the GUS, I/O port 3X4 is a 16-bit I/O port for the full
+			16-bit register while 8-bit wide registers are supposed to be
+			accessible from 3X5 as the upper 8 bits of the full 16-bit gRegData
+			value.
+
+			GUS initialization should be setting the reset register to 0x7 (writing
+			0x700 to gRegData) which is interpreted as (non-reset, DAC enable, master
+			IRQ enable).
+
+			GUS IRQ checking should be asserting and de-asserting the IRQ, not just
+			asserting the IRQ and leaving it on. It should also check the master IRQ
+			enable bit given in the reset register.
+
+			Additional reminders to myself were added for further accuracy fixes of
+			Gravis Ultrasound emulation.
+
+			So far, nothing seems to have a problem with these emulation fixes. Only
+			thing left to test is the official Gravis Ultrasound DOS utilities.			
+		   
+			GUS panning fix, with option to switch back to original idealistic fix
+			if the new pan table doesn't work for you.	
+
+			GUS memory size is now configurable
+
+DOSBox SVN Changes ======================================================================
+r4473: Indicate in BIOS memory when keyboard ACK received. Fixes Soko-ban Revenge.
+r4472: Fix execution of small COM programs on PCjr machine type.
+r4471: Improve BIOS FDD motor timeout counter, most notably for earlier PCs.
+	   Fixes a Chinese variant of Space Harrier.
+	   
+r4470: Correct disassembly of some FPU instructions.
+r4469: don't do dual writes to opl2
+r4468: Add proper opl3 handling of the waveform select to dbopl
+r4467: Register values changed by the EXEC load overlay function; fixes FM music in a
+	   Chinese RPG. Improve stack check for wrap-around cases.
+	   
+r4466: Small correction related to r4444.
+r4465: Remove inactive code related to debug builds in the dynamic x86 core.
+r4464: Correct handling of invalid encodings of the LEA instruction. Thanks cimarronm.
+r4463: Add log message for unusual cases where an executable unsafely places its initial
+	   stack outside the memory block.
+	   
+r4462: Disable resizing of debug window on Windows platform; prevents the debug display
+	   getting messed up on Win10. Thanks siddhartha.
+	   
+r4461: Implement mouse driver function 0x27, fixes Alive - Behind the Moon.
+r4460: Correct range of extended CRTC registers to initialize for Tseng ET3K, also remove
+	   redundant signature for ET4K that is now done in video BIOS.
+	   
+r4459: Remove unused class template.
+r4458: Fix memory leak that could occur rarely. (src/dos/dos_execute.cpp)
+r4457: Fix regression in r4444: Hercules machine type cursor translation.
+r4456: Additive to r4344, use rawch() variant with pdcurses, but don't try to display
+	   control characters with other curses. Translate keypad keys (numlock off) to
+	   cursor control keys with pdcurses.
+	   
+r4455: Function for video BIOS Display Combination Code.
+r4454: Enable A20 routines in bios (src/ints/bios.cpp)
+r4453: Improve bittest instructions to wrap more correctly. (jmarsh)
+r4452: win64 changes. (jmarsh) (/src/libs/zmbv/drvproc.cpp)
+r4451: Make compilation easier with certain compilers and file systems.
+r4450: Preserve DOS error code when checking file existence on the FAT drive.
+	   Fixes regression related to r4442.
+	   
+r4449: Function for setting BIOS equipment word. Correct floppy disk density notes.
+r4448: Add support for DMF floppy disk images.
+	   Dosbox New Config :
+	   sb16		= sb16vibra
+	   oplemu	= nuked
+	   GoldPlay = true
+	   classic	= classic37 (Gus)
+	   
+r4447: Attribute Controller port alias on EGA machine. Fixes EGA display of older
+	   - Super Pac-Man release. (vga_attr.cpp)
+	   
+r4446: Small adjustment of S3 rectangle pattern fill. Fixes display glitch in
+	   - Creative Writer
+	   - Fine Artist.
+	   
+r4445: Fix and improve index and index_add after r4408. (used when reduce and need are
+	   not the same) (mixer.cpp)
+	   
+r4444: Support detection of non-EGA/VGA machine types with elements of BIOS. Fixes the
+	   CGA version of
+	   - Robomaze III
+	   - Road Runner, et al.
+	   
+r4443: Move video BIOS signature code to where it should be. Improve detection of
+	   Paradise SVGA in some installers with additional signature.
+	   
+r4442: Improve DOS Create Temporary File function: don't use same sequence of filenames
+	   each session; don't overwrite existing files. (dos_files.cpp)
+	   
+r4441: Start moving the running of instructions out of the check keys loop so it can be
+	   scripted in the future. (debug.cpp)
+	   
+r4440: Convert to sBitfs logging. (/src/cpu/flags.cpp)
+r4439: fix log messates with sbitfs in debug mode (vga_tseng.cpp)
+r4438: Add the new folder to automake files (MacOSx)
+r4437: One of my compilers likes this a lot better. (fpu_instructions.h)
+r4436: Rewrite store integer instructions to check if the result fits.(vogons 78127)
+	   Went with the explicit size comparisons because of the undefined values on NaN
+	   and inf for frexp. Thanks M-HT and jmarsh (https://www.vogons.org/viewtopic.php?f=32&t=78127)
+	   
+r4435: Add mac icon to make things a bit more complete (thanks rhoenie and dominus)
+r4434: Slight speed up in heavy debug mode (debug.cpp)
+r4433: a few more sBitfs changes
+r4432: Some reordering to make gcc happy (debug.cpp)
+r4431: Some changes to fix a warning due to sign mismatch (setup.cpp)
+r4430: Add Some automake stuff so we can ran custom commands for mac os x
+r4429: Add patch #271 Remove redundant glBindTexture calls. Allow in OpenGL mode and
+	   aspect=true resolutions to be used if the resulting ratio is close to 4:3 and
+	   width and height are integer multiples of the input data. (Obsolete because SDL2)
+	   Use for example with:
+	   output=opengl,
+	   scaler=none,
+	   glshader=sharp,
+	   aspect=true,
+	   fullresolution=1280*1000 (the * of r4415), windowresolution=1280x1000 and a
+	   320x200 game
+	   (this code is not finished)
+	   
+r4428: A few more
+r4427: Update to new bitfs
+r4426: Emulate debug register 6 during trap flag emulation (and normal int 1). Fixes 544
+	   (jmarsh)
+	   
+r4425: style and warnings (disney.cpp)
+r4424: Make all references to cache const, use cache_adds instead of direct access. (jmarsh)
+r4423: Slight reordering in GFX_SetupSurfaceScaled, so that the clip.x and y are always
+	   updated in fullscreen mode, this way the fix of 4147 is not needed anymore. (SDL1)
+	   
+r4422: Some warnings and spaces cleanup (**)
+r4421: Rewrite dynamic core port handling so only one call is made instead of 2. (jmarsh)
+r4420: Update the template for more complicated scalers to potentially support higher
+	   scale factors as well
+	   
+r4419: warnings and such
+r4418: Update it for when neither screenshots or avi making is selected.
+r4417: Omit parameter for ChannelControl when it is an empty function (CROM.h)
+r4416: Add modified and updated version of patch #262 to start and stop avi recording
+	   with config. (https://sourceforge.net/p/dosbox/patches/262/)
+	   Add way to start keymapper from config as well.
+	   
+r4415: (SDL1) Add experimental option to use a smaller window in fullscreen mode and
+       correct surface to center properly. Might be removed again.
+	   
+r4414: few more warnings
+r4413: (SDl1)Make the blitting surface a bit larger in ddraw mode. Fixes graphics problems in
+	   fullscreen mode when there is large border. (NOT USED)
+	   
+r4412: A new and hopeful better year
+r4411: More warning and unify if spacing a bit
+r4410: Reduce warnings
+r4409: Fix the usual warnings and a mix ups between | and ||
+r4408: Change shift for ticks to 24 to reduce calculation error and init the counter with
+	   non-zero on most occasions.
+	   
+r4407: Extend SDL Xorg fix to also check for erroneous key up events.
+	   Fixes key loss in fullscreen mode. (thanks jmarsh) (Obsolete for Windows)
+	   
+r4406: It seems compilers prefer FALLTHROUGH else some start complaining.
+r4405: Be smarter when clearing the cache. (jmarsh)
+r4404: Do full aggregate initialization in order to fix some warnings.
+r4403: replace some loops with memset and cleanup a lot of weird spaces
+r4402: (*)Slight reordering so that none isn't present twice
+r4401: Improve xchg to handle unwritable memory better. (jmarsh)
+r4400: Some warnings.
+r4399: Finish up and add LOOP_NE and LOOP_E (jmarsh).
+r4398: Split the position updating from the cache adding. (jmarsh)
+r4397: (*)Bring OS/2 port up to date. Thanks Jochen (patch #290)
+       https://sourceforge.net/p/dosbox/patches/290/
+	   
+r4396: Merge 2 cache files together, using the oldest as base. Thanks jmarsh
+r4395: Another attempt from r4394
+r4394: switch to WAVE_SH instead of LFO_SH (harekiet). Thanks for bringing it up psyraven.
+r4393: Remove video page check when drawing internal mouse pointer, as the BIOS current
+	   page is not updated in some cases. Fixes QQP games:
+	   - Lost Admiral
+	   - Conquered Kingdoms
+	   - Solitaire's Journey.
+	   Also be a bit smarter about enabling autolock, supporting more cases where the
+	   mouse is used for input without resetting it.
+	   
+r4392: Improve capturing of Zeliard and fix a few percussion related capturing problems as well.
+		Thanks NewRisingSun. https://www.vogons.org/viewtopic.php?f=41&t=38029
+r4391: (*)Correct GUS peek/poke address registers. Patch by h-a-l-9000. Fixes detection of
+	   GUS with 1 MB RAM in the Pleasure 'N Pain slideshow.
+r4390: (*)Correct and further implement the GUS reset register. Fixes GUS detection in the
+	   1st Infection demo.
+	   
+r4389: Enhance BIOS wait function to unmask IRQ 8 and to time out when the RTC timer is
+	   blocked. Fixes hang in the MayDay demo.
+	   
+r4388: do not do linux stuff for midipix
+r4387: (*)Fix GUS detection of Quake. Change soundgeneration to depend on the number of
+	   active channels. Thanks jmarsh
+r4386: Correct MPU-401 clock-to-host function to operate independently of playing. Fixes
+	   hang at exit when playing Roland music in demos by The Phoney Coders. Clamp tempo
+	   to valid range, thanks Cloudschatze for research. Remove unused variables.
+	   
+r4385: Improve check-for-keystroke functions to be more like real BIOS. Fixes hang at
+	   exit in Intro 3 by DPS.
+	   
+r4384: ICW1 on the PIC clears the Interrupt Mask Register. Fixes Antagony and quite a
+	   few demos that expect IRQs to be unmasked.
+	   
+r4383: remove a comment out value.
+r4382: Refine adlib timers a bit more (harekiet) and make reading the adlib take a bit more
+	   time.
+	   
+r4381: Fix up Stack over- and underflow exception bits. Set Precision Exception in FRNDINT,
+       so that the Borland pascal pow implementation works correctly with non-integer arguments.
+	   
+r4380: Correct the TAG check after 4199
+r4379: Extend missing return fix to this case as well. (jmarsh)
+r4378: Prevent some possible deadlocks with sti in dynrec core. (jmarsh)
+r4377: Fix DAC output in certain cases. Thanks TheGreatCodeholio.
+r4376: fix up config -r on linux
+r4375: (*)Improve compatibility with older intel chipsets (jmarsh) and fix a warning.
+r4374: Add a bit of hack so cycles=max/auto 90% keeps on working inside batch files after 3925.
+r4373: Install read/write handlers for DMA port 0x8f. Fixes a test in PC Tools 9 and probably
+	   little else because DMA channel 4 is not used for transfers.
+	   
+r4372: Undocumented boundary behavior of DOS Read/Write functions. Fixes the Dark Purpose demo.
+r4371: Fix regression in Clue: Master Detective.
+r4370: As an adjunct to r4369, make the reference counts of standard device handles
+	   equivalent to those of real DOS.
+	   https://sourceforge.net/p/dosbox/code-0/4369/
+	   
+r4369: Compatible side-effect behavior of DOS in the file close function.
+r4368: Improve error codes for some DOS file functions; fixes #539.
+	   https://sourceforge.net/p/dosbox/bugs/539/
+	   
+r4367: Change FPU_FBST to only write 18 decimals instead of the wrongly 19, this makes
+	   it possible to switch 64 integers which in turn fixes some rounding issues. (jmarsh)
+	   
+r4366: refine alt-pause a bit, so it handles keeping alt-pressed and releasing it when
+       returning to main loop a bit better.
+	   
+r4365: Add buffer overflow guard in case of very long command line.
+r4364: Improve argument handling of internal programs that execute user programs.
+r4353: Avoid a problem related to r4357 that could occur rarely.
+	   https://sourceforge.net/p/dosbox/code-0/4357/
+	
+r4362: Fix up ternaries in the exceptions (jmarsh)
+r4361: Some protections against an empty basedir.
+r4360: don't do a thing when refreshing the cache for the fatDrive.
+r4359: Fix 4bpp modes in VBETEST. Thanks TheGreatCodeholio.
+r4358: Copy from the current handle table (not always the PSP) when increasing the number
+       of file handles, in case a process does it more than once. Also, create a new handle
+	   table only if the number of handles actually increases. Fixes a Spanish adventure game.
+	   
+r4357: Discard buffer contents at start of CDDA playing. Prevents initial sound blips.
+r4356: Add CPU_IO_Exception to 0xed and 0xef
+r4355: Add missing releasereg instances. (jmarsh)
+r4354: Handle carry flag for INT 2F/15xx functions like real MSCDEX. Fixes CDDA in Muzzle
+       Velocity.
+	   
+r4353: Change adlib timer masking
+r4352: Make adlib timers synchronize on clock interval and fix masking
+r4351: Add patch 287 from maccaf: improve escape handling in BBS mode.
+r4350: Fix selector check of LAR and LSL and add them to dynamic core and some other fixes.
+       (jmarsh)
+	   
+r4349: Add 0x52 and 0x59. Thanks Slor
+r4348: Improve register handling when calling external code/fpu so that the stack is more
+       accurate when a pagefault occurs. (jmarsh)
+	   
+r4347: Make addSilence reflect its name more by gradually moving towards 0. Add unfinished/
+       untested code for a somewhat gentle ramp up for DC offsets. (disabled for now)
+	   
+r4346: Fix long standing crash after disconnecting second joystick after mapping a part of
+       it and some warnings and other small things.
+	   
+r4345: Add missing operator to keep it compiling after r4342
+r4344: Add F8 to toggle printable characters on/off. (Debug Section)
+r4343: (*)(Some refinements to the shader loading and variables. (jmarsh)
+r4342: Reduce repetition a bit.
+r4341: Add SALC and XLAT to the dyn_x86 core. Improve LOCK handling a bit. Thanks jmarsh.
+r4340: change new to new(std::nothrow) and some formatting
+       https://www.vogons.org/viewtopic.php?f=41&t=73603
+	   
+r4339: (*)Add hCaptcha support, based on their programming examples.		
+DOSBox SVN Changes ======================================================================
+r4338: Correct cdrom sector size field length according to docs.
+r4337: Update Years ... not doing 
+r4336: Correct an oversight of r4186 when floppy disks are mounted.
+r4335: 0.74-3:mac os x default output change also in trunk now ()
+r4334: refine 4315 a bit. At least on windows, an overlay needs to be locked before the
+       real pitch data is returned instead of a wild pointer  (NOT NEEDED)
+r4333: Optimize xchg a bit. (jmarsh)
+r4332: Make value operator== const, add some limit checks in PrintConfigfile and related
+	   functions. Unify style a bit more.
+	   
+r4331: missing line ends and a warning fix (NOT NEEDED)
+r4330: some big endian improvents and drive_fat fixes. (jmarsh)
+r4329: Enhance capturing to handle unchanged screens more efficiently(jmarsh)
+r4328: Small cleanup and move to ++i instead of i++ for iterators in drive_overlay.cpp
+       file
+	   
+r4327: remove unused variable in dma.h
+r4326: Add patch 285 from MHM to fix bug 367, mimics the normal
+	   event.gain code
+	   
+	   #Bug367
+	   When using "pause" background priority and "max" cpu cycles, alt-tabbing between 
+	   DOSBox and some another program (Notepad, etc.) slows DOSBox down. It seems that
+	   "max" does not understand "pause". Usually five to ten swaps brings DOSBox to a
+	   crawl.	   
+
+r4325: fix two tiny joystick(.cpp) bugs introduced by 4065.
+
+r4324: Fix bug 469. Give 640x480 and upwards square pixels and several fixes for
+	   high colour modes. (jmarsh)
+
+	   #469
+		For VESA mode 0x10F (320x200 with 16M colors), dosbox computes an aspect
+		ratio of 0.6; 1.2 would be the correct value. Looking at
+		src/ints/int10_modes.cpp, note that the 'htot' value is different for modes
+		0x10D, 0x10E (which have htot=100), and 0x10F (which has htot=50). Changing
+		the value to 100 for mode 0x10F would produce the correct aspect ratio.
+		I suspect that this isn't the right fix though; as far as I understand it,
+		the 50 indicates that the pixel clock rate is halved, which indeed it is.
+		So I believe that those values should be 50. However, the aspect ratio
+		calculation in VGA_SetupDrawing() (src/hardware/vga_draw.cpp) should take
+		the scanline doubling (_EGA_LINE_DOUBLE) into account. This should also affect
+		other modes, but there is a "Cheap hack" in VGA_SetupDrawing() that computes
+		the pixel aspect ratio based on an assumed screen aspect ratio of 4:3 for modes
+		640x480 and above.
+		
+r4323: Fix compilation for platforms where the include guard is different
+	   and the exported symbol was changed by Khronos.
+	   (OpenGL shader support)----- OPTIONALS VERSION: AT TIME SKIPPED
+	   
+r4322: Improve logging (OpenGL shader support) and OS X support (jmarsh).
+       OPTIONALS VERSION: AT TIME SKIPPED
+	   
+r4321: Some fixes to 4319 OpenGL shader support by jmarsh.
+       OPTIONALS VERSION: AT TIME SKIPPED
+	   
+r4320: Report Q-Channel track number in BCD, meaning it is not converted
+       to binary by the CD-ROM device driver. Fixes the CD-Player feature
+	   of DOS Navigator 1.51 when playing past track 15.
+
+r4319: Add OpenGL shader support. (patch by ny00123 and refined by jmarsh).
+       Add several builtin ones that mimic the scalers and some extra.
+	   Thanks jmarsh ----- OPTIONALS VERSION: AT TIME SKIPPED
+
+r4318: Add LOGC to log cs:ip only. Modified version of patch 282 from Scott
+       Percival. (Debug.cpp)
+
+r4317: Increase limits a bit more for people who want to use that.
+r4316: Limit max software scaler line limit to a 4k monitor. (relevant for people
+       who use larger scalers)
+r4315: Some graphics cards return a too small overlay when the size is larger than
+       1024. Fall back in that case.
+	   
+r4314: Rewrite video capturing and fix some endian issues with all captures as well.
+	   Thanks jmarsh
+r4313: Quick fix for vgaonly on BIGENDIAN.(jmarsh)
+r4312: Fix unintentional change of union to struct.
+r4311: Make scalerwritecache sizes depend on the maximum scaler size.
+
+r4310: Improve PMAKE on big endian machines and fix some bugs. Includes fix from #364.
+       #364:
+	   Anyway, the 16 bit (565) to 15 bit (555) color conversion causes a blue tint,
+	   because it shifts the lowest bit from green into the highest bit for blue.
+		
+r4309: Copy working directory when mounting an overlay. Add some more strings to language file.
+r4308: Move already mounted checks upwards. (jmarsh)
+r4307: Refinement of the checks, so no IRQ is raised when not in autodma mode.
+	   
+DOSBox SVN Changes ======================================================================
+
+r4306: **(Not Used because SDL2)** Add OpenGL error reporting (disabled by default)
+	   Add way to restart graphics subsystem on fullscreen/windowed mode transitions
+	   in OpenGL mode (disabled by default)
+	   Add check for pixels being valid in OpenGL to prevent direct crash when the
+	   allocation fails. 
+	   Add define to turn off Pixel Buffer Object usage. (disabled by default)
+	   Add a way to specify the windowresolution as percentage of your current
+	   resolution. (This centers the window.)
+
+r4305: **(Not Used because SDL2)** Log detected extensions and correct spacing.
+
+r4304: Force a flush, so the last data is there incase of a hard crash.
+
+r4303: Disable scaling by the OS on windows (scale != 100%). Could not get this working
+       through the manifest, but this seems to work as well.
+	   
+r4302: Fix xcmpchg in dyn_x86 core. Allows Quickview to work in that core; reported by
+       krcroft. Fixed/patch by jmarsh. Thanks!
+	   
+DOSBox SVN Changes ======================================================================
+
+r4301: Additional refinements and speed ups. Thanks jmarsh! (Dynamic X86 Codes)
+
+r4300: Merge 0.74-3 Changelog and NEWS into trunk. Fixes bug #522
+	   This is really trivial issue, but should also be trivial to fix :)
+       SVN trunk is missing update to files NEWS and ChangeLog that was issued to 0_74_3
+	   branch. It would somewhat make sense if these files were listing only tags reachable
+	   from the branch, but release 0.74-2 was also created on a branch only, but it is
+	   included in ChangeLog pm trunk.
+	   
+r4299: Simplify and correct flags handling so that childpsp works correctly and some misc
+       fixes.
+	   
+r4298: Set cursor speed to the vga standard of 32 frames for a full period. Hope that this
+       is correct for the other machines as well. Fix that frameskip would slow down the
+	   cursor blinking speed.
+	   
+r4297: Correct an oversight in INT10_GetDACPage; fixes blank screen in Blue Force on
+       vgaonly machine type.
+	   
+r4296: Fix bug #519
+	   DOSBox crashes if very long language file names are provided.
+	   Tested with 512 bytes for "-lang" from command line and "language=" in .conf file.
+	   
+r4295: Fix bug #520
+       CDebugVar::LoadVars() in "src/debug/debug.cpp" leaks file pointer f if the first
+	   fread() fails.
+
+DOSBox SVN Changes ======================================================================
+
+r4294: a=a can trigger warnings as well. This should be hopefully do the trick.
+
+r4293: Remove some old code and do an a=a to trick a compiler in non-debug mode
+
+r4292: Refinements of commit 4291, so that precission can be specified as well and less
+       fixed defines are used
+
+r4291: Try to solve the Bitu formatting warning on all supported platforms (both 32 and
+       64 bit). Did a few places. Still a lot to go. Changed default display of Bitu to
+	   be unsigned instead of signed.
+
+r4290: Typo's. (Install File)
+
+r4289: Init some more fields in the constructors, else uninited stuff gets copied in
+	   copy constructors.
+
+DOSBox SVN Changes ======================================================================
+r4288: Fix INSTALL double to be (or not to be ;)
+
+r4287: update configure -h output for dynamic x64
+
+r4286: Update INSTALL file (modified version of patch #283 by dreamer_)
+
+r4285: No ampersand encoding in header location urls. Fixes error messages
+
+r4286: Stuff written to the console needs a cariage return since 4114. Thanks for spotting
+	   this dreamer_.
+
+r4283: Fix some issues with commit 4282. Thanks dreamer_ and jmarsh.
+
+r4282: Switch to a different way to calculate the table offsets. Thanks jmarsh
+
+r4281: Make it possible to compile without CoreMIDI and CoreAudio on Mac OS X using a
+	   non-Apple compiler. Give some feedback to user in this case. (modified version of
+	   patch by krcroft with input from jmarsh, Dominus and Qbix) (Mac OS X Update)
+
+r4280: GenerateDMASound can generate sound even with input size is 0, so lets not do that.
+	   Might even be an option to skip this call entirely depending on the sblaster
+	   configuration (not sb.dma.autoinit)
+	   	  
+DOSBox SVN Changes ======================================================================
+r4279 : Some dma changes to make the world a better place
+r4278 : Fix sblaster autoinit restart and improve the auto into single cycle transfer
+		handling
+
+
+DOSBox SVN Changes ======================================================================
+r4277 : Remove cases not needed after #r4276 
+r4276 : Remove defunct code related to the initial display mode of the system BIOS during
+        video mode changes.
+		
+r4275 : Make it easier to compile 64 builds with visual studio, (see comment for drawback).
+r4274 : fix externals. (frameskip an integer.)
+r4273 : Make frameskip an integer.
+
+DOSBox SVN Changes ======================================================================
+r4272 : Fix boundary checks for word/dword memory access. Speeds up dynamic 32 bit core
+		a bit (thanks jmarsh).
+		- change	/dosbox/trunk/src/cpu/core_dyn_x86/decoder.h (diff)
+		
+		
+r4272 : A little cleanup and small speed up (jmarsh) (risc_x64.h/ core_dyn_x86.cpp)
+
+r4269 : Change OpenGL drawing routine to draw one big oversized TRIANGLE instead of a
+		QUAD in order to work around an Nvidia specific scaling bug. Fixes bug #515.
+		(Not need for Optionals)
+
+r4269 : Use fabsf when return value is a float. Small warning fix.
+
+r4268 : Fix several logic errors in Overlay with regards to deleted directories.
+		Should fix that directories with the same length as a deleted directory had some
+		small issues. Also blocks the creation of files in directories marked as deleted.
+		Small speed up to MakeDir, so it doesn't rely on mkdir when a directory is created
+		inside a deleted directory.
+
+r4267 : - Fix url to forum.
+		- Fix Bit8u instead of char weirdness for imageDisk (dreamer_) (Not in Optionals)
+		- Give device_t a virtual empty destructor so some warning program
+		  doesn't go crazy.
+		- Give the code that moves the Z drive its own function for readability.
+		- Give sizes arrays default values again for warning program.
+		- Rewrite IMGMOUNT in order to exit early for clarity and attempt  (Not in Optionals)
+		  to group things together.
+		  
+r4266 : Bit 2 of video status register always set. Satisfies a strange test in
+		Blues Brothers, thus preventing slow animations.
+		
+r4265 : Some more cleanups and memleak fixes.
+
+r4264 : Pick some lowhanging fruit. (some memory leaks and unused variables)
+
+r4263 : use in SDLMAIn.cpp Restart delete instead of free, although this code is never
+		really used, as the running process should have been replaced at that point.
+		
+r4262 : missed one glClearColor (0.0f, 0.0f, 0.0f, 1.0f) in sdlmain.cpp 
+		(Optionals: Not needed)
+
+r4261 : These actually use float as input. (sdlmain.cpp )
+		glClearColor (0.0, 0.0, 0.0, 1.0);
+		to
+		glClearColor (0.0f, 0.0f, 0.0f, 1.0f)
+
+r4260 : Add 64-bit support to dynamic_x86 core from vogons topic 67673. Thanks jmarsh!
+
+r4259 : Improve php7 compatibility, switch to mysqli, fix tons of small bugs.
+		(Webpage)
+		
+r4258 : Rename bios tester to biostest and make it debug only to avoid people trying to
+		load real bioses. (Optionals: Not Debug Only)
+		
+r4257 : Add simple program that allows you to boot into a bios image for running cpu
+		tester bios
+		
+r4256 : Fix flag behaviour of several shift/rotate instructions, cause exceptions and fix
+		potention 'pop ss' problems
+
+r4255 : Extra DIR sorting options patch by Saga Musix (Already)
+
+r4254 : Fix bug 512, reported by philipp. (checking wrong variable to see if malloc was
+		a success)		 
+		
+r4253 : Sync up, as else the transition commits are a pain (99%)
+		(Webpage)
+DOSBox SVN Changes ======================================================================
+r4252 : Correct a little bug that caused graphics corruption in win95 with s3 driver.
+		(jmarsh).
+		
+		=================================================================================
+r4251 : Add wrapping here as well.
+
+r4250 : 0.74.3 Release
+
+r4249 : 0_74_3: seconds set of administrative changes
+
+r4248 : 0_74_3: start of the administrative things
+
+r4247 : Changes to allow for mingw i686 to compile a new zmbv.dll
+
+r4246 : 0_74_3: *Not Relevant to Optionals* *Most linux Stuff*
+
+r4245 : Implement simple access control for reading and writing files that are accessable
+		from within DOSBox. Overlay not yet tested, hence not part of this commit.
+
+r4244 : No zeroing out instead as 0.74 doesn't do this. Fix compilation
+
+r4243 : 0_74_3: *Not Relevant to Optionals*
+
+r4242 : drive => i_drive (Fixed & Repeair Image Mount)
+
+r4241 : 0_74_3: *Not Relevant to Optionals*
+
+r4240 : 0_74_3: *Not Relevant to Optionals*
+
+r4239 : Add some size checks when accessing Drives[], mostly needed when DOS_DRIVES is
+		not set to 26, make size parsing not go outside the target array.
+		- Let's not try to assign a drive in the switchlist to a too high number.
+		- Don't access imagelist for drives >D when unmounting.
+		OPtionals: Does'nt break Multiples image Mount
+
+r4238 : Create fopen_wrapper so we can filter out specific directories, which DOS games
+		should have no access to.
+		Optionals: Image Open use fopen64 not fopen_wrap
+
+r4237 : 0_74_3: *Not Relevant to Optionals*
+
+r4236 : 0_74_3: *Not Relevant to Optionals*
+
+r4235 : End of environment is a bit shorter. Very old code, lets see what breaks.
+
+r4234 : 0_74_3: *Not Relevant to Optionals*
+
+r4233 : 0_74_3: *Not Relevant to Optionals*
+
+r4232 : Use size_t when dealing with strings and strlen. (Alexandre)
+
+r4231 : 0_74_3: *Not Relevant to Optionals*
+
+		=================================================================================
+r4230 : Add check for realpath
+
+r4229:  Always clear drawing area. Should fix certain linux instalations
+		that use triple buffering
+
+r4228: 	Init texture with zeroes. Should fix the red border with pixel_buffer and nvidia
+		cards on Mac OS X and Linux.
+
+r4227: 	Add some missing va_ends. Reported by jmarsh
+
+r4226: 	Move all stack alignment operations into one place and some optimalisations
+		(thanks jmarsh)  *Not Relevant to Optionals*
+		
+		=================================================================================		
+r4225: 	Silence a warning
+
+r4224: 	Remove c++ 11 isms
+
+r4223: 	Fix unitialized access to some isoDrive fields. Pause audio before switching.
+	    Use right subunit with multiple CDs on one driveletter. (krcroft, jmarsh and qbix)
+
+r4222:  Create branch for a possible 0.74-3 to fix some more issues.
+		*Not Relevant to Optionals*
+
+r4221:  Clean up old branch mamesound *Not Relevant to Optionals*
+
+r4220:  Clean up old branch 0.74-2 *Not Relevant to Optionals*
+
+r4219:  Rewrite pop_ev so it can trigger pagefaults again. Fixes win3.11 with dynrec. (jmarsh)
+
+r4218:  Use a more compatible offset for DOS redirected interrupt vector. Works around
+		a null pointer bug in the notes dropdown list of Jack the Ripper.
+
+r4217:  Add experimental code to have overlay only directories. Add ability to remove
+		directories and create them while in overlay mode.
+		
+r4216:  Add functionality to add overlay directories to drive_cache.
+
+		=================================================================================
+r4215:  Make effect of I/O delay more consistent as cycles run out. Prevents flickering
+		in NBA Jam Tournament Edition at higher cycles, and also improves automatic speed
+		limiting in Quake.
+		
+r2414:  Add logic in mouse driver to ignore button events that are out of sequence.
+		Fixes International Rugby Challenge when clicking to lock the mouse.
+		
+r4213:  Let dynamic core recompile interrupt instructions in non-debug builds.
+		Can help software with many INTs, such as compiled BASIC, run faster.
+		
+r4212:  Don't remove bytes from autoexec.bat when changing settings from autoexec.bat,
+        but replace them instead. This way the location stays valid.
+		
+r4211:  Change first_shell to be DOS_Shell instead of Program. Makes future manipulations
+		easier.
+		
+r4210:  fix limit check (Programs.cpp) From > to >=
+
+r4209:  Strip leading = from value. Can happen if you execute "irq =5".
+
+r4208:  stop storing raw modrm value, as it isn't used any more. Should save an instruction
+		on each get_modrm call.
+		
+r4207:  use decoded modrm instead of raw value. so we don't need to store it.
+
+r4206:  Store whether generated code is 16 or 32 bit, so this information can be used when
+		checking for self modifying code. Some code is identical except for being 32 or 16
+		bit. Fixes some hard to reproduce problems (with small codeblocks). Thanks jmarsh!
+		
+r4205:  Unify unmounting code. Fix unmounting of complex drives where parts were left and
+		file pointers were kept open. (thanks jmarsh)		
+		
+r4204:  Add IBM signature in EGA video BIOS for compatibility. Fixes EGA detection in
+        221 B Baker Street. Also include trailing space in signature in case it is checked
+		with word values.
+		
+r4203:  We use the old style headers in other places and use the functions/types without
+		std::. Should help compilation on FreeBSD.
+		
+r4202:  Check lengths before adding C style strings together. Fixes #498
+		https://sourceforge.net/p/dosbox/bugs/498/
+
+r4201:  Improve prefetch and simple cores to not switch to normal core on trap execution.
+        Fixes the demo version of Prehistorik 2 and similar cases that use the trap flag
+		and prefetch tricks. Thanks NewRisingSun.
+		
+r4200:  Ensure room before adding environment variable using set. Noted when running a
+		subshell under NC. Bug left: we don't have a lot of environment space in that
+		case (not the 160 minimum).
+		
+r4199:  Refine stack overflow and underflow for the fpu a bit. Overflow is still treated
+		as Exit. Underflow is ignored in release mode as it happens every now and then
+		and doesn't seem to cause issues if ignored, thus restoring 0.74 behaviour.
+		
+r4198:  Correct bug related to signedness (M-HT).
+
+r4197:  Mouse Sensitivity. Change multi_remain to repeat last parsed value for non-string
+        types if the next value is empty and of the same type as the last. Use this to
+		add an optional parameter to sensitivity which controls the y axis. When optional
+		parameter is missing, x and y axis have the same value. Change limits on
+		sensitivity to allow for negative values so the Mouse Y-axis can be inversed.
+		Similar to patch #276.
+		https://sourceforge.net/p/dosbox/bugs/276/
+		
+		=================================================================================
+r4196:  New Drive type: overlay.
+
+r4195:  Fix up DOS_Drive_Cache::GetShortName, used by overlay drive.
+		
+r4194:  fix loading of configfiles specified with -conf but present in the userdir with
+		-userconf present.
+r4193:  Repair double slash in configfile location on Macs. Add some protection against
+        a NULL dirp.
+		
+r4192:  Ignore unrequested data in intelligent mode; fixes Roland sound in
+        Krusty's Fun House.
+		
+r4191:  Only standard 3-byte mouse data packets are supported, so return an error for
+        other packet sizes. MS Mouse driver versions 9.X and later use 1-byte packets
+		for some obscure reason, and now they won't load instead of messing up.
+		
+r4190:  Reset followed by switch to UART mode should take some time; fixes MPU detection
+        in F29 Retaliator and Hover Force. Also minimize reset delay, which helps with
+		MPU detection at higher cycles in games that prefer less delay, such as Bureau 13.
+		
+r4189:  Correct relative track length in subchannel data for CD-ROM images; fixes speech
+        audio cutting off too soon in Casino Tournament of Champions.
+		
+r4188:  Acknowledge mouse interrupt before entering user routine; fixes sound stutter
+        during mouse movement in Eye of the Beholder III and Casino Tournament of
+		Champions. Clear button counters in the mouse driver reset function; prevents
+		unintended skipping of intro in MechWarrior and others.
+		
+r4187:  Implement timer 2 output on port 61h; fixes SB detection in Abaron.
+        Also implement port 62h with timer 2 output for CGA and Hercules machine types;
+		fixes Frank Bruno's Boxing and Math Maze.
+		
+r4186:	CMOS equipment list startup display mode bits differ from BIOS on EGA/VGA;
+        Fixes Sauro.
+		
+r4185:	Make feature checks consistent, include right header for memset,
+        correct one off error in paging table size compare for when not
+		using USE_FULL_TLB (jmarsh)
+		
+r4184:	Do it for both read-only modi (/src/dos/drive_local.cpp)
+r4183:	Update Year (2002-2019) and Address of Free Software Foundation
+r4182:	Here as well (Update the dosbox.vcproj because Modules.h)
+r4181:	Remove File (Include\Modules.h) that has not been used in a long time	  			 
+			 
+	
+
+
+r4119 Commit fix by M-HT.
+r4118 cleanup unfinished and unworking core stub
+r4117 Add 64-bit ARM (ARMv8, little endian) by M-HT. Thanks M-HT!
+r4116 ake Media ID table relative to DPB table. Fixes Hattrick by Ikarion. 
+r4115 More improvements for IOCTL generic block device request
+r4114 It is more compatible with DOS to not insert carriage returns in the console device.
+r4113 No irq generating when masking the IRQ channel. Fixes later sci games and bug #482.
+r4112 Return an error for generic block device request on unmounted floppy drives. Fixes bug #481.
+r4111 Ensure stat receives the correct path when base_path misses filesplit. Remove duplicate code.
+r4110 Be less specific about the jump instruction when identifying a video BIOS.
+r4109 Update Copyright Information
+r4108 Fix ExpandDot not caring about the size of the buffer. (vogons topic 59658)
+r4107 Fix comparison and a warning
+r4106 Take length in consideration before moving the echo off upwards.
+r4105 Fix echo off being written twice. Attempt to make the line endings in the generated autoexec.bat all DOS style line endings.
+r4104 Lock default label of HDD local drive mounts. Fixes label changing to the host drive label when resetting cache on the Windows platform.
+r4103 Only add return to buffer if it already contains data, which fixes extra return in generated autoexec.bat.
+r4102 Improve disk serial number DOS functions.
+r4101 Slight corrections to r4091, CX and DX should not be changed for floppies. Changing reported floppy type to one without changeline as we don't support that call.
+r4100 Strip spaces properly. Fixes bug #480
+r4099 Correct extension, so that the .h file is part of the source package as well
+r4098 Flag handling (mostly undocumented behavior) for normal core: overflow flag for divide instructions, zero and sign flags for integer multiply instructions. Fixes A320 Airbus and Perfect General.
+r4097 ANSI emulation is activated for the session when an escape sequence is encountered other than those used by internal messages. Fixes LucasArts setup programs (Bug #458) provided that ANSI emulation is not activated.
+r4096 Support rarely used FCB feature: open file with search mask. Fixes Buckaroo Banzai.
+r4095 Allow 15/16/32 bpp inputs to the opengl output
+r4094 slight refactoring, so that it is easier to correctly increase TICK_SHIFT above 16.
+r4093 Updated stereo before using it.
+r4092 Add 0xA0 (probably ;) ) and improve unhandled message reporting a bit.
+r4091 Add basic support for INT 13 call 15. Used by korean powerdolls to detect harddrive.
+r4090 Do we even use those timers ? Ticks are initted regardless. Please report problems! (helps with cpu usage on Macs)
+r4089 Limit amount of polls per second a bit on MAC OS X, as it was quite high otherwise.
+r4088 Convert variable stuff to vector (breakpoints one day as well)
+r4087 fix compilation on machines that have X11 libraries installed, but use an sdl without X11.
+r4086 Add some basic arm detection to configure for the raspberry and chromebook users
+r4085 dosbox-code-0-4085-dosbox-trunk
+r4084 Correct line ends in emu.h and setting correct svn properties
+r4083 Make it compile on VS 2008,as that one does not support the C99 standard library.
+r4082 upgrade visual studio file to add MAME sound stuff
+r4081 This looks more logical to me
+r4080 use correct datatype with scanf
+r4079 Remove exception specifiers as they are depreciated. Remove some trailing spaces and add some spaces for readability.
+r4078 Enable core inlining by default on configure/make build system
+r4077 Fix SBlaster issue with counter not being restarted with an autoinit transfer
+r4076 Declare the init function of the joystick as restartable, so some of the dynamic settings work.
+r4075 Merge the mamesound branch into trunk
+r4074 Another non-format warning fixed
+r4073 Correct small error/warning.
+r4072 Fix narrowing warnings (errors on clang/freebsd) and an unhandled value in switch. (Part of patch #275 from strageqargo)
+r4071 Declare static functions in header file as static inline, as that reduces warnings quite a bit.
+r4070 Silence a warning
+r4069 Beautify CPU_CheckSegments in order to silence a warning (if (A) B; break (which get a misleading warning as break is not part of the if))
+r4068 Fix compilation on current clang++
+r4067 Fix output of configure when --disable-opengl is used
+r4066 Allow an autoinit transfer to go over into a single cycle transfer/ Fixes Paddlers.
+r4065 Fix bug where joysticks got disabled after a section restart (when changing parameters while running).
+r4063 Remove some unnecessary things from prior commits; oops.
+r4062 Implement update region in mouse driver; only text modes for now. Fixes mouse pointer problems in Microsoft Programmer's Library.
+r4061 Add patch #265 to correct parameters and clock rate for some EGA modes. Also apply the yellow->brown fix to EGA text modes as well.
+r4060 Improve MSCDEX GetDirectoryEntry function: skip associated files, and handle HSF differences in canonicalized structure. Also combine Copyright, Abstract, and Documentation filename functions.
+r4059 silence warning 4018, unsigned char/unsigned char => (signed) int (thanks wjp)
+r4058 Move definition of LocalFile to header file, requested by bruenor41, makes sense to make it available at a larger scope. 
+r4057 Fix some issues with the detection of the configure option
+r4056 Move dddraw detection to a configure option. Requested by DosFreak.
+r4055 Fix address calculation for 16bit DMA transfers on GUS
+r4054 empty is always constant, while size can be linear on older gcc versions. (wjp)
+r4053 Add trivial speed up to debugger.
+r4052 Remove dangling comma. (Thanks for spotting it hail-to-the-ryzen)
+r4051 We don't use MFC, maybe this helps the compilation guides of DosFreak.
+r4050 Zero INT 68h vector on CGA machine type. Helps default speed of Popcorn game.
+r4049 Fix bug 467.
+r4048 Implement waiting for retrace in VBE functions. Remove range checks in protected mode functions, consistent with UniVBE and other VBE implementations. Fixes hang and graphics glitches in Jack Orlando.
+r4047 Process repeated reset commands without delay. Fixes MPU detection in several games. Correct ACK for reset: entirely absent with dumb setting (mpu401=uart), and also absent when returning to intelligent mode from UART mode.
+r4046 Point DOS redirected interrupts at a plain IRET as in real DOS. Prevents erroneous detection of an active debugger, which for example fixes sound in Microleague Football 2.
+r4045 Remove error exit for unknown functions of INT 17h. Fixes a DOS shell program.
+r4044 Add patch 272 as this is how all commandline options are handled.
+r4043 Change scope of ratioremoved for logging. Introduce a hardcoded limit of 2000000, if no limit was specified in the options file. Thanks for all the help with loggging: leileilol, James-F, sndwv, BBP and P4R4D0X.
+r4042 Introduce a penalty for a lot of idling, which changes the up and downscale algorithm, as the chance of having errors in the input data is a lot larger when there is a lot of idling. The upscale has its strength reduced and the downscale has it increased.
+r4041 When downscaling multiple times in a raw, ensure a minimum amount of strength
+r4040 Lower the max ratio limit slightly. Add a new ratio limit when the cycles are sufficiently high.
+r4039 Introduce a random sleep period, which activates after 3 short sleeps in one frame.
+r4038 Change adaptive rate parameters slightly, so that is a less jumpy
+r4037 Increase prebuffer slightly, as certain things (create new surfaces) take a longer time nowadays.
+r4036 Remove come c++11 stuff and hope I don't break anything
+r4035 Update automake files for mame files
+r4034 Remove some unneeded c++11 that's not even compiling properly
+r4033 Make the dosbox sound card implementations use the mame files directly 
+r4032 Add emu.h header to make the mame files work without too many changes. Small changes to remove or disable timer and update handlers
+Add cheap sample rate conversion to the sn76496 emulation
+r4031 Clean mame versions from 10 August 2017
+r4030 Try latest mame sound cores
+r4029 Repair a logic error introduced in r3816. Now both cases use an appropriate average.
+r4028 make increaseticks a separate function and rewrite it for easier reading. The behaviour is identical. No fixes!
+r4027 Otherwise debugging makes no sense. (core_dyn_x86.cpp)
+r4026 As we zero out the memory on startup for a long time now. This should not exit anymore. Leaving the warning for now.
+r4025 Fix issue with debugger not executing dosbox callbacks in stepover
+r4024 Forgot to initiliaze a field. Thanks Mok (hardware.cpp)
+r4023 Correct an oversight in I/O exceptions. Fixes bug #460.
+r4022 Update mixer volume calculations for the SBPRO1,2 and SB16. 
+r4021 Year Update (Only Update the Copyright Lciense year in the sources to 2017)
+r4020 Make IRQ generation in Write_MCR consistent with ComputeInterrupts, when op2 changes. Rename variables for clarity.
+r4019 Revert mixer to request data in the device rate instead of the mixer rate. Fixes bug #457.
+r4018 update midconfig helplines to reflect namesupport.
+r4017 Add support for selecting midi devices by name to win32 midi. Rewritten patch of rcblanke.
+r4016 Add experimental name support to configmidi for coremidi
+r4015 Silence a warning (midi.cpp)
+r4014 Turn logging off again. (gus.cpp)
+r4013 Add some spaces for readability and update the position after forwarding to hopefully improve sound in GOB2.
+r4012 Lower default adlib volume with 2.5dB after measurements by James-F. ( https://www.vogons.org/viewtopic.php?f=46&t=49683 )
+r4011 Not sure how that ended up there. (mixer.cpp)
+r4010 Correct oscillator frequency used in the gameblaster. Thanks OPLx, Great Hierophant and NewRisingSun. Reported on VOGONS: 38350.
+r4009 Handle errant IRQs as a real BIOS does. Fixes Tandy DAC in Chuck Yeager's Air Combat. Also remove r3263 workaround, as it's no longer needed.
+r4008 Correct INT 15h function 6 to return error. Prevents Cyrus Chess from erroneously detecting an Amstrad system.
+r4007 Frisbee compilation fix. (Not Used, Because OpenGL and we are using SDL,OpenGL/OpenGL3)
+		   

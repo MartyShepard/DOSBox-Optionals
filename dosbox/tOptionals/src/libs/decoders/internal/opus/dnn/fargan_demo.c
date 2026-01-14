@@ -130,6 +130,7 @@ void usage(void) {
     exit(1);
 }
 
+#ifdef ENABLE_DRED
 void dred_decode_latents(ec_dec *dec, float *x, const opus_uint8 *scale, const opus_uint8 *r, const opus_uint8 *p0, int dim);
 
 static opus_uint32 char_to_int(unsigned char ch[4])
@@ -137,12 +138,12 @@ static opus_uint32 char_to_int(unsigned char ch[4])
     return ((opus_uint32)ch[0]<<24) | ((opus_uint32)ch[1]<<16)
          | ((opus_uint32)ch[2]<< 8) |  (opus_uint32)ch[3];
 }
+#endif
 
 int main(int argc, char **argv) {
     int mode=0;
     int arch;
     FILE *fin, *fout;
-    int q0=-1;
 #ifdef USE_WEIGHTS_FILE
     int len;
     void *data;
@@ -171,6 +172,10 @@ int main(int argc, char **argv) {
     }
 #ifdef USE_WEIGHTS_FILE
     data = load_blob(filename, &len);
+    if (data==NULL) {
+        fprintf(stderr, "Can't open blob file %s\n", filename);
+	exit(1);
+    }
 #endif
     if (mode == MODE_FEATURES) {
         LPCNetEncState *net;
@@ -226,12 +231,17 @@ int main(int argc, char **argv) {
         size_t ret;
         int i;
         float features[2*DRED_CHUNKS*DRED_NUM_FEATURES];
-        float latents[DRED_CHUNKS*DRED_LATENT_DIM];
+        float latents[DRED_CHUNKS*(DRED_LATENT_DIM+1)];
         float initial_state[DRED_STATE_DIM];
         ec_dec dec;
         unsigned char bits[MAX_DRED_PACKET];
         RDOVAEDecState rdovae_dec;
         RDOVAEDec rdovae_dec_model;
+        int q0=-1;
+#ifdef USE_WEIGHTS_FILE
+        WeightArray *rdovaedec_arrays;
+        parse_weights(&rdovaedec_arrays, data, len);
+#endif
         init_rdovaedec(&rdovae_dec_model, rdovaedec_arrays);
         while (1) {
            unsigned char ch[4];
@@ -274,18 +284,19 @@ int main(int argc, char **argv) {
 
               dred_decode_latents(
                     &dec,
-                    &latents[i*DRED_LATENT_DIM],
+                    &latents[i*(DRED_LATENT_DIM+1)],
                     dred_latent_quant_scales_q8 + offset,
                     dred_latent_r_q8 + offset,
                     dred_latent_p0_q8 + offset,
                     DRED_LATENT_DIM
               );
+              latents[i*(DRED_LATENT_DIM+1)+DRED_LATENT_DIM] = q0*.125-1;
 
               dred_rdovae_decode_qframe(
                     &rdovae_dec,
                     &rdovae_dec_model,
                     dec_tmp,
-                    &latents[i*DRED_LATENT_DIM],
+                    &latents[i*(DRED_LATENT_DIM+1)],
                     arch);
               for (k=0;k<4;k++) {
                  OPUS_COPY(&features[(2*i-2+k)*DRED_NUM_FEATURES], &dec_tmp[(3-k)*DRED_NUM_FEATURES], DRED_NUM_FEATURES);

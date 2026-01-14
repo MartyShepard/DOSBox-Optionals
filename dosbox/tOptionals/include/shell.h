@@ -120,7 +120,8 @@ public:
 	void CMD_LABEL(char * args);
 	void CMD_MORE(char * args);	
 	void CMD_MOUSECAP(char * args);
-	void CMD_VERO(char * args);		
+	void CMD_VERO(char * args);
+	void CMD_PCTURBO(char * args);		
 	/* The shell's variables */
 	Bit16u input_handle;
 	BatchFile * bf;

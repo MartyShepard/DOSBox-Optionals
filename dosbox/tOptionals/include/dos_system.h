@@ -34,6 +34,8 @@
 #include "mem.h"
 #endif
 
+#include <cstdint>
+
 #define DOS_NAMELENGTH 12
 #define DOS_NAMELENGTH_ASCII (DOS_NAMELENGTH+1)
 #define DOS_FCBNAME 15

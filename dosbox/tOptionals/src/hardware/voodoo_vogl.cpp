@@ -155,8 +155,9 @@ void VOGL_InitVersion_Fake(void) {
 	//LOG_MSG("VOODOO: Opengl = Init & Get Version");
 
 	int opengl_version;
-	char glVersion[16];
-	
+	char glVersion[16]{};
+
+
 	// Get GL Version From String
 	const char *glVersion_ub = (const char*)glGetString(GL_VERSION);
 
@@ -175,7 +176,7 @@ void VOGL_InitVersion_Fake(void) {
 		LOG_MSG("VOODOO: GL Version: %s (Fake)",glVersion);		
 	}
 	
-	glVersion[16] = '\0';
+	
 	
 	int major;
 	int minor;

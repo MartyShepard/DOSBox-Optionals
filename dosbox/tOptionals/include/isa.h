@@ -5,6 +5,8 @@
 #ifndef DOSBOX_ISA_H
 #define DOSBOX_ISA_H
 
+#include <cstdint>
+
 bool ISAPNP_RegisterSysDev(const unsigned char *raw,Bitu len,bool already=false);
 
 class ISAPnPDevice {

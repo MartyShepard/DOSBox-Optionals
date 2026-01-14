@@ -76,6 +76,7 @@ static SHELL_Cmd cmd_list[]={
 {	"SHIFT",	1,			&DOS_Shell::CMD_SHIFT,		"SHELL_CMD_SHIFT_HELP"},
 {	"SUBST",	1,			&DOS_Shell::CMD_SUBST,		"SHELL_CMD_SUBST_HELP"},
 {	"TIME",		0,			&DOS_Shell::CMD_TIME,		"SHELL_CMD_TIME_HELP"},
+{	"PCTURBO",0,			&DOS_Shell::CMD_PCTURBO,	"SHELL_CMD_PCTURBO_HELP"},
 {	"TYPE",		0,			&DOS_Shell::CMD_TYPE,		"SHELL_CMD_TYPE_HELP"},
 {	"VER",		0,			&DOS_Shell::CMD_VER,		"SHELL_CMD_VER_HELP"},
 {	"VERO",		0,			&DOS_Shell::CMD_VERO,		"SHELL_CMD_VERO_HELP"},
@@ -87,6 +88,9 @@ extern void GFX_CaptureMouse(void);
 extern void GFX_SetTitle(Bit32s cycles,int frameskip,bool paused);
 extern void GFX_CaptureMouse_Mousecap_on(void);
 extern bool mouselocked;
+
+extern void PCturbo_UnlockSpeed(void);
+extern bool PCTurboUnlockSpeed; //true if mouse is confined to window
 
 /* support functions */
 static char empty_char = 0;
@@ -2469,4 +2473,17 @@ void DOS_Shell::CMD_ADDKEY(char * args){
 	   GFX_CaptureMouse();
    }
    WriteOut("  Host Mouse Captured. (State = %s\n\n",(mouselocked==1)?"On) Press CTRL-F10 To Release":"Off)");
+}
+
+ void DOS_Shell::CMD_PCTURBO(char * args) {
+   HELP("PCTURBO");
+
+	if(PCTurboUnlockSpeed){
+		PCTurboUnlockSpeed = false;			
+	}else
+		PCTurboUnlockSpeed = true;		
+  	
+	 PCturbo_UnlockSpeed();			
+   WriteOut("  PC Speed Unlocked. (Turbo Button Pressed = %s\n\n",(PCTurboUnlockSpeed==true)?"On)":"Off)");
+ 
 }

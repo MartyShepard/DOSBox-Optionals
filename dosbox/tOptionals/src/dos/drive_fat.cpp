@@ -690,6 +690,66 @@ bool fatDrive::allocateCluster(Bit32u useCluster, Bit32u prevCluster) {
 	}
 	return true;
 }
+#pragma GCC diagnostic ignored "-Waddress-of-packed-member"
+/*
+ * warning: taking address of packed member of 'partTable,mbrData' may result in an unaligned pointer value
+ * [-Waddress-of-packed-member].
+ * packed bedeutet: kein Padding zwischen Members → die Struktur ist bytegenau gepackt.
+ * Das führt dazu, dass absSectStart nicht auf einer natürlichen Alignment-Grenze (4-Byte für uint32_t)
+ * liegt → kann auf ungerader Adresse stehen (z. B. Adresse 0x12345679 statt 0x12345678).
+ */
+// Schreiben in packed → nimmt Wert und schreibt ihn rein
+
+static Bit16u* Return_Of_Packed_Member_16b(const Bit16u* MemberVariable)
+{
+	Bit16u* AOPM; // Address Of Packed Member
+
+	memcpy(&AOPM, MemberVariable, sizeof(Bit16u*));
+
+	return AOPM;
+
+}
+
+static uint16_t Return_Of_Packed_Member_16(const uint16_t* MemberVariable)
+{
+	uint16_t AOPM; // Address Of Packed Member
+
+	memcpy(&AOPM, MemberVariable, sizeof(uint16_t));
+
+	return var_read(&AOPM);;
+
+}
+
+static Bit32u* Return_Of_Packed_Member_32b(const Bit32u* MemberVariable)
+{
+	Bit32u* AOPM; // Address Of Packed Member
+
+	memcpy(&AOPM, MemberVariable, sizeof(Bit32u*));
+
+	return AOPM;
+
+}
+
+static uint32_t Return_Of_Packed_Member_32(const uint32_t* MemberVariable)
+{
+	uint32_t AOPM; // Address Of Packed Member
+
+	memcpy(&AOPM, MemberVariable, sizeof(uint32_t));
+
+	return var_read(&AOPM);;
+
+}
+
+// Schreiben in packed → nimmt Wert und schreibt ihn rein
+void Write_To_Packed_Member_16b(Bit16u* packed_ptr, Bit16u value)
+{
+    memcpy(packed_ptr, &value, sizeof(Bit16u));
+}
+// Schreiben in packed → nimmt Wert und schreibt ihn rein
+void Write_To_Packed_Member_32b(Bit32u* packed_ptr, Bit32u value)
+{
+    memcpy(packed_ptr, &value, sizeof(Bit32u));
+}
 
 fatDrive::fatDrive(const char *sysFilename, Bit32u bytesector, Bit32u cylsector, Bit32u headscyl, Bit32u cylinders, Bit32u startSector) {
 	created_successfully = true;
@@ -697,7 +757,8 @@ fatDrive::fatDrive(const char *sysFilename, Bit32u bytesector, Bit32u cylsector,
 	Bit32u filesize;
 	bool is_hdd;
 	struct partTable mbrData;
-	
+
+
 	if(imgDTASeg == 0) {
 		imgDTASeg = DOS_GetMemory(2);
 		imgDTAPtr = RealMake(imgDTASeg, 0);
@@ -733,9 +794,11 @@ fatDrive::fatDrive(const char *sysFilename, Bit32u bytesector, Bit32u cylsector,
 		int m;
 		for(m=0;m<4;m++) {
 			/* Pick the first available partition */
-			if(mbrData.pentry[m].partSize != 0x00) {
+			if(mbrData.pentry[m].partSize != 0x00) {						
 				mbrData.pentry[m].absSectStart = var_read(&mbrData.pentry[m].absSectStart);
-				mbrData.pentry[m].partSize = var_read(&mbrData.pentry[m].partSize);				
+			//mbrData.pentry[m].absSectStart = Return_Of_Packed_Member_32(&mbrData.pentry[m].absSectStart);
+				mbrData.pentry[m].partSize = var_read((uint32_t*)&mbrData.pentry[m].partSize);	
+			//mbrData.pentry[m].partSize = Return_Of_Packed_Member_32(&mbrData.pentry[m].partSize);			
 				LOG_MSG("\tHarddrive using Partition %d On Drive. Skip %d Sectors", m, mbrData.pentry[m].absSectStart);
 				startSector = mbrData.pentry[m].absSectStart;
 				break;
@@ -770,7 +833,17 @@ fatDrive::fatDrive(const char *sysFilename, Bit32u bytesector, Bit32u cylsector,
 	bootbuffer.headcount = var_read(&bootbuffer.headcount);
 	bootbuffer.hiddensectorcount = var_read(&bootbuffer.hiddensectorcount);
 	bootbuffer.totalsecdword = var_read(&bootbuffer.totalsecdword);	
-
+/*
+	bootbuffer.bytespersector 		= Return_Of_Packed_Member_16(&bootbuffer.bytespersector);
+	bootbuffer.reservedsectors 		= Return_Of_Packed_Member_16(&bootbuffer.reservedsectors);
+	bootbuffer.rootdirentries 		= Return_Of_Packed_Member_16(&bootbuffer.rootdirentries);
+	bootbuffer.totalsectorcount 	= Return_Of_Packed_Member_16(&bootbuffer.totalsectorcount);
+	bootbuffer.sectorsperfat 			= Return_Of_Packed_Member_16(&bootbuffer.sectorsperfat);
+	bootbuffer.sectorspertrack 		= Return_Of_Packed_Member_16(&bootbuffer.sectorspertrack);
+	bootbuffer.headcount 					= Return_Of_Packed_Member_16(&bootbuffer.headcount);
+	bootbuffer.hiddensectorcount 	= Return_Of_Packed_Member_32(&bootbuffer.hiddensectorcount);
+	bootbuffer.totalsecdword 			= Return_Of_Packed_Member_32(&bootbuffer.totalsecdword);	
+*/
 	/*
 	LOG_MSG("[%d] Loaded Disk %d", __LINE__, bootbuffer.bytespersector);
 	LOG_MSG("[%d] Loaded Disk %d", __LINE__, bootbuffer.reservedsectors);
@@ -1100,14 +1173,25 @@ char* trimString(char* str) {
 
 static void copyDirEntry(const direntry *src, direntry *dst) {
 	memcpy(dst, src, 14); // single byte fields
-	var_write(&dst->crtTime, src->crtTime);
-	var_write(&dst->crtDate, src->crtDate);
-	var_write(&dst->accessDate, src->accessDate);
-	var_write(&dst->hiFirstClust, src->hiFirstClust);
-	var_write(&dst->modTime, src->modTime);
-	var_write(&dst->modDate, src->modDate);
-	var_write(&dst->loFirstClust, src->loFirstClust);
-	var_write(&dst->entrysize, src->entrysize);
+
+	var_write( &dst->crtTime			, src->crtTime);
+	var_write( &dst->crtDate			, src->crtDate);
+	var_write( &dst->accessDate		, src->accessDate);
+	var_write( &dst->hiFirstClust	, src->hiFirstClust);
+	var_write( &dst->modTime			, src->modTime);
+	var_write( &dst->modDate			, src->modDate);
+	var_write( &dst->loFirstClust	, src->loFirstClust);
+	var_write( &dst->entrysize		, src->entrysize);
+/*
+	Write_To_Packed_Member_16b( &dst->crtTime			, src->crtTime);
+	Write_To_Packed_Member_16b( &dst->crtDate			, src->crtDate);
+	Write_To_Packed_Member_16b( &dst->accessDate	, src->accessDate);
+	Write_To_Packed_Member_16b( &dst->hiFirstClust, src->hiFirstClust);
+	Write_To_Packed_Member_16b( &dst->modTime			, src->modTime);
+	Write_To_Packed_Member_16b( &dst->modDate			, src->modDate);
+	Write_To_Packed_Member_16b( &dst->loFirstClust, src->loFirstClust);
+	Write_To_Packed_Member_32b( &dst->entrysize		, src->entrysize);
+*/
 }
 
 

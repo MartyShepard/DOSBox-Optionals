@@ -170,8 +170,8 @@ static void spectrum(float *_ps,const int *_bands, int _nbands,
   size_t xi;
   int    xj;
   int    ps_sz;
-  kiss_fft_cpx X[2][NFREQS+1];
-  kiss_fftr_cfg kfft;
+  mini_kiss_fft_cpx X[2][NFREQS+1];
+  mini_kiss_fftr_cfg kfft;
   ps_sz=_window_sz/2;
   /* Blackman-Harris window. */
   for(xj=0;xj<_window_sz;xj++){
@@ -391,7 +391,7 @@ int compare_audio(int _argc,const char **_argv, const char *argv0){
   }
   if(xlength<test_win_size){
     fprintf(stderr,"Insufficient sample data (%lu<%lu).\n",
-     (unsigned long)xlength,test_win_size);
+     (unsigned long)xlength,(unsigned long)test_win_size);
     return EXIT_FAILURE;
   }
   nframes=(xlength-test_win_size+test_win_step)/test_win_step;

@@ -37,6 +37,9 @@
 /* LOSSGEN */
 /* #undef ENABLE_LOSSGEN */
 
+/* Opus custom API */
+/* #undef ENABLE_OPUS_CUSTOM_API */
+
 /* Enable Opus Speech Coding Enhancement */
 /* #undef ENABLE_OSCE */
 
@@ -46,8 +49,11 @@
 /* Enable dumping of OSCE training data */
 /* #undef ENABLE_OSCE_TRAINING_DATA */
 
+/* Scalable quality extension */
+/* #undef ENABLE_QEXT */
+
 /* 24-bit internal resolution for fixed-point */
-/* #undef ENABLE_RES24 */
+#define ENABLE_RES24 1
 
 /* Debug fixed-point implementation */
 /* #undef FIXED_DEBUG */
@@ -70,20 +76,23 @@
 /* Define to 1 if you have the <dlfcn.h> header file. */
 /* #undef HAVE_DLFCN_H */
 
+/* Define to 1 if you have the 'elf_aux_info' function. */
+/* #undef HAVE_ELF_AUX_INFO */
+
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1
 
-/* Define to 1 if you have the `lrint' function. */
+/* Define to 1 if you have the 'lrint' function. */
 #define HAVE_LRINT 1
 
-/* Define to 1 if you have the `lrintf' function. */
+/* Define to 1 if you have the 'lrintf' function. */
 #define HAVE_LRINTF 1
-
-/* Define to 1 if you have the <memory.h> header file. */
-#define HAVE_MEMORY_H 1
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #define HAVE_STDINT_H 1
+
+/* Define to 1 if you have the <stdio.h> header file. */
+#define HAVE_STDIO_H 1
 
 /* Define to 1 if you have the <stdlib.h> header file. */
 #define HAVE_STDLIB_H 1
@@ -103,7 +112,7 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #define HAVE_UNISTD_H 1
 
-/* Define to 1 if you have the `__malloc_hook' function. */
+/* Define to 1 if you have the '__malloc_hook' function. */
 /* #undef HAVE___MALLOC_HOOK */
 
 /* Define if running the test suite so that test #27 works on MinGW. */
@@ -163,14 +172,14 @@
 /* This is a build of OPUS */
 #define OPUS_BUILD /**/
 
-/* Run bit-exactness checks between optimized and c implementations */
+/* Run bit-exactness checks between optimized and C implementations */
 /* #undef OPUS_CHECK_ASM */
 
 /* Use run-time CPU capabilities detection */
 #define OPUS_HAVE_RTCD 1
 
 /* Compiler supports X86 AVX2 Intrinsics */
-/* #undef OPUS_X86_MAY_HAVE_AVX2 */
+#define OPUS_X86_MAY_HAVE_AVX2 1
 
 /* Compiler supports X86 SSE Intrinsics */
 #define OPUS_X86_MAY_HAVE_SSE 1
@@ -185,10 +194,10 @@
 /* #undef OPUS_X86_PRESUME_AVX2 */
 
 /* Define if binary requires SSE intrinsics support */
-/* #undef OPUS_X86_PRESUME_SSE */
+#define OPUS_X86_PRESUME_SSE 1
 
 /* Define if binary requires SSE2 intrinsics support */
-/* #undef OPUS_X86_PRESUME_SSE2 */
+#define OPUS_X86_PRESUME_SSE2 1
 
 /* Define if binary requires SSE4.1 intrinsics support */
 /* #undef OPUS_X86_PRESUME_SSE4_1 */
@@ -211,7 +220,9 @@
 /* Define to the version of this package. */
 #define PACKAGE_VERSION "unknown"
 
-/* Define to 1 if you have the ANSI C header files. */
+/* Define to 1 if all of the C89 standard headers exist (not just the ones
+   required in a freestanding environment). This macro is provided for
+   backward compatibility; new code need not use it. */
 #define STDC_HEADERS 1
 
 /* Make use of alloca */
@@ -220,10 +231,10 @@
 /* Use C99 variable-size arrays */
 #define VAR_ARRAYS 1
 
-/* Define to empty if `const' does not conform to ANSI C. */
+/* Define to empty if 'const' does not conform to ANSI C. */
 /* #undef const */
 
-/* Define to `__inline__' or `__inline' if that's what the C compiler
+/* Define to '__inline__' or '__inline' if that's what the C compiler
    calls it, or to nothing if 'inline' is not supported under any name.  */
 #ifndef __cplusplus
 /* #undef inline */

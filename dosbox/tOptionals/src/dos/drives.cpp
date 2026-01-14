@@ -390,9 +390,16 @@ void DriveManager::InitializeDrive(int drive) {
 		}
 	}
 }
+/*
 std::string DriveManager::GetFilePath(int drive, DOS_Drive* disk, int num) {
 	driveInfos[drive].disks[num];
 	return disk->info;
+}
+*/
+std::string DriveManager::GetFilePath(int drive, DOS_Drive* disk, int num)
+{
+    DOS_Drive* selected = driveInfos[drive].disks[num];
+    return selected ? selected->info : (disk ? disk->info : "");
 }
 /*
 void DriveManager::CycleDrive(bool pressed) {
@@ -438,6 +445,8 @@ INLINE std::string Replace(std::string str, const std::string& from, const std::
 
 std::vector<std::string*>DriveManager::Get_CDROM_Paths(std::vector<std::string>& Stacks, int drive)
 {
+	std::vector<std::string*> result;  // ← Hier den Rückgabe-Vektor anlegen
+
 	int MaxDisk = (int)driveInfos[drive].disks.size();
 	int Current = (int)driveInfos[drive].currentDisk;
 
@@ -448,12 +457,17 @@ std::vector<std::string*>DriveManager::Get_CDROM_Paths(std::vector<std::string>&
 	for (int i = 0; i < MaxDisk; i++)
 	{
 		FilePath = Replace(driveInfos[drive].disks[i]->info, sFindTxt, sReplace);
-		Stacks.push_back(FilePath.c_str());
+		Stacks.push_back(FilePath);               // ← Hier push_back den String (nicht c_str!)
+		result.push_back(new std::string(FilePath));  // ← Oder new-String, wenn du Pointer brauchst
 	}
+	return result;  // ← Jetzt fehlt das return nicht mehr!
+
 }
 
 std::vector<std::string*>DriveManager::Get_FLOPPY_Paths(std::vector<std::string>& Stacks, int drive)
 {
+	std::vector<std::string*> result;  // ← Hier den Rückgabe-Vektor anlegen
+
 	int MaxDisk = (int)driveInfos[drive].disks.size();
 	int Current = (int)driveInfos[drive].currentDisk;
 
@@ -464,12 +478,16 @@ std::vector<std::string*>DriveManager::Get_FLOPPY_Paths(std::vector<std::string>
 	for (int i = 0; i < MaxDisk; i++)
 	{
 		FilePath = Replace(driveInfos[drive].disks[i]->info, sFindTxt, sReplace);
-		Stacks.push_back(FilePath.c_str());
-		#if defined(C_DEBUG)
+    Stacks.push_back(FilePath);               // ← Hier push_back den String (nicht c_str!)
+    result.push_back(new std::string(FilePath));  // ← Oder new-String, wenn du Pointer brauchst
+    #if defined(C_DEBUG)
 			LOG(LOG_IMAGE, LOG_NORMAL)("[%d] PushBack: %s", __LINE__, FilePath.c_str());
-		#endif
+    #endif
 	}
+	return result;  // ← Jetzt fehlt das return nicht mehr!
 }
+
+
 
 void DriveManager::CycleDisks(int drive, bool notify) {
 	int numDisks = (int)driveInfos[drive].disks.size();
